@@ -123,11 +123,120 @@ class DBCM_Scanner {
      * Finalize scan
      */
     public static function run_scan_finalize() {
+        // Inject known WordPress core cookies (not visible to anonymous scans)
+        self::inject_core_cookies();
+
+        // Detect Google Fonts via registered styles (fallback if HTTP scan didn't catch it)
+        self::detect_google_fonts_from_styles();
+
         update_option( 'dbcm_last_scan', current_time( 'mysql' ) );
         delete_option( 'dbcm_scan_urls' );
         delete_option( 'dbcm_scan_progress' );
         $results = self::get_results();
         return count( $results );
+    }
+
+    /**
+     * Detect Google Fonts by checking registered/enqueued styles
+     * Works even if HTTP loopback requests fail
+     */
+    private static function detect_google_fonts_from_styles() {
+        // Already detected by HTML scan?
+        if ( get_option( 'dbcm_google_fonts_detected', false ) ) {
+            return;
+        }
+
+        global $wp_styles;
+        if ( ! $wp_styles instanceof WP_Styles ) {
+            return;
+        }
+
+        foreach ( $wp_styles->registered as $style ) {
+            if ( ! empty( $style->src ) && ( 
+                stripos( $style->src, 'fonts.googleapis.com' ) !== false ||
+                stripos( $style->src, 'fonts.gstatic.com' ) !== false 
+            ) ) {
+                update_option( 'dbcm_google_fonts_detected', true );
+                return;
+            }
+        }
+
+        // Also check theme mods for Google Fonts (common in starter themes)
+        $heading_font = get_theme_mod( 'starter_font_heading', 'system' );
+        $body_font = get_theme_mod( 'starter_font_body', 'system' );
+
+        if ( $heading_font !== 'system' || $body_font !== 'system' ) {
+            update_option( 'dbcm_google_fonts_detected', true );
+        }
+    }
+
+    /**
+     * Inject cookies that are always present in WordPress
+     * but only sent to authenticated users (invisible to anonymous scan)
+     */
+    private static function inject_core_cookies() {
+        global $wpdb;
+        $table = self::table_name();
+
+        $core_cookies = array(
+            array(
+                'name'     => 'wordpress_sec_*',
+                'domain'   => wp_parse_url( home_url(), PHP_URL_HOST ),
+                'category' => 'tecnico',
+                'desc'     => 'Cookie di autenticazione per utenti registrati WordPress.',
+                'duration' => 'Sessione / 14 giorni',
+                'provider' => 'WordPress',
+            ),
+            array(
+                'name'     => 'wordpress_logged_in_*',
+                'domain'   => wp_parse_url( home_url(), PHP_URL_HOST ),
+                'category' => 'tecnico',
+                'desc'     => 'Indica se l\'utente è autenticato in WordPress.',
+                'duration' => 'Sessione / 14 giorni',
+                'provider' => 'WordPress',
+            ),
+            array(
+                'name'     => 'wp-settings-*',
+                'domain'   => wp_parse_url( home_url(), PHP_URL_HOST ),
+                'category' => 'tecnico',
+                'desc'     => 'Salva le preferenze dell\'interfaccia admin di WordPress.',
+                'duration' => '1 anno',
+                'provider' => 'WordPress',
+            ),
+            array(
+                'name'     => 'wordpress_test_cookie',
+                'domain'   => wp_parse_url( home_url(), PHP_URL_HOST ),
+                'category' => 'tecnico',
+                'desc'     => 'Verifica se il browser accetta i cookie.',
+                'duration' => 'Sessione',
+                'provider' => 'WordPress',
+            ),
+        );
+
+        foreach ( $core_cookies as $cookie ) {
+            // Only insert if not already present
+            $exists = $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$table} WHERE cookie_name = %s",
+                $cookie['name']
+            ) );
+
+            if ( ! $exists ) {
+                $wpdb->insert( $table, array(
+                    'cookie_name'     => $cookie['name'],
+                    'cookie_domain'   => $cookie['domain'],
+                    'cookie_path'     => '/',
+                    'cookie_duration' => $cookie['duration'],
+                    'cookie_secure'   => 0,
+                    'cookie_httponly' => 1,
+                    'cookie_samesite' => 'Lax',
+                    'category'        => $cookie['category'],
+                    'description'     => $cookie['desc'],
+                    'provider'        => $cookie['provider'],
+                    'found_on'        => 'WordPress Core (sempre presente)',
+                    'scan_date'       => current_time( 'mysql' ),
+                ), array( '%s', '%s', '%s', '%s', '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s' ) );
+            }
+        }
     }
 
     /**

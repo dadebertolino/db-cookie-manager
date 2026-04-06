@@ -150,6 +150,37 @@ body.dbcm-no-scroll {
 
 .dbcm-banner--bar .dbcm-banner__inner {
     border-radius: 0;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 16px 28px;
+    gap: 20px;
+}
+
+.dbcm-banner--bar .dbcm-banner__content {
+    flex: 1 1 300px;
+    min-width: 0;
+}
+
+.dbcm-banner--bar .dbcm-banner__title {
+    font-size: 15px;
+    margin-bottom: 2px;
+}
+
+.dbcm-banner--bar .dbcm-banner__desc {
+    font-size: 13px;
+}
+
+.dbcm-banner--bar .dbcm-banner__actions {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+}
+
+.dbcm-banner--bar .dbcm-banner__credits {
+    flex-basis: 100%;
+    padding-top: 10px;
+    margin-top: 0;
 }
 
 /* ========================================

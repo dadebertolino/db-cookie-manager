@@ -3,7 +3,7 @@
 [![WordPress](https://img.shields.io/badge/WordPress-5.9%2B-blue.svg)](https://wordpress.org/)
 [![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net/)
 [![License](https://img.shields.io/badge/License-GPL%20v2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
-[![Version](https://img.shields.io/badge/Version-2.0.0-orange.svg)](https://github.com/davidebertolinoit/db-cookie-manager/releases)
+[![Version](https://img.shields.io/badge/Version-2.0.1-orange.svg)](https://github.com/davidebertolinoit/db-cookie-manager/releases)
 
 Gestione completa dei cookie per WordPress: scansione automatica, banner GDPR con blocco preventivo, classificazione intelligente, generatore Cookie Policy e registro consensi.
 
@@ -144,6 +144,14 @@ Il plugin ha un sistema multilingua integrato indipendente. Non richiede WPML o 
 Due tabelle nel database WordPress: `wp_dbcm_cookies` (risultati scansione) e `wp_dbcm_consent_log` (registro consensi). Le impostazioni sono in `wp_options`.
 
 ## Changelog
+
+### 2.0.1
+- Fix layout banner "barra": disposizione orizzontale su desktop (testo a sinistra, bottoni a destra)
+- Cookie WordPress core (wordpress_sec_*, wordpress_logged_in_*, wp-settings_*, wordpress_test_cookie) iniettati automaticamente nei risultati della scansione
+- Rilevamento Google Fonts alternativo via stili registrati WordPress e theme_mod (fallback per hosting con loopback bloccato)
+- Fix salvataggio impostazioni: i checkbox non vengono più azzerati salvando da un'altra sezione
+- Crediti "Powered by DB Cookie Manager" opzionali nel banner
+- Try-catch nell'init JS per debug errori
 
 ### 2.0.0
 - Banner cookie frontend con 3 layout e tema chiaro/scuro

@@ -4,7 +4,7 @@ Tags: cookie, gdpr, privacy, cookie banner, consent, cookie policy, garante priv
 Requires at least: 5.9
 Tested up to: 6.7
 Requires PHP: 7.4
-Stable tag: 2.0.0
+Stable tag: 2.0.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -58,6 +58,14 @@ Cambia `type="text/javascript"` in `type="text/plain"` sugli script noti. Quando
 Il plugin ha un sistema multilingua integrato indipendente. Non richiede plugin di traduzione esterni.
 
 == Changelog ==
+
+= 2.0.1 =
+* Fix layout banner "barra": disposizione orizzontale su desktop
+* Cookie WordPress core iniettati automaticamente nei risultati scansione
+* Rilevamento Google Fonts alternativo via stili registrati e theme_mod
+* Fix salvataggio impostazioni: checkbox non più azzerati tra sezioni diverse
+* Crediti "Powered by" opzionali nel banner
+* Try-catch nell'init JS per debug errori
 
 = 2.0.0 =
 * Banner cookie frontend con 3 layout e tema chiaro/scuro

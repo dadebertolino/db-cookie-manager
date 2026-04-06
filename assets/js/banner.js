@@ -61,7 +61,7 @@
             analytics: !! categories.analytics,
             marketing: !! categories.marketing,
             timestamp: Date.now(),
-            version: '2.0.0'
+            version: '2.0.1'
         };
         var expires = new Date();
         expires.setDate( expires.getDate() + parseInt( C.consentDuration || 365, 10 ) );
