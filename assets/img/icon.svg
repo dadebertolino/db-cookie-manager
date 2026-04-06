@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#bg)"/>
+  <!-- Cookie body -->
+  <circle cx="60" cy="68" r="30" fill="#d4a574" stroke="#b8865a" stroke-width="1.5"/>
+  <!-- Cookie chips -->
+  <circle cx="50" cy="58" r="4" fill="#6b4226"/>
+  <circle cx="68" cy="56" r="3.5" fill="#6b4226"/>
+  <circle cx="55" cy="76" r="3" fill="#6b4226"/>
+  <circle cx="72" cy="72" r="3.5" fill="#6b4226"/>
+  <circle cx="48" cy="70" r="2.5" fill="#6b4226"/>
+  <!-- Cookie crumbs -->
+  <circle cx="62" cy="64" r="2" fill="#c49a6c"/>
+  <circle cx="44" cy="64" r="1.5" fill="#c49a6c"/>
+  <!-- Shield overlay -->
+  <path d="M82 30 C82 30 92 34 92 34 L92 52 C92 64 82 72 82 72 C82 72 72 64 72 52 L72 34 C72 34 82 30 82 30 Z" fill="#2563eb" stroke="#1d4ed8" stroke-width="1"/>
+  <!-- Shield checkmark -->
+  <polyline points="77,50 80,54 88,44" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
