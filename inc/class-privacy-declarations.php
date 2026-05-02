@@ -1,18 +1,23 @@
 <?php
 /**
  * DBCM_Privacy_Declarations — Dichiarazione dei trattamenti privacy del
- * Cookie Manager DB verso il registro privacy del SEO Manager DB.
+ * Cookie Manager DB verso il registro privacy unificato.
  *
- * Pattern dell'ecosistema DB (vedi
- * "Riorganizzazione responsabilità ecosistema DB" §3.3): ogni plugin DB
- * dichiara i propri trattamenti via il filter `dbseo_processing_register`.
- * Il SEO Manager raccoglie tutte le dichiarazioni e le mostra nella sua
- * pagina "Privacy SEO" come registro tecnico unificato.
+ * Pattern dell'ecosistema DB: ogni plugin DB dichiara i propri trattamenti
+ * via il filter `dbph_processing_register`, raccolto dal plugin DB Privacy
+ * Hub e mostrato nella sua pagina "Registro trattamenti".
+ *
+ * COMPATIBILITÀ: dalla 3.1.0 il filter di riferimento è cambiato da
+ * `dbseo_processing_register` (SEO Manager 1.2.x) a `dbph_processing_register`
+ * (DB Privacy Hub). Per non rompere installazioni con SEO Manager 1.2.x
+ * ancora attivo, ci agganciamo a entrambi: l'Hub stesso ribalta i contenuti
+ * del filter legacy quando è installato. Quando il SEO Manager passa a 1.3.0
+ * il filter legacy non esiste più e l'unico canale è dbph_processing_register.
  *
  * Filosofia:
  *  - Ogni plugin conosce SOLO i propri trattamenti. Non sa cosa fanno gli
  *    altri.
- *  - Il SEO Manager NON è obbligatorio: se non è installato, il filter
+ *  - Il Privacy Hub NON è obbligatorio: se non è installato, il filter
  *    semplicemente non viene mai chiamato — questa classe diventa silente
  *    senza errori.
  *  - Il Cookie Manager dichiara tre trattamenti corrispondenti ai suoi
@@ -39,22 +44,23 @@ if ( ! class_exists( 'DBCM_Privacy_Declarations' ) ) {
 		/**
 		 * Inizializzazione — chiamata da DBCM_Plugin->init_modules().
 		 *
-		 * Si aggancia al filter del SEO Manager. Se il SEO Manager non è
-		 * installato, il filter non scatta mai e questa classe diventa
-		 * inerte.
+		 * Si aggancia al filter unificato del Privacy Hub e, per compatibilità
+		 * retroattiva, anche al filter legacy del SEO Manager 1.2.x. Quando
+		 * SEO Manager 1.3.0+ rimuove il filter legacy, solo il primo è attivo.
 		 */
 		public static function init() {
+			add_filter( 'dbph_processing_register',  array( __CLASS__, 'declare' ), 10, 1 );
 			add_filter( 'dbseo_processing_register', array( __CLASS__, 'declare' ), 10, 1 );
 		}
 
 		/**
 		 * Dichiara i trattamenti del Cookie Manager.
 		 *
-		 * Ogni voce segue il contratto del filter `dbseo_processing_register`
-		 * (vedi DBSEO_Privacy::get_processing_register() nel SEO Manager).
+		 * Ogni voce segue il contratto del filter `dbph_processing_register`
+		 * (vedi DBPH_Register::collect() nel DB Privacy Hub). Lo stesso
+		 * contratto era usato dal vecchio filter `dbseo_processing_register`.
 		 *
-		 * @param array $register Registro corrente (può contenere voci di
-		 *                         altri plugin che hanno già hookato).
+		 * @param array $register Registro corrente.
 		 * @return array
 		 */
 		public static function declare( $register ) {

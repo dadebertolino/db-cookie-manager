@@ -36,27 +36,8 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 		 * @return string
 		 */
 		public static function generate() {
-			$context = self::build_context();
-
-			$sections = array(
-				self::section_header( $context ),
-				self::section_what_are_cookies(),
-				self::section_cookies_used( $context ),
-				self::section_external_services( $context ),
-				self::section_browser_management(),
-				self::section_data_controller( $context ),
-				self::section_updates( $context ),
-				self::section_footer( $context ),
-			);
-
-			/**
-			 * Filtra l'array completo delle sezioni HTML prima del concat.
-			 * Permette ad altri plugin/temi di rimuovere o riordinare sezioni.
-			 *
-			 * @param array $sections
-			 * @param array $context
-			 */
-			$sections = apply_filters( 'dbcm_policy_sections', $sections, $context );
+			$sections = self::get_sections();
+			$context  = self::build_context();
 
 			$html = implode( "\n", array_filter( array_map( 'trim', $sections ) ) );
 
@@ -67,6 +48,48 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 			 * @param array  $context
 			 */
 			return apply_filters( 'dbcm_policy_html', $html, $context );
+		}
+
+		/**
+		 * Restituisce le sezioni HTML della Cookie Policy come array
+		 * associativo, senza concatenarle.
+		 *
+		 * Questo è il punto di integrazione pubblico con il DB Privacy Hub:
+		 * il Privacy Policy Generator dell'Hub importa solo le sezioni di
+		 * cui ha bisogno (cookie usati, gestione browser, servizi esterni
+		 * senza cookie) per inserirle nella Privacy Policy completa,
+		 * evitando di duplicare la logica del Cookie Manager.
+		 *
+		 * Le chiavi dell'array sono identificatori stabili (NON cambiare
+		 * tra versioni minor) — l'Hub si basa su queste per la composizione.
+		 *
+		 * @return array<string,string> Associativa key=>html.
+		 */
+		public static function get_sections() {
+			$context = self::build_context();
+
+			$sections = array(
+				'header'             => self::section_header( $context ),
+				'what_are_cookies'   => self::section_what_are_cookies(),
+				'cookies_used'       => self::section_cookies_used( $context ),
+				'external_services'  => self::section_external_services( $context ),
+				'browser_management' => self::section_browser_management(),
+				'data_controller'    => self::section_data_controller( $context ),
+				'updates'            => self::section_updates( $context ),
+				'footer'             => self::section_footer( $context ),
+			);
+
+			/**
+			 * Filtra l'array delle sezioni HTML della Cookie Policy.
+			 *
+			 * Permette ad altri plugin/temi di rimuovere o riordinare sezioni.
+			 * Restituisce un array associativo (key => html) — diverso dalla
+			 * 3.0.x che restituiva un array indicizzato.
+			 *
+			 * @param array $sections Array associativo key => html.
+			 * @param array $context  Contesto di rendering.
+			 */
+			return apply_filters( 'dbcm_policy_sections', $sections, $context );
 		}
 
 		/* =====================================================================
@@ -256,13 +279,45 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 		}
 
 		private static function section_data_controller( $context ) {
-			$email = esc_html( $context['admin_email'] );
+			$html = '<h3>' . esc_html__( '5. Titolare del trattamento', 'db-cookie-manager' ) . '</h3>';
 
-			$html  = '<h3>' . esc_html__( '5. Titolare del trattamento', 'db-cookie-manager' ) . '</h3>';
-			$html .= '<p><strong>[' . esc_html__( 'NOME COMPLETO / RAGIONE SOCIALE', 'db-cookie-manager' ) . ']</strong><br>';
-			$html .= '<strong>[' . esc_html__( 'INDIRIZZO', 'db-cookie-manager' ) . ']</strong><br>';
-			$html .= esc_html__( 'Email:', 'db-cookie-manager' ) . ' ' . $email . '</p>';
-			$html .= '<p><em>' . esc_html__( 'Sostituire i campi tra parentesi con i dati reali del titolare prima di pubblicare la pagina.', 'db-cookie-manager' ) . '</em></p>';
+			// Legge i dati del titolare dalle option pubblicate dal DB Privacy
+			// Hub. Se l'Hub non è installato (o l'admin non ha ancora compilato
+			// il form), cade su un placeholder esplicito da sostituire a mano.
+			$nome     = trim( (string) get_option( 'dbph_titolare_nome', '' ) );
+			$indirizzo = trim( (string) get_option( 'dbph_titolare_indirizzo', '' ) );
+			$piva      = trim( (string) get_option( 'dbph_titolare_piva', '' ) );
+			$email     = trim( (string) get_option( 'dbph_titolare_email', '' ) );
+			$pec       = trim( (string) get_option( 'dbph_titolare_pec', '' ) );
+			$dpo       = trim( (string) get_option( 'dbph_titolare_dpo', '' ) );
+
+			$has_titolare = ( $nome !== '' );
+
+			if ( $has_titolare ) {
+				$html .= '<p>';
+				$html .= '<strong>' . esc_html( $nome ) . '</strong>';
+				if ( $indirizzo !== '' ) {
+					$html .= '<br>' . esc_html( $indirizzo );
+				}
+				if ( $piva !== '' ) {
+					$html .= '<br>' . esc_html__( 'P.IVA / C.F.:', 'db-cookie-manager' ) . ' ' . esc_html( $piva );
+				}
+				$contact_email = $email !== '' ? $email : esc_html( $context['admin_email'] );
+				$html .= '<br>' . esc_html__( 'Email:', 'db-cookie-manager' ) . ' ' . esc_html( $contact_email );
+				if ( $pec !== '' ) {
+					$html .= '<br>' . esc_html__( 'PEC:', 'db-cookie-manager' ) . ' ' . esc_html( $pec );
+				}
+				if ( $dpo !== '' ) {
+					$html .= '<br>' . esc_html__( 'DPO:', 'db-cookie-manager' ) . ' ' . esc_html( $dpo );
+				}
+				$html .= '</p>';
+			} else {
+				$admin_email = esc_html( $context['admin_email'] );
+				$html .= '<p><strong>[' . esc_html__( 'NOME COMPLETO / RAGIONE SOCIALE', 'db-cookie-manager' ) . ']</strong><br>';
+				$html .= '<strong>[' . esc_html__( 'INDIRIZZO', 'db-cookie-manager' ) . ']</strong><br>';
+				$html .= esc_html__( 'Email:', 'db-cookie-manager' ) . ' ' . $admin_email . '</p>';
+				$html .= '<p><em>' . esc_html__( 'Sostituire i campi tra parentesi con i dati reali del titolare prima di pubblicare la pagina. In alternativa, installa il plugin DB Privacy Hub e compila i dati del titolare: la Cookie Policy verrà aggiornata automaticamente.', 'db-cookie-manager' ) . '</em></p>';
+			}
 
 			return apply_filters( 'dbcm_policy_section_controller', $html, $context );
 		}

@@ -260,6 +260,12 @@ Cookie scritti dal plugin:
 
 ### Changelog
 
+#### 3.1.0 — Integrazione DB Privacy Hub _(2026)_
+- Nuovo metodo pubblico **`DBCM_Policy_Generator::get_sections()`** — espone le sezioni della Cookie Policy come array associativo per il riuso da parte del DB Privacy Hub (Privacy Policy unificata)
+- Sezione "Titolare del trattamento" della Cookie Policy ora **legge automaticamente i dati salvati nel DB Privacy Hub** (`dbph_titolare_*`): se il Privacy Hub è installato e configurato, niente più placeholder da sostituire a mano
+- `DBCM_Privacy_Declarations` ora si aggancia al filter unificato **`dbph_processing_register`** del Privacy Hub, mantenendo backward-compat con `dbseo_processing_register` (SEO Manager 1.2.x)
+- ⚠️ Il filter `dbcm_policy_sections` ora riceve un array **associativo** (chiavi: `header`, `cookies_used`, ecc.) invece che indicizzato — uso interno, breaking solo per filtri custom
+
 #### 3.0.2 — API pubblica scanner e README bilingue _(2026)_
 - Nuovo metodo pubblico `DBCM_Scanner::get_cookies_by_provider_keyword($keyword, $limit = 50)`
 - Modulo `DBCM_Privacy_Declarations`: integrazione automatica con DB SEO Manager 1.2.0+

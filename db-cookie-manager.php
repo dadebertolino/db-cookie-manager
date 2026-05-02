@@ -3,7 +3,7 @@
  * Plugin Name: DB Cookie Manager
  * Plugin URI:  https://www.davidebertolino.it/progetti/db-cookie-manager
  * Description: Gestione completa dei cookie per WordPress: scanner automatico, banner GDPR multilingua con blocco preventivo, integrazione WP Consent API, generatore Cookie Policy e registro consensi.
- * Version:     3.0.2
+ * Version:     3.1.0
  * Author:      Davide Bertolino
  * Author URI:  https://www.davidebertolino.it
  * License:     GPL v2 or later
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Costanti
  * ========================================================================== */
 
-define( 'DBCM_VERSION', '3.0.2' );
+define( 'DBCM_VERSION', '3.1.0' );
 define( 'DBCM_FILE', __FILE__ );
 define( 'DBCM_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DBCM_URL', plugin_dir_url( __FILE__ ) );
