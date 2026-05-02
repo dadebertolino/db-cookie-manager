@@ -1,496 +1,625 @@
 <?php
 /**
- * Consent Log
+ * DBCM_Consent_Log — Registro consensi (GDPR art. 7(1)).
  *
- * Logs every consent action for GDPR compliance (art. 7(1)).
- * IP is stored as a salted hash for anonymization.
+ * Strategia:
+ *  - Si aggancia all'action 'dbcm_consent_set' emessa da DBCM_Consent_API
+ *    quando l'utente cambia consenso. Non c'è un AJAX dedicato: il payload
+ *    è già stato sanificato dal layer Consent API.
+ *  - IP anonimizzato via SHA256 + wp_salt('auth') (irreversibile in pratica
+ *    per IPv4/IPv6 individualmente — l'hash di un IP noto resta uguale, quindi
+ *    permette correlazioni "stesso visitatore" senza rivelare l'IP originale).
+ *  - User-agent: tre modalità configurabili (none | aggregate | full).
+ *    Default 3.0 = 'aggregate': salviamo solo il browser principale
+ *    (Chrome/Firefox/Safari/Edge/Mobile/Altro). 2.0.1 salvava UA completo:
+ *    troppo dato per la giustificazione "prova del consenso art. 7".
+ *  - Export CSV e JSON.
+ *  - Cleanup giornaliero via cron 'dbcm_daily_cleanup' (registrato dal
+ *    bootstrap plugin in attivazione, non da qui).
  *
- * @package db-cookie-manager
+ * Niente UI rendering qui — arriverà nello step 6 admin UI.
+ *
+ * @package DBCM
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
-    exit;
+	exit;
 }
 
-class DBCM_Consent_Log {
+if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 
-    /**
-     * Table name
-     */
-    public static function table_name() {
-        global $wpdb;
-        return $wpdb->prefix . 'dbcm_consent_log';
-    }
+	class DBCM_Consent_Log {
 
-    /**
-     * Create table
-     */
-    public static function create_table() {
-        global $wpdb;
-        $table = self::table_name();
+		/**
+		 * Versione dello schema della tabella. Incrementare se cambiano le
+		 * colonne così che maybe_upgrade_schema() possa intervenire.
+		 */
+		const SCHEMA_VERSION = 1;
 
-        $sql = "CREATE TABLE IF NOT EXISTS {$table} (
-            id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-            ip_hash varchar(64) NOT NULL,
-            consent_data varchar(500) NOT NULL,
-            consent_type varchar(20) DEFAULT 'custom',
-            user_agent varchar(500) DEFAULT '',
-            consent_date timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            PRIMARY KEY (id),
-            KEY consent_date (consent_date),
-            KEY ip_hash (ip_hash)
-        ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+		/**
+		 * Nome dell'option che traccia la versione dello schema installata.
+		 */
+		const SCHEMA_OPTION = 'dbcm_consent_log_schema';
 
-        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
-        dbDelta( $sql );
-    }
+		/**
+		 * Restituisce il nome completo (con prefix) della tabella.
+		 *
+		 * @return string
+		 */
+		public static function table_name() {
+			global $wpdb;
+			return $wpdb->prefix . 'dbcm_consent_log';
+		}
 
-    /**
-     * Initialize
-     */
-    public static function init() {
-        // AJAX handler for frontend logging
-        add_action( 'wp_ajax_dbcm_log_consent', array( __CLASS__, 'ajax_log' ) );
-        add_action( 'wp_ajax_nopriv_dbcm_log_consent', array( __CLASS__, 'ajax_log' ) );
+		/**
+		 * Crea o aggiorna la tabella tramite dbDelta.
+		 *
+		 * Schema:
+		 *   id            BIGINT auto-increment
+		 *   ip_hash       VARCHAR(64) — SHA256 + wp_salt('auth')
+		 *   consent_data  VARCHAR(500) — JSON {functional,preferences,statistics,statistics-anonymous,marketing,v}
+		 *   consent_type  VARCHAR(20) — accept_all | reject_all | custom
+		 *   ua_summary    VARCHAR(64) — etichetta browser aggregata, oppure UA full troncato a 64
+		 *   consent_date  TIMESTAMP — DEFAULT CURRENT_TIMESTAMP
+		 *
+		 * Differenza con 2.0.1: la colonna 'user_agent' VARCHAR(500) è stata
+		 * sostituita da 'ua_summary' VARCHAR(64). Salvare un UA completo
+		 * insieme all'hash IP nello stesso record permette correlazioni di
+		 * fingerprinting che la giustificazione GDPR "prova del consenso"
+		 * non richiede.
+		 *
+		 * @return void
+		 */
+		public static function create_table() {
+			global $wpdb;
+			$table   = self::table_name();
+			$charset = $wpdb->get_charset_collate();
 
-        // Schedule cleanup cron
-        if ( ! wp_next_scheduled( 'dbcm_cleanup_consent_log' ) ) {
-            wp_schedule_event( time(), 'daily', 'dbcm_cleanup_consent_log' );
-        }
-        add_action( 'dbcm_cleanup_consent_log', array( __CLASS__, 'cleanup' ) );
+			$sql = "CREATE TABLE {$table} (
+				id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+				ip_hash VARCHAR(64) NOT NULL DEFAULT '',
+				consent_data VARCHAR(500) NOT NULL DEFAULT '',
+				consent_type VARCHAR(20) NOT NULL DEFAULT 'custom',
+				ua_summary VARCHAR(64) NOT NULL DEFAULT '',
+				consent_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY  (id),
+				KEY consent_date (consent_date),
+				KEY consent_type (consent_type),
+				KEY ip_hash (ip_hash)
+			) {$charset};";
 
-        // CSV export handler
-        add_action( 'admin_init', array( __CLASS__, 'handle_export' ) );
-    }
+			require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+			dbDelta( $sql );
 
-    /**
-     * Hash IP address with a site-specific salt
-     */
-    private static function hash_ip( $ip ) {
-        $salt = wp_salt( 'auth' );
-        return hash( 'sha256', $ip . $salt );
-    }
+			update_option( self::SCHEMA_OPTION, self::SCHEMA_VERSION );
+		}
 
-    /**
-     * AJAX: log consent from frontend
-     */
-    public static function ajax_log() {
-        if ( ! DBCM_Settings::get( 'consent_log_enabled' ) ) {
-            wp_send_json_success();
-            return;
-        }
+		/**
+		 * Verifica che la tabella esista e che lo schema sia aggiornato.
+		 * Chiamata difensivamente in init() perché register_activation_hook
+		 * può non scattare in alcuni hosting (es. installazioni mu-plugins).
+		 *
+		 * @return void
+		 */
+		public static function maybe_upgrade_schema() {
+			global $wpdb;
+			$table = self::table_name();
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$exists = $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ) === $table;
+			$installed = (int) get_option( self::SCHEMA_OPTION, 0 );
 
-        global $wpdb;
-        $table = self::table_name();
+			if ( ! $exists || $installed < self::SCHEMA_VERSION ) {
+				self::create_table();
+			}
+		}
 
-        $consent_data = isset( $_POST['consent'] ) ? sanitize_text_field( $_POST['consent'] ) : '';
-        $consent_type = isset( $_POST['type'] ) ? sanitize_text_field( $_POST['type'] ) : 'custom';
-        $user_agent   = isset( $_SERVER['HTTP_USER_AGENT'] ) ? substr( sanitize_text_field( $_SERVER['HTTP_USER_AGENT'] ), 0, 500 ) : '';
-        $ip           = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( $_SERVER['REMOTE_ADDR'] ) : '';
+		/* =====================================================================
+		 * INIT
+		 * ================================================================== */
 
-        $wpdb->insert( $table, array(
-            'ip_hash'      => self::hash_ip( $ip ),
-            'consent_data' => $consent_data,
-            'consent_type' => $consent_type,
-            'user_agent'   => $user_agent,
-        ), array( '%s', '%s', '%s', '%s' ) );
+		public static function init() {
+			// Aggancio all'evento di consenso emesso da DBCM_Consent_API.
+			add_action( 'dbcm_consent_set', array( __CLASS__, 'on_consent_set' ), 10, 2 );
 
-        wp_send_json_success();
-    }
+			// Cron handler per il cleanup giornaliero.
+			add_action( 'dbcm_daily_cleanup', array( __CLASS__, 'cleanup' ) );
 
-    /**
-     * Cleanup old records based on retention setting
-     */
-    public static function cleanup() {
-        if ( ! DBCM_Settings::get( 'consent_log_enabled' ) ) {
-            return;
-        }
+			// Export CSV/JSON: gestito su admin_init prima dell'output.
+			add_action( 'admin_init', array( __CLASS__, 'handle_export' ) );
 
-        global $wpdb;
-        $table = self::table_name();
-        $months = DBCM_Settings::get( 'consent_log_retention' );
+			// Schema check (just-in-time, una volta per request).
+			add_action( 'admin_init', array( __CLASS__, 'maybe_upgrade_schema' ) );
+		}
 
-        if ( $months < 1 ) {
-            $months = 12;
-        }
+		/* =====================================================================
+		 * INSERIMENTO
+		 * ================================================================== */
 
-        $wpdb->query( $wpdb->prepare(
-            "DELETE FROM {$table} WHERE consent_date < DATE_SUB(NOW(), INTERVAL %d MONTH)",
-            $months
-        ) );
-    }
+		/**
+		 * Callback per l'action 'dbcm_consent_set'.
+		 *
+		 * @param string $type    'accept_all' | 'reject_all' | 'custom'.
+		 * @param array  $consent Mappa categoria → bool (già validata da
+		 *                        DBCM_Consent_API::sanitize_consent_payload).
+		 * @return void
+		 */
+		public static function on_consent_set( $type, $consent ) {
+			if ( ! DBCM_Settings::get( 'consent_log_enabled', true ) ) {
+				return;
+			}
+			self::insert( $type, $consent );
+		}
 
-    /**
-     * Get total count (with optional filters)
-     */
-    public static function get_count( $type_filter = '', $date_from = '', $date_to = '' ) {
-        global $wpdb;
-        $table = self::table_name();
+		/**
+		 * Inserisce una riga nel log.
+		 *
+		 * @param string $type
+		 * @param array  $consent
+		 * @return int|false ID inserito, o false su fallimento.
+		 */
+		public static function insert( $type, $consent ) {
+			global $wpdb;
+			$table = self::table_name();
 
-        $where = '1=1';
-        $params = array();
+			// Costruisce il payload JSON con le 5 chiavi standard + meta.
+			// Aggiungiamo lo schema version per future migrazioni.
+			$payload = array(
+				'v' => DBCM_Settings::COOKIE_SCHEMA_VERSION,
+			);
+			foreach ( DBCM_Settings::categories() as $cat ) {
+				$payload[ $cat ] = ! empty( $consent[ $cat ] );
+			}
 
-        if ( $type_filter ) {
-            $where .= ' AND consent_type = %s';
-            $params[] = $type_filter;
-        }
-        if ( $date_from ) {
-            $where .= ' AND consent_date >= %s';
-            $params[] = $date_from . ' 00:00:00';
-        }
-        if ( $date_to ) {
-            $where .= ' AND consent_date <= %s';
-            $params[] = $date_to . ' 23:59:59';
-        }
+			$consent_data = wp_json_encode( $payload );
+			if ( false === $consent_data || strlen( $consent_data ) > 500 ) {
+				// Edge case: payload sopra il limite VARCHAR(500). Tronca
+				// segnando esplicitamente che il dato è incompleto.
+				$consent_data = substr( (string) $consent_data, 0, 497 ) . '...';
+			}
 
-        if ( ! empty( $params ) ) {
-            return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE {$where}", $params ) );
-        }
-        return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
-    }
+			$row = array(
+				'ip_hash'      => self::hash_ip( self::get_client_ip() ),
+				'consent_data' => $consent_data,
+				'consent_type' => self::sanitize_type( $type ),
+				'ua_summary'   => self::summarize_user_agent(),
+				// consent_date: lasciato a DEFAULT CURRENT_TIMESTAMP.
+			);
 
-    /**
-     * Get paginated results
-     */
-    public static function get_results( $page = 1, $per_page = 25, $type_filter = '', $date_from = '', $date_to = '' ) {
-        global $wpdb;
-        $table = self::table_name();
+			$result = $wpdb->insert(
+				$table,
+				$row,
+				array( '%s', '%s', '%s', '%s' )
+			);
 
-        $where = '1=1';
-        $params = array();
+			return ( false !== $result ) ? (int) $wpdb->insert_id : false;
+		}
 
-        if ( $type_filter ) {
-            $where .= ' AND consent_type = %s';
-            $params[] = $type_filter;
-        }
-        if ( $date_from ) {
-            $where .= ' AND consent_date >= %s';
-            $params[] = $date_from . ' 00:00:00';
-        }
-        if ( $date_to ) {
-            $where .= ' AND consent_date <= %s';
-            $params[] = $date_to . ' 23:59:59';
-        }
+		/**
+		 * Restringe il consent_type ai valori validi.
+		 *
+		 * @param string $type
+		 * @return string
+		 */
+		private static function sanitize_type( $type ) {
+			$type = sanitize_key( $type );
+			return in_array( $type, array( 'accept_all', 'reject_all', 'custom' ), true )
+				? $type
+				: 'custom';
+		}
 
-        $offset = ( $page - 1 ) * $per_page;
-        $params[] = $per_page;
-        $params[] = $offset;
+		/* =====================================================================
+		 * IP HASHING
+		 * ================================================================== */
 
-        return $wpdb->get_results( $wpdb->prepare(
-            "SELECT * FROM {$table} WHERE {$where} ORDER BY consent_date DESC LIMIT %d OFFSET %d",
-            $params
-        ) );
-    }
+		/**
+		 * Recupera l'IP client tenendo conto di proxy/CDN.
+		 *
+		 * Ordine di priorità: REMOTE_ADDR (più affidabile), poi gli header
+		 * di forwarding. Se più di un IP è presente in X-Forwarded-For,
+		 * prendiamo il primo (l'origine reale del client).
+		 *
+		 * Il valore restituito non viene mai salvato in chiaro: passa sempre
+		 * per hash_ip() prima dell'INSERT.
+		 *
+		 * @return string
+		 */
+		private static function get_client_ip() {
+			// REMOTE_ADDR è quello a cui il server risponde direttamente.
+			if ( ! empty( $_SERVER['REMOTE_ADDR'] ) ) {
+				$ip = self::sanitize_ip( $_SERVER['REMOTE_ADDR'] );
+				if ( $ip ) {
+					return $ip;
+				}
+			}
 
-    /**
-     * Handle CSV export
-     */
-    public static function handle_export() {
-        if ( ! isset( $_GET['dbcm_export_csv'] ) || ! current_user_can( 'manage_options' ) ) {
-            return;
-        }
+			// Fallback proxy/CDN headers — solo se l'admin ha esplicitamente
+			// dichiarato di stare dietro a un proxy fidato (filtro).
+			if ( apply_filters( 'dbcm_trust_proxy_headers', false ) ) {
+				$candidates = array( 'HTTP_X_FORWARDED_FOR', 'HTTP_CF_CONNECTING_IP', 'HTTP_X_REAL_IP' );
+				foreach ( $candidates as $header ) {
+					if ( ! empty( $_SERVER[ $header ] ) ) {
+						$first = trim( explode( ',', (string) $_SERVER[ $header ] )[0] );
+						$ip    = self::sanitize_ip( $first );
+						if ( $ip ) {
+							return $ip;
+						}
+					}
+				}
+			}
 
-        check_admin_referer( 'dbcm_export_csv' );
+			return '';
+		}
 
-        global $wpdb;
-        $table = self::table_name();
+		/**
+		 * Valida un IP (v4 o v6) e lo restituisce normalizzato, o ''.
+		 *
+		 * @param string $ip
+		 * @return string
+		 */
+		private static function sanitize_ip( $ip ) {
+			$ip = trim( (string) $ip );
+			return filter_var( $ip, FILTER_VALIDATE_IP ) ? $ip : '';
+		}
 
-        $results = $wpdb->get_results( "SELECT * FROM {$table} ORDER BY consent_date DESC", ARRAY_A );
+		/**
+		 * Hash IP con salt site-specifico (irreversibile in pratica).
+		 *
+		 * @param string $ip
+		 * @return string
+		 */
+		private static function hash_ip( $ip ) {
+			if ( '' === $ip ) {
+				return '';
+			}
+			return hash( 'sha256', $ip . wp_salt( 'auth' ) );
+		}
 
-        header( 'Content-Type: text/csv; charset=utf-8' );
-        header( 'Content-Disposition: attachment; filename=consent-log-' . date( 'Y-m-d' ) . '.csv' );
+		/* =====================================================================
+		 * USER AGENT
+		 * ================================================================== */
 
-        $output = fopen( 'php://output', 'w' );
+		/**
+		 * Restituisce la rappresentazione dell'UA da salvare, secondo la
+		 * modalità configurata in settings.
+		 *
+		 *   'none'      → ''
+		 *   'aggregate' → 'Chrome' | 'Firefox' | ... | 'Altro' (default 3.0)
+		 *   'full'      → primi 64 char dello User-Agent grezzo
+		 *
+		 * @return string
+		 */
+		private static function summarize_user_agent() {
+			$mode = DBCM_Settings::get( 'consent_log_user_agent', 'aggregate' );
+			if ( 'none' === $mode ) {
+				return '';
+			}
 
-        // UTF-8 BOM for Excel
-        fprintf( $output, chr(0xEF) . chr(0xBB) . chr(0xBF) );
+			$raw = isset( $_SERVER['HTTP_USER_AGENT'] )
+				? (string) wp_unslash( $_SERVER['HTTP_USER_AGENT'] )
+				: '';
+			if ( '' === $raw ) {
+				return '';
+			}
 
-        // Header row
-        fputcsv( $output, array( 'ID', 'IP Hash', 'Consenso', 'Tipo', 'User Agent', 'Data' ), ';' );
+			if ( 'full' === $mode ) {
+				return mb_substr( sanitize_text_field( $raw ), 0, 64 );
+			}
 
-        foreach ( $results as $row ) {
-            fputcsv( $output, array(
-                $row['id'],
-                $row['ip_hash'],
-                $row['consent_data'],
-                $row['consent_type'],
-                $row['user_agent'],
-                $row['consent_date'],
-            ), ';' );
-        }
+			// aggregate (default).
+			return self::aggregate_ua( $raw );
+		}
 
-        fclose( $output );
-        exit;
-    }
+		/**
+		 * Riconoscimento browser a granularità minima sufficiente per
+		 * statistiche aggregate. L'ordine dei check conta (Edge contiene
+		 * "Chrome" nello UA, quindi va testato prima).
+		 *
+		 * @param string $ua
+		 * @return string
+		 */
+		public static function aggregate_ua( $ua ) {
+			if ( '' === $ua ) {
+				return 'Altro';
+			}
+			if ( false !== stripos( $ua, 'Edg' ) ) {
+				return 'Edge';
+			}
+			if ( false !== stripos( $ua, 'OPR' ) || false !== stripos( $ua, 'Opera' ) ) {
+				return 'Opera';
+			}
+			if ( false !== stripos( $ua, 'Firefox' ) ) {
+				return 'Firefox';
+			}
+			if ( false !== stripos( $ua, 'Chrome' ) ) {
+				// Dopo aver escluso Edge e Opera, "Chrome" è davvero Chrome.
+				return 'Chrome';
+			}
+			if ( false !== stripos( $ua, 'Safari' ) ) {
+				return 'Safari';
+			}
+			if ( false !== stripos( $ua, 'Trident' ) || false !== stripos( $ua, 'MSIE' ) ) {
+				return 'IE';
+			}
+			if ( false !== stripos( $ua, 'Mobile' ) || false !== stripos( $ua, 'Android' ) ) {
+				return 'Mobile';
+			}
+			if ( false !== stripos( $ua, 'bot' ) || false !== stripos( $ua, 'crawler' ) || false !== stripos( $ua, 'spider' ) ) {
+				return 'Bot';
+			}
+			return 'Altro';
+		}
 
-    /**
-     * Render admin tab
-     */
-    public static function render() {
-        if ( ! DBCM_Settings::get( 'consent_log_enabled' ) ) {
-            ?>
-            <div class="scs-card">
-                <h2><?php _e( 'Registro consensi disattivato', 'db-cookie-manager' ); ?></h2>
-                <p><?php _e( 'Attiva il registro consensi nelle Impostazioni → Registro consensi.', 'db-cookie-manager' ); ?></p>
-            </div>
-            <?php
-            return;
-        }
+		/* =====================================================================
+		 * QUERY API
+		 * ================================================================== */
 
-        // Check table exists
-        global $wpdb;
-        $table = self::table_name();
-        if ( $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ) !== $table ) {
-            self::create_table();
-        }
+		/**
+		 * Conta le righe del log con filtri opzionali.
+		 *
+		 * @param array $args {
+		 *     @type string $type       Filtro per consent_type ('' = tutti).
+		 *     @type string $date_from  YYYY-MM-DD.
+		 *     @type string $date_to    YYYY-MM-DD.
+		 * }
+		 * @return int
+		 */
+		public static function count( $args = array() ) {
+			global $wpdb;
+			$where = self::build_where( $args );
+			$table = self::table_name();
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$sql = "SELECT COUNT(*) FROM {$table} {$where['sql']}";
+			if ( ! empty( $where['params'] ) ) {
+				$sql = $wpdb->prepare( $sql, $where['params'] );
+			}
+			return (int) $wpdb->get_var( $sql );
+		}
 
-        // Filters
-        $type_filter = isset( $_GET['consent_type'] ) ? sanitize_text_field( $_GET['consent_type'] ) : '';
-        $date_from   = isset( $_GET['date_from'] ) ? sanitize_text_field( $_GET['date_from'] ) : '';
-        $date_to     = isset( $_GET['date_to'] ) ? sanitize_text_field( $_GET['date_to'] ) : '';
-        $current_page = isset( $_GET['log_page'] ) ? max( 1, absint( $_GET['log_page'] ) ) : 1;
-        $per_page = 25;
+		/**
+		 * Restituisce un set paginato di righe.
+		 *
+		 * @param array $args {
+		 *     @type int    $page       Pagina 1-based.
+		 *     @type int    $per_page   Default 25.
+		 *     @type string $type       Filtro per consent_type.
+		 *     @type string $date_from
+		 *     @type string $date_to
+		 *     @type string $order      ASC | DESC. Default DESC.
+		 * }
+		 * @return array Lista di stdClass.
+		 */
+		public static function get_results( $args = array() ) {
+			global $wpdb;
+			$page     = max( 1, (int) ( $args['page'] ?? 1 ) );
+			$per_page = max( 1, min( 1000, (int) ( $args['per_page'] ?? 25 ) ) );
+			$offset   = ( $page - 1 ) * $per_page;
+			$order    = ( strtoupper( $args['order'] ?? 'DESC' ) === 'ASC' ) ? 'ASC' : 'DESC';
 
-        $total = self::get_count( $type_filter, $date_from, $date_to );
-        $total_pages = ceil( $total / $per_page );
-        $results = self::get_results( $current_page, $per_page, $type_filter, $date_from, $date_to );
+			$where = self::build_where( $args );
+			$table = self::table_name();
 
-        // Stats
-        $total_all      = self::get_count();
-        $total_accept   = self::get_count( 'all' );
-        $total_reject   = self::get_count( 'necessary' );
-        $total_custom   = self::get_count( 'custom' );
-        ?>
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			$sql = "SELECT id, ip_hash, consent_data, consent_type, ua_summary, consent_date
+			        FROM {$table}
+			        {$where['sql']}
+			        ORDER BY consent_date {$order}, id {$order}
+			        LIMIT %d OFFSET %d";
 
-        <!-- Stats -->
-        <div class="scs-stats">
-            <div class="scs-stat">
-                <div class="scs-stat__number"><?php echo $total_all; ?></div>
-                <div class="scs-stat__label"><?php _e( 'Totale', 'db-cookie-manager' ); ?></div>
-            </div>
-            <div class="scs-stat">
-                <div class="scs-stat__number" style="color:#22c55e;"><?php echo $total_accept; ?></div>
-                <div class="scs-stat__label"><?php _e( 'Accetta tutto', 'db-cookie-manager' ); ?></div>
-            </div>
-            <div class="scs-stat">
-                <div class="scs-stat__number" style="color:#ef4444;"><?php echo $total_reject; ?></div>
-                <div class="scs-stat__label"><?php _e( 'Solo necessari', 'db-cookie-manager' ); ?></div>
-            </div>
-            <div class="scs-stat">
-                <div class="scs-stat__number" style="color:#3b82f6;"><?php echo $total_custom; ?></div>
-                <div class="scs-stat__label"><?php _e( 'Personalizzato', 'db-cookie-manager' ); ?></div>
-            </div>
-        </div>
+			$params   = $where['params'];
+			$params[] = $per_page;
+			$params[] = $offset;
 
-        <!-- Filters -->
-        <div class="scs-card">
-            <form method="get" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
-                <input type="hidden" name="page" value="db-cookie-manager">
-                <input type="hidden" name="tab" value="registro">
+			return $wpdb->get_results( $wpdb->prepare( $sql, $params ) );
+		}
 
-                <div>
-                    <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;"><?php _e( 'Tipo', 'db-cookie-manager' ); ?></label>
-                    <select name="consent_type" style="min-width:140px;">
-                        <option value=""><?php _e( 'Tutti', 'db-cookie-manager' ); ?></option>
-                        <option value="all" <?php selected( $type_filter, 'all' ); ?>><?php _e( 'Accetta tutto', 'db-cookie-manager' ); ?></option>
-                        <option value="necessary" <?php selected( $type_filter, 'necessary' ); ?>><?php _e( 'Solo necessari', 'db-cookie-manager' ); ?></option>
-                        <option value="custom" <?php selected( $type_filter, 'custom' ); ?>><?php _e( 'Personalizzato', 'db-cookie-manager' ); ?></option>
-                    </select>
-                </div>
+		/**
+		 * Costruisce la clausola WHERE comune a count/get_results.
+		 *
+		 * @param array $args
+		 * @return array { sql: string, params: array }
+		 */
+		private static function build_where( $args ) {
+			$conditions = array();
+			$params     = array();
 
-                <div>
-                    <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;"><?php _e( 'Da', 'db-cookie-manager' ); ?></label>
-                    <input type="date" name="date_from" value="<?php echo esc_attr( $date_from ); ?>">
-                </div>
+			if ( ! empty( $args['type'] ) ) {
+				$type = self::sanitize_type( $args['type'] );
+				$conditions[] = 'consent_type = %s';
+				$params[]     = $type;
+			}
+			if ( ! empty( $args['date_from'] ) ) {
+				$conditions[] = 'consent_date >= %s';
+				$params[]     = sanitize_text_field( $args['date_from'] ) . ' 00:00:00';
+			}
+			if ( ! empty( $args['date_to'] ) ) {
+				$conditions[] = 'consent_date <= %s';
+				$params[]     = sanitize_text_field( $args['date_to'] ) . ' 23:59:59';
+			}
 
-                <div>
-                    <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;"><?php _e( 'A', 'db-cookie-manager' ); ?></label>
-                    <input type="date" name="date_to" value="<?php echo esc_attr( $date_to ); ?>">
-                </div>
+			$sql = empty( $conditions ) ? '' : 'WHERE ' . implode( ' AND ', $conditions );
+			return array( 'sql' => $sql, 'params' => $params );
+		}
 
-                <button type="submit" class="button"><?php _e( 'Filtra', 'db-cookie-manager' ); ?></button>
+		/* =====================================================================
+		 * CLEANUP
+		 * ================================================================== */
 
-                <?php if ( $type_filter || $date_from || $date_to ) : ?>
-                    <a href="?page=db-cookie-manager&tab=registro" class="button"><?php _e( 'Reset', 'db-cookie-manager' ); ?></a>
-                <?php endif; ?>
+		/**
+		 * Cancella le righe più vecchie di consent_log_retention giorni.
+		 * Chiamato dal cron 'dbcm_daily_cleanup'.
+		 *
+		 * @return int Righe cancellate.
+		 */
+		public static function cleanup() {
+			global $wpdb;
+			$days = (int) DBCM_Settings::get( 'consent_log_retention', 365 );
+			if ( $days <= 0 ) {
+				return 0; // 0 = nessuna scadenza.
+			}
+			$table = self::table_name();
+			$cutoff = gmdate( 'Y-m-d H:i:s', time() - ( $days * DAY_IN_SECONDS ) );
 
-                <div style="margin-left:auto;">
-                    <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin.php?dbcm_export_csv=1' ), 'dbcm_export_csv' ) ); ?>" class="button">
-                        <span class="dashicons dashicons-download" style="margin-top:4px;margin-right:2px;"></span>
-                        <?php _e( 'Esporta CSV', 'db-cookie-manager' ); ?>
-                    </a>
-                </div>
-            </form>
-        </div>
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+			return (int) $wpdb->query(
+				$wpdb->prepare(
+					"DELETE FROM {$table} WHERE consent_date < %s",
+					$cutoff
+				)
+			);
+		}
 
-        <!-- Results table -->
-        <div class="scs-card">
-            <?php if ( empty( $results ) ) : ?>
-                <p><?php _e( 'Nessun consenso registrato.', 'db-cookie-manager' ); ?></p>
-            <?php else : ?>
-                <table class="scs-table">
-                    <thead>
-                        <tr>
-                            <th style="width:50px;">#</th>
-                            <th><?php _e( 'Data', 'db-cookie-manager' ); ?></th>
-                            <th><?php _e( 'Tipo', 'db-cookie-manager' ); ?></th>
-                            <th><?php _e( 'Categorie', 'db-cookie-manager' ); ?></th>
-                            <th><?php _e( 'IP (hash)', 'db-cookie-manager' ); ?></th>
-                            <th><?php _e( 'Browser', 'db-cookie-manager' ); ?></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ( $results as $row ) :
-                            $consent = json_decode( $row->consent_data, true );
-                            $type_label = self::get_type_label( $row->consent_type );
-                            $type_color = self::get_type_color( $row->consent_type );
-                            $browser = self::parse_user_agent( $row->user_agent );
-                        ?>
-                        <tr>
-                            <td style="color:#94a3b8;font-size:12px;"><?php echo esc_html( $row->id ); ?></td>
-                            <td>
-                                <div style="font-size:13px;"><?php echo esc_html( date_i18n( 'd/m/Y', strtotime( $row->consent_date ) ) ); ?></div>
-                                <div style="font-size:11px;color:#94a3b8;"><?php echo esc_html( date_i18n( 'H:i:s', strtotime( $row->consent_date ) ) ); ?></div>
-                            </td>
-                            <td>
-                                <span class="scs-badge" style="background:<?php echo esc_attr( $type_color ); ?>;">
-                                    <?php echo esc_html( $type_label ); ?>
-                                </span>
-                            </td>
-                            <td style="font-size:12px;">
-                                <?php if ( is_array( $consent ) ) : ?>
-                                    <?php foreach ( array( 'necessary', 'performance', 'analytics', 'marketing' ) as $cat ) :
-                                        if ( ! isset( $consent[ $cat ] ) ) continue;
-                                        $on = $consent[ $cat ];
-                                    ?>
-                                        <span style="display:inline-block;margin-right:6px;color:<?php echo $on ? '#22c55e' : '#94a3b8'; ?>;">
-                                            <?php echo $on ? '●' : '○'; ?> <?php echo esc_html( ucfirst( $cat ) ); ?>
-                                        </span>
-                                    <?php endforeach; ?>
-                                <?php else : ?>
-                                    <code style="font-size:11px;"><?php echo esc_html( $row->consent_data ); ?></code>
-                                <?php endif; ?>
-                            </td>
-                            <td><code style="font-size:10px;word-break:break-all;"><?php echo esc_html( substr( $row->ip_hash, 0, 16 ) ); ?>…</code></td>
-                            <td style="font-size:12px;color:#64748b;"><?php echo esc_html( $browser ); ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+		/* =====================================================================
+		 * EXPORT
+		 * ================================================================== */
 
-                <!-- Pagination -->
-                <?php if ( $total_pages > 1 ) : ?>
-                <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;">
-                    <span style="font-size:13px;color:#64748b;">
-                        <?php printf(
-                            __( '%d-%d di %d risultati', 'db-cookie-manager' ),
-                            ( $current_page - 1 ) * $per_page + 1,
-                            min( $current_page * $per_page, $total ),
-                            $total
-                        ); ?>
-                    </span>
-                    <div style="display:flex;gap:4px;">
-                        <?php
-                        $base_url = add_query_arg( array(
-                            'page'         => 'db-cookie-manager',
-                            'tab'          => 'registro',
-                            'consent_type' => $type_filter,
-                            'date_from'    => $date_from,
-                            'date_to'      => $date_to,
-                        ), admin_url( 'tools.php' ) );
+		/**
+		 * Handler 'admin_init' per gli export. Reagisce a:
+		 *   /wp-admin/admin.php?page=...&dbcm_export=csv
+		 *   /wp-admin/admin.php?page=...&dbcm_export=json
+		 *
+		 * Verifica nonce + capability + emette il file con i giusti header.
+		 * I filtri date_from/date_to/type vengono propagati dalla querystring.
+		 */
+		public static function handle_export() {
+			if ( empty( $_GET['dbcm_export'] ) ) {
+				return;
+			}
+			if ( ! current_user_can( 'manage_options' ) ) {
+				return;
+			}
+			$nonce = isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : '';
+			if ( ! wp_verify_nonce( $nonce, 'dbcm_export_log' ) ) {
+				return;
+			}
 
-                        // Previous
-                        if ( $current_page > 1 ) :
-                        ?>
-                            <a href="<?php echo esc_url( add_query_arg( 'log_page', $current_page - 1, $base_url ) ); ?>" class="button">‹</a>
-                        <?php endif;
+			$format = sanitize_key( wp_unslash( $_GET['dbcm_export'] ) );
+			if ( ! in_array( $format, array( 'csv', 'json' ), true ) ) {
+				return;
+			}
 
-                        // Page numbers (show max 7)
-                        $start = max( 1, $current_page - 3 );
-                        $end   = min( $total_pages, $current_page + 3 );
-                        for ( $i = $start; $i <= $end; $i++ ) :
-                        ?>
-                            <a href="<?php echo esc_url( add_query_arg( 'log_page', $i, $base_url ) ); ?>"
-                               class="button <?php echo $i === $current_page ? 'button-primary' : ''; ?>">
-                                <?php echo $i; ?>
-                            </a>
-                        <?php endfor;
+			$args = array(
+				'page'     => 1,
+				'per_page' => 1000,
+				'type'     => isset( $_GET['type'] ) ? sanitize_text_field( wp_unslash( $_GET['type'] ) ) : '',
+				'date_from' => isset( $_GET['date_from'] ) ? sanitize_text_field( wp_unslash( $_GET['date_from'] ) ) : '',
+				'date_to'   => isset( $_GET['date_to'] ) ? sanitize_text_field( wp_unslash( $_GET['date_to'] ) ) : '',
+				'order'    => 'DESC',
+			);
 
-                        // Next
-                        if ( $current_page < $total_pages ) :
-                        ?>
-                            <a href="<?php echo esc_url( add_query_arg( 'log_page', $current_page + 1, $base_url ) ); ?>" class="button">›</a>
-                        <?php endif; ?>
-                    </div>
-                </div>
-                <?php endif; ?>
+			if ( 'csv' === $format ) {
+				self::export_csv( $args );
+			} else {
+				self::export_json( $args );
+			}
+			// export_* terminano con exit.
+		}
 
-            <?php endif; ?>
-        </div>
+		/**
+		 * Esporta in CSV. Streamming a chunks per gestire log grandi senza
+		 * caricare tutto in memoria.
+		 *
+		 * @param array $args
+		 * @return void
+		 */
+		private static function export_csv( $args ) {
+			$filename = 'dbcm-consent-log-' . gmdate( 'Y-m-d-His' ) . '.csv';
+			nocache_headers();
+			header( 'Content-Type: text/csv; charset=utf-8' );
+			header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
 
-        <!-- Info -->
-        <div class="scs-card">
-            <p style="font-size:12px;color:#64748b;margin:0;">
-                <?php printf(
-                    __( 'Conservazione: %d mesi. L\'IP viene salvato come hash irreversibile. Pulizia automatica giornaliera.', 'db-cookie-manager' ),
-                    DBCM_Settings::get( 'consent_log_retention' )
-                ); ?>
-            </p>
-        </div>
-        <?php
-    }
+			$out = fopen( 'php://output', 'w' );
+			// BOM UTF-8 per Excel.
+			fwrite( $out, "\xEF\xBB\xBF" );
+			fputcsv( $out, array( 'id', 'date', 'type', 'consent', 'ua_summary', 'ip_hash' ) );
 
-    /**
-     * Type label
-     */
-    private static function get_type_label( $type ) {
-        $labels = array(
-            'all'       => __( 'Accetta tutto', 'db-cookie-manager' ),
-            'necessary' => __( 'Solo necessari', 'db-cookie-manager' ),
-            'custom'    => __( 'Personalizzato', 'db-cookie-manager' ),
-        );
-        return isset( $labels[ $type ] ) ? $labels[ $type ] : $type;
-    }
+			$page = 1;
+			do {
+				$args['page'] = $page;
+				$rows = self::get_results( $args );
+				foreach ( $rows as $row ) {
+					fputcsv( $out, array(
+						$row->id,
+						$row->consent_date,
+						$row->consent_type,
+						$row->consent_data,
+						$row->ua_summary,
+						$row->ip_hash,
+					) );
+				}
+				++$page;
+			} while ( count( $rows ) === $args['per_page'] );
 
-    /**
-     * Type color
-     */
-    private static function get_type_color( $type ) {
-        $colors = array(
-            'all'       => '#22c55e',
-            'necessary' => '#ef4444',
-            'custom'    => '#3b82f6',
-        );
-        return isset( $colors[ $type ] ) ? $colors[ $type ] : '#94a3b8';
-    }
+			fclose( $out );
+			exit;
+		}
 
-    /**
-     * Simple user agent parser
-     */
-    private static function parse_user_agent( $ua ) {
-        if ( empty( $ua ) ) return '—';
+		/**
+		 * Esporta in JSON. Stesso pattern a chunks ma costruisce un array,
+		 * dato che JSON non si può streammare riga-per-riga in modo standard
+		 * senza usare format ad-hoc tipo NDJSON.
+		 *
+		 * @param array $args
+		 * @return void
+		 */
+		private static function export_json( $args ) {
+			$filename = 'dbcm-consent-log-' . gmdate( 'Y-m-d-His' ) . '.json';
+			nocache_headers();
+			header( 'Content-Type: application/json; charset=utf-8' );
+			header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
 
-        if ( stripos( $ua, 'Chrome' ) !== false && stripos( $ua, 'Edg' ) !== false ) {
-            return 'Edge';
-        }
-        if ( stripos( $ua, 'Chrome' ) !== false && stripos( $ua, 'Safari' ) !== false ) {
-            return 'Chrome';
-        }
-        if ( stripos( $ua, 'Firefox' ) !== false ) {
-            return 'Firefox';
-        }
-        if ( stripos( $ua, 'Safari' ) !== false && stripos( $ua, 'Chrome' ) === false ) {
-            return 'Safari';
-        }
-        if ( stripos( $ua, 'MSIE' ) !== false || stripos( $ua, 'Trident' ) !== false ) {
-            return 'IE';
-        }
+			$collected = array();
+			$page = 1;
+			do {
+				$args['page'] = $page;
+				$rows = self::get_results( $args );
+				foreach ( $rows as $row ) {
+					// consent_data è un JSON: lo decodifichiamo per
+					// produrre un export "navigabile" invece di una
+					// stringa annidata.
+					$decoded = json_decode( (string) $row->consent_data, true );
+					$collected[] = array(
+						'id'           => (int) $row->id,
+						'date'         => $row->consent_date,
+						'type'         => $row->consent_type,
+						'consent'      => is_array( $decoded ) ? $decoded : null,
+						'ua_summary'   => $row->ua_summary,
+						'ip_hash'      => $row->ip_hash,
+					);
+				}
+				++$page;
+			} while ( count( $rows ) === $args['per_page'] );
 
-        // Mobile detection
-        if ( stripos( $ua, 'Mobile' ) !== false ) {
-            return 'Mobile';
-        }
+			$envelope = array(
+				'exported_at'    => gmdate( 'c' ),
+				'plugin_version' => DBCM_VERSION,
+				'schema'         => self::SCHEMA_VERSION,
+				'count'          => count( $collected ),
+				'records'        => $collected,
+			);
 
-        return 'Altro';
-    }
+			echo wp_json_encode( $envelope, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE );
+			exit;
+		}
+
+		/**
+		 * URL pronto per un export, con nonce. Userà quello la pagina admin.
+		 *
+		 * @param string $format 'csv' | 'json'
+		 * @param array  $args   Filtri opzionali (type, date_from, date_to)
+		 * @return string
+		 */
+		public static function export_url( $format = 'csv', $args = array() ) {
+			$base = add_query_arg(
+				array_filter( array(
+					'page'        => 'dbcm-consent-log',
+					'dbcm_export' => $format,
+					'type'        => $args['type'] ?? '',
+					'date_from'   => $args['date_from'] ?? '',
+					'date_to'     => $args['date_to'] ?? '',
+				) ),
+				admin_url( 'admin.php' )
+			);
+			return wp_nonce_url( $base, 'dbcm_export_log' );
+		}
+	}
 }

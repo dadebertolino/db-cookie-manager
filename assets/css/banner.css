@@ -1,512 +1,249 @@
 /**
- * DB Cookie Manager - Banner Styles
+ * DB Cookie Manager — Banner frontend CSS
  *
- * @package db-cookie-manager
+ * Filosofia:
+ *  - Prefix .dbcm- per evitare conflitti con tema e altri plugin.
+ *  - Self-contained: niente Tailwind, niente Bootstrap, niente CDN.
+ *  - Variabili --dbcm-* dentro #dbcm-banner-root → temizzabili dall'admin.
+ *  - Accessibile: focus-visible 3px, target 44×44, contrast WCAG AA, reduced-motion.
  */
 
-/* ========================================
-   Reset & Variables (dark theme default)
-   ======================================== */
-#dbcm-banner-wrap,
-#dbcm-reopen-wrap {
-    --dbcm-bg: #1e293b;
-    --dbcm-text: #f8fafc;
-    --dbcm-btn: #2563eb;
-    --dbcm-btn-text: #ffffff;
-    --dbcm-radius: 8px;
-    --dbcm-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --dbcm-transition: 0.2s ease;
-    --dbcm-border: rgba(255, 255, 255, 0.15);
-    --dbcm-muted: rgba(255, 255, 255, 0.6);
-    --dbcm-hover: rgba(255, 255, 255, 0.1);
-    --dbcm-cat-divider: rgba(255, 255, 255, 0.06);
-    --dbcm-always-on-bg: rgba(34, 197, 94, 0.15);
-    --dbcm-always-on-text: #4ade80;
-    --dbcm-toggle-off: rgba(255, 255, 255, 0.18);
-    --dbcm-toggle-disabled: #22c55e;
+/* =========================================================================
+ * Variabili (default light theme — sovrascrivibili da [data-theme="dark"])
+ * ========================================================================= */
+#dbcm-banner-root {
+    --dbcm-bg:        #ffffff;
+    --dbcm-text:      #1d2327;
+    --dbcm-muted:     #646970;
+    --dbcm-border:    #dcdcde;
+    --dbcm-primary:   #2271b1;
+    --dbcm-primary-h: #135e96;
+    --dbcm-on-primary: #ffffff;
+    --dbcm-radius:    10px;
+    --dbcm-shadow:    0 8px 30px rgba(0, 0, 0, .15);
+    --dbcm-z:         99999;
 
-    font-family: var(--dbcm-font);
-    line-height: 1.6;
-    box-sizing: border-box;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+    color: var(--dbcm-text);
+    line-height: 1.5;
 }
 
-/* Light theme overrides */
-#dbcm-banner-wrap.dbcm-theme-light,
-#dbcm-reopen-wrap.dbcm-theme-light {
-    --dbcm-border: rgba(0, 0, 0, 0.12);
-    --dbcm-muted: rgba(0, 0, 0, 0.55);
-    --dbcm-hover: rgba(0, 0, 0, 0.06);
-    --dbcm-cat-divider: rgba(0, 0, 0, 0.06);
-    --dbcm-always-on-bg: rgba(34, 197, 94, 0.1);
-    --dbcm-always-on-text: #16a34a;
-    --dbcm-toggle-off: rgba(0, 0, 0, 0.15);
-    --dbcm-toggle-disabled: #22c55e;
+#dbcm-banner-root[data-theme="dark"] {
+    --dbcm-bg:     #1d2327;
+    --dbcm-text:   #f0f0f1;
+    --dbcm-muted:  #a7aaad;
+    --dbcm-border: #3c434a;
 }
 
-#dbcm-banner-wrap *,
-#dbcm-reopen-wrap * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-}
-
-body.dbcm-no-scroll {
-    overflow: hidden;
-}
-
-/* ========================================
-   Focus styles (accessibility)
-   ======================================== */
-#dbcm-banner-wrap :focus-visible,
-#dbcm-reopen-wrap :focus-visible {
-    outline: 2px solid var(--dbcm-btn);
-    outline-offset: 2px;
-}
-
-/* ========================================
-   Overlay
-   ======================================== */
-.dbcm-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.45);
-    z-index: 999998;
-    animation: dbcm-fade-in 0.25s ease;
-}
-
-/* ========================================
-   Banner - Common
-   ======================================== */
+/* =========================================================================
+ * Banner principale
+ * ========================================================================= */
 .dbcm-banner {
     position: fixed;
-    z-index: 999999;
-    color: var(--dbcm-text);
-    animation: dbcm-slide-in 0.3s ease;
-}
-
-.dbcm-banner__inner {
+    z-index: var(--dbcm-z);
     background: var(--dbcm-bg);
-    padding: 24px 28px;
-    display: flex;
-    align-items: flex-start;
-    gap: 28px;
-    border-top: 1px solid var(--dbcm-border);
+    color: var(--dbcm-text);
+    border: 1px solid var(--dbcm-border);
+    border-radius: var(--dbcm-radius);
+    box-shadow: var(--dbcm-shadow);
+    padding: 20px 22px;
+    max-width: 460px;
+    width: calc(100% - 32px);
+    box-sizing: border-box;
+    animation: dbcm-slide-in .3s ease-out;
 }
 
-.dbcm-banner__content {
-    flex: 1;
-    min-width: 0;
+/* Posizioni (layout=box) */
+.dbcm-banner--bottom-right  { bottom: 20px; right: 20px; }
+.dbcm-banner--bottom-left   { bottom: 20px; left: 20px; }
+.dbcm-banner--bottom-center { bottom: 20px; left: 50%; transform: translateX(-50%); }
+
+/* Layout=bar — banner full-width attaccato in basso */
+.dbcm-banner--bar {
+    max-width: none;
+    width: 100%;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
 }
 
 .dbcm-banner__title {
-    font-size: 16px;
-    font-weight: 600;
-    margin-bottom: 6px;
-    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.3;
 }
 
-.dbcm-banner__desc {
+.dbcm-banner__msg {
+    margin: 0 0 14px;
     font-size: 14px;
     color: var(--dbcm-muted);
-    line-height: 1.6;
 }
 
-.dbcm-banner__policy-link {
-    color: inherit;
+.dbcm-banner__policy {
+    margin: 0 0 14px;
+    font-size: 13px;
+}
+.dbcm-banner__policy a {
+    color: var(--dbcm-primary);
     text-decoration: underline;
-    text-underline-offset: 2px;
-    font-weight: 500;
 }
-
-.dbcm-banner__policy-link:hover,
-.dbcm-banner__policy-link:focus-visible {
-    color: var(--dbcm-text);
-}
+.dbcm-banner__policy a:hover { color: var(--dbcm-primary-h); }
 
 .dbcm-banner__actions {
     display: flex;
-    gap: 10px;
-    flex-shrink: 0;
-    align-items: center;
-}
-
-/* ========================================
-   Banner - Bar
-   ======================================== */
-.dbcm-banner--bar {
-    left: 0;
-    right: 0;
-}
-
-.dbcm-banner--bar.dbcm-banner--bottom {
-    bottom: 0;
-}
-
-.dbcm-banner--bar.dbcm-banner--top {
-    top: 0;
-}
-
-.dbcm-banner--bar .dbcm-banner__inner {
-    border-radius: 0;
-    flex-direction: row;
     flex-wrap: wrap;
-    align-items: center;
-    padding: 16px 28px;
-    gap: 20px;
-}
-
-.dbcm-banner--bar .dbcm-banner__content {
-    flex: 1 1 300px;
-    min-width: 0;
-}
-
-.dbcm-banner--bar .dbcm-banner__title {
-    font-size: 15px;
-    margin-bottom: 2px;
-}
-
-.dbcm-banner--bar .dbcm-banner__desc {
-    font-size: 13px;
-}
-
-.dbcm-banner--bar .dbcm-banner__actions {
-    flex-direction: row;
-    flex-wrap: nowrap;
-    flex-shrink: 0;
-}
-
-.dbcm-banner--bar .dbcm-banner__credits {
-    flex-basis: 100%;
-    padding-top: 10px;
-    margin-top: 0;
-}
-
-/* ========================================
-   Banner - Card
-   ======================================== */
-.dbcm-banner--card {
-    max-width: 460px;
-    margin: 20px;
-}
-
-.dbcm-banner--card.dbcm-banner--bottom {
-    bottom: 0;
-    left: 0;
-}
-
-.dbcm-banner--card.dbcm-banner--top {
-    top: 0;
-    left: 0;
-}
-
-.dbcm-banner--card .dbcm-banner__inner {
-    border-radius: var(--dbcm-radius);
-    border: 1px solid var(--dbcm-border);
-    flex-direction: column;
-    align-items: stretch;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
-    gap: 20px;
-}
-
-.dbcm-banner--card .dbcm-banner__actions {
-    flex-direction: column;
     gap: 8px;
+    justify-content: flex-end;
 }
 
-/* ========================================
-   Banner - Fullscreen
-   ======================================== */
-.dbcm-banner--fullscreen {
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-}
-
-.dbcm-banner--fullscreen .dbcm-banner__inner {
-    max-width: 540px;
-    width: 100%;
-    border-radius: var(--dbcm-radius);
-    border: 1px solid var(--dbcm-border);
-    flex-direction: column;
-    align-items: stretch;
-    text-align: center;
-    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.2);
-    gap: 20px;
-}
-
-.dbcm-banner--fullscreen .dbcm-banner__actions {
-    justify-content: center;
-    flex-wrap: wrap;
-}
-
-/* ========================================
-   Buttons
-   ======================================== */
+/* =========================================================================
+ * Bottoni
+ * ========================================================================= */
 .dbcm-btn {
-    padding: 11px 28px;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background var(--dbcm-transition), opacity var(--dbcm-transition);
-    white-space: nowrap;
-    font-family: var(--dbcm-font);
-    line-height: 1.4;
-    text-align: center;
-}
-
-.dbcm-btn:active {
-    transform: scale(0.98);
-}
-
-/* Accetta tutto */
-.dbcm-btn--accept {
-    background: var(--dbcm-btn);
-    color: var(--dbcm-btn-text);
-}
-
-.dbcm-btn--accept:hover {
-    opacity: 0.9;
-}
-
-/* Solo necessari */
-.dbcm-btn--reject {
-    background: var(--dbcm-hover);
-    color: var(--dbcm-text);
-    border: 1px solid var(--dbcm-border);
-}
-
-.dbcm-btn--reject:hover {
-    background: var(--dbcm-hover);
-    opacity: 0.85;
-}
-
-/* Personalizza */
-.dbcm-btn--customize {
-    background: transparent;
-    color: var(--dbcm-muted);
-    padding: 11px 20px;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-}
-
-.dbcm-btn--customize:hover {
-    color: var(--dbcm-text);
-}
-
-/* ========================================
-   Details Panel
-   ======================================== */
-.dbcm-details {
-    position: fixed;
-    inset: 0;
-    z-index: 1000000;
-    display: none;
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 20px;
-}
-
-.dbcm-details.is-open {
-    display: flex;
-    animation: dbcm-fade-in 0.2s ease;
-}
-
-.dbcm-details__inner {
+    min-height: 44px;          /* WCAG touch target */
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--dbcm-border);
     background: var(--dbcm-bg);
     color: var(--dbcm-text);
-    border-radius: var(--dbcm-radius);
-    border: 1px solid var(--dbcm-border);
-    max-width: 580px;
-    width: 100%;
-    max-height: 80vh;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.25);
-}
-
-.dbcm-details__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20px 24px;
-    border-bottom: 1px solid var(--dbcm-border);
-    flex-shrink: 0;
-}
-
-.dbcm-details__title {
-    font-size: 17px;
-    font-weight: 600;
-    color: var(--dbcm-text);
-}
-
-.dbcm-details__close {
-    background: none;
-    border: none;
-    color: var(--dbcm-muted);
-    font-size: 18px;
-    cursor: pointer;
-    padding: 6px 10px;
-    border-radius: 4px;
-    transition: color var(--dbcm-transition), background var(--dbcm-transition);
+    font-size: 14px;
+    font-weight: 500;
     line-height: 1;
+    cursor: pointer;
+    transition: background .15s, border-color .15s, transform .15s;
+    font-family: inherit;
+}
+.dbcm-btn:hover {
+    background: var(--dbcm-border);
+}
+.dbcm-btn:active {
+    transform: translateY(1px);
+}
+.dbcm-btn:focus-visible {
+    outline: 3px solid var(--dbcm-primary);
+    outline-offset: 2px;
 }
 
-.dbcm-details__close:hover {
+.dbcm-btn--primary {
+    background: var(--dbcm-primary);
+    border-color: var(--dbcm-primary);
+    color: var(--dbcm-on-primary);
+}
+.dbcm-btn--primary:hover {
+    background: var(--dbcm-primary-h);
+    border-color: var(--dbcm-primary-h);
+}
+
+.dbcm-btn--secondary {
+    background: transparent;
+    border-color: var(--dbcm-border);
     color: var(--dbcm-text);
-    background: var(--dbcm-hover);
 }
 
-.dbcm-details__body {
+.dbcm-btn--ghost {
+    background: transparent;
+    border-color: transparent;
+    color: var(--dbcm-primary);
+    text-decoration: underline;
+}
+.dbcm-btn--ghost:hover {
+    background: transparent;
+    color: var(--dbcm-primary-h);
+}
+
+/* =========================================================================
+ * Overlay
+ * ========================================================================= */
+.dbcm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .55);
+    z-index: calc(var(--dbcm-z) - 1);
+    animation: dbcm-fade-in .2s ease-out;
+}
+
+/* =========================================================================
+ * Modal preferenze (vista espansa)
+ * ========================================================================= */
+.dbcm-banner--preferences {
+    bottom: auto;
+    right: auto;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 560px;
+    max-height: 85vh;
     overflow-y: auto;
-    flex: 1;
 }
 
-/* Category blocks */
-.dbcm-details__cat {
-    border-bottom: 1px solid var(--dbcm-cat-divider);
+.dbcm-pref__list {
+    margin: 16px 0;
+    border-top: 1px solid var(--dbcm-border);
 }
 
-.dbcm-details__cat:last-child {
-    border-bottom: none;
-}
-
-.dbcm-details__cat-header {
+.dbcm-pref__row {
     display: flex;
-    justify-content: space-between;
     align-items: flex-start;
-    padding: 18px 24px;
-    gap: 20px;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--dbcm-border);
+}
+.dbcm-pref__row--locked .dbcm-pref__info {
+    opacity: .85;
 }
 
-.dbcm-details__cat-info {
-    flex: 1;
+.dbcm-pref__info {
+    flex: 1 1 auto;
     min-width: 0;
 }
 
-.dbcm-details__cat-title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
+.dbcm-pref__label {
+    font-size: 14px;
     font-weight: 600;
-    font-size: 15px;
-    flex-wrap: wrap;
+    margin-bottom: 4px;
 }
 
-.dbcm-details__always-on {
-    font-size: 11px;
-    font-weight: 500;
-    background: var(--dbcm-always-on-bg);
-    color: var(--dbcm-always-on-text);
-    padding: 2px 10px;
-    border-radius: 4px;
-    letter-spacing: 0.01em;
-}
-
-.dbcm-details__expand {
-    font-size: 12px;
-    color: var(--dbcm-muted);
-    cursor: pointer;
-    font-weight: 400;
-    background: none;
-    border: none;
-    padding: 0;
-    font-family: var(--dbcm-font);
-}
-
-.dbcm-details__expand:hover {
-    color: var(--dbcm-text);
-}
-
-.dbcm-details__cat-desc {
+.dbcm-pref__desc {
     font-size: 13px;
     color: var(--dbcm-muted);
-    margin-top: 6px;
-    line-height: 1.55;
+    line-height: 1.5;
 }
 
-/* Cookie table (collapsible) */
-.dbcm-details__cookies {
-    display: none;
-    padding: 0 24px 16px;
-}
-
-.dbcm-details__cookies.is-open {
-    display: block;
-}
-
-.dbcm-details__table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-}
-
-.dbcm-details__table th {
-    text-align: left;
-    padding: 8px 10px;
-    color: var(--dbcm-muted);
-    font-weight: 500;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    border-bottom: 1px solid var(--dbcm-border);
-}
-
-.dbcm-details__table td {
-    padding: 7px 10px;
-    border-bottom: 1px solid var(--dbcm-cat-divider);
-    font-size: 12px;
-}
-
-.dbcm-details__cookie-name {
-    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-    font-size: 11px;
-    color: var(--dbcm-btn);
-}
-
-.dbcm-details__footer {
-    display: flex;
-    gap: 10px;
-    padding: 18px 24px;
-    border-top: 1px solid var(--dbcm-border);
-    justify-content: flex-end;
-    flex-shrink: 0;
-}
-
-/* ========================================
-   Toggle Switch
-   ======================================== */
+/* =========================================================================
+ * Toggle switch
+ * ========================================================================= */
 .dbcm-toggle {
     position: relative;
     display: inline-block;
     width: 44px;
     height: 24px;
-    flex-shrink: 0;
+    flex: 0 0 auto;
     cursor: pointer;
+    margin-top: 2px;
 }
-
 .dbcm-toggle__input {
     opacity: 0;
     width: 0;
     height: 0;
     position: absolute;
 }
-
 .dbcm-toggle__slider {
     position: absolute;
     inset: 0;
-    background: var(--dbcm-toggle-off);
+    background: var(--dbcm-border);
     border-radius: 24px;
-    transition: background var(--dbcm-transition);
+    transition: background .2s;
 }
-
 .dbcm-toggle__slider::before {
-    content: '';
+    content: "";
     position: absolute;
     width: 18px;
     height: 18px;
@@ -514,218 +251,247 @@ body.dbcm-no-scroll {
     top: 3px;
     background: #fff;
     border-radius: 50%;
-    transition: transform var(--dbcm-transition);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    transition: transform .2s;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .2);
 }
-
 .dbcm-toggle__input:checked + .dbcm-toggle__slider {
-    background: var(--dbcm-btn);
+    background: var(--dbcm-primary);
 }
-
 .dbcm-toggle__input:checked + .dbcm-toggle__slider::before {
     transform: translateX(20px);
 }
-
-.dbcm-toggle__input:disabled + .dbcm-toggle__slider {
-    cursor: not-allowed;
-}
-
-.dbcm-toggle__input:disabled:checked + .dbcm-toggle__slider {
-    background: var(--dbcm-toggle-disabled);
-    opacity: 0.7;
-}
-
 .dbcm-toggle__input:focus-visible + .dbcm-toggle__slider {
-    outline: 2px solid var(--dbcm-btn);
+    outline: 3px solid var(--dbcm-primary);
     outline-offset: 2px;
 }
 
-/* ========================================
-   Reopen Button
-   ======================================== */
+/* Toggle locked (functional) — sempre on, non interattivo */
+.dbcm-toggle--locked {
+    cursor: not-allowed;
+    opacity: .65;
+}
+.dbcm-toggle__slider--on {
+    background: var(--dbcm-primary);
+}
+.dbcm-toggle--locked .dbcm-toggle__slider::before {
+    transform: translateX(20px);
+}
+
+/* =========================================================================
+ * Pulsante "Riapri preferenze" flottante
+ * ========================================================================= */
 .dbcm-reopen {
     position: fixed;
-    z-index: 999997;
-    width: 42px;
-    height: 42px;
+    z-index: var(--dbcm-z);
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     border: 1px solid var(--dbcm-border);
     background: var(--dbcm-bg);
     color: var(--dbcm-text);
-    font-size: 19px;
+    font-size: 22px;
     cursor: pointer;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
-    transition: box-shadow var(--dbcm-transition), transform var(--dbcm-transition);
-    display: flex;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .15);
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    line-height: 1;
+    transition: transform .15s, box-shadow .15s;
 }
-
 .dbcm-reopen:hover {
     transform: scale(1.05);
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .2);
+}
+.dbcm-reopen:focus-visible {
+    outline: 3px solid var(--dbcm-primary);
+    outline-offset: 2px;
 }
 
-.dbcm-reopen--bottom-left {
-    bottom: 20px;
-    left: 20px;
-}
+.dbcm-reopen--bottom-left   { bottom: 20px; left: 20px; }
+.dbcm-reopen--bottom-right  { bottom: 20px; right: 20px; }
+.dbcm-reopen--top-left      { top: 20px; left: 20px; }
+.dbcm-reopen--top-right     { top: 20px; right: 20px; }
 
-.dbcm-reopen--bottom-right {
-    bottom: 20px;
-    right: 20px;
-}
-
-/* ========================================
-   Credits
-   ======================================== */
-.dbcm-banner__credits {
-    width: 100%;
-    text-align: center;
-    padding-top: 12px;
-    margin-top: 4px;
-    border-top: 1px solid var(--dbcm-cat-divider);
-}
-
-.dbcm-banner__credits-link {
-    font-size: 11px;
-    color: var(--dbcm-muted);
-    text-decoration: none;
-    opacity: 0.6;
-    transition: opacity var(--dbcm-transition);
-}
-
-.dbcm-banner__credits-link:hover {
-    opacity: 1;
-    color: var(--dbcm-text);
-}
-
-/* ========================================
-   Iframe Placeholder (blocked content)
-   ======================================== */
+/* =========================================================================
+ * Iframe placeholder (sostituisce gli iframe bloccati)
+ *
+ * Nota: i placeholder vivono inline nel content del sito, FUORI dal
+ * #dbcm-banner-root. Quindi non possono usare le --dbcm-* scoped.
+ * Stilizzo con valori diretti, leggibili e neutri.
+ * ========================================================================= */
 .dbcm-iframe-placeholder {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #f1f5f9;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    overflow: hidden;
-    font-family: system-ui, -apple-system, sans-serif;
+    background: #f6f7f7;
+    color: #1d2327;
+    border: 1px dashed #c3c4c7;
+    border-radius: 10px;
+    box-sizing: border-box;
+    padding: 16px;
+    text-align: center;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+    line-height: 1.5;
 }
 
 .dbcm-iframe-placeholder__inner {
-    text-align: center;
-    padding: 32px 24px;
-    max-width: 400px;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
 }
 
 .dbcm-iframe-placeholder__text {
+    margin: 0;
     font-size: 14px;
-    color: #475569;
-    line-height: 1.5;
-    margin: 0 0 16px;
+    color: #646970;
 }
 
 .dbcm-iframe-placeholder__btn {
-    padding: 10px 24px;
-    border: none;
+    min-height: 44px;
+    padding: 8px 16px;
     border-radius: 6px;
+    border: 1px solid #2271b1;
+    background: #2271b1;
+    color: #ffffff;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
-    background: #2563eb;
-    color: #fff;
+    transition: background .15s, border-color .15s;
     font-family: inherit;
-    transition: opacity 0.2s ease;
 }
-
 .dbcm-iframe-placeholder__btn:hover {
-    opacity: 0.9;
+    background: #135e96;
+    border-color: #135e96;
 }
-
-/* ========================================
-   Animations
-   ======================================== */
-@keyframes dbcm-fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-@keyframes dbcm-slide-in {
-    from {
-        opacity: 0;
-        transform: translateY(12px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+.dbcm-iframe-placeholder__btn:focus-visible {
+    outline: 3px solid #2271b1;
+    outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .dbcm-iframe-placeholder__btn { transition: none; }
+}
+@media (forced-colors: active) {
+    .dbcm-iframe-placeholder { border: 1px dashed CanvasText; }
+    .dbcm-iframe-placeholder__btn { border: 1px solid CanvasText; }
+}
+
+/* =========================================================================
+ * Shortcode [dbcm_preferences] — pulsante "Modifica preferenze"
+ *
+ * Vive ovunque nel content del sito (footer, pagine, widget) → fuori da
+ * #dbcm-banner-root. Stile neutro WP-coerente, override-friendly.
+ * ========================================================================= */
+.dbcm-prefs-btn {
+    display: inline-block;
+    min-height: 44px;
+    padding: 8px 18px;
+    border-radius: 6px;
+    border: 1px solid #2271b1;
+    background: #2271b1;
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    line-height: 1.4;
+    font-family: inherit;
+    transition: background .15s, border-color .15s;
+}
+.dbcm-prefs-btn:hover {
+    background: #135e96;
+    border-color: #135e96;
+    color: #ffffff;
+}
+.dbcm-prefs-btn:focus-visible {
+    outline: 3px solid #2271b1;
+    outline-offset: 2px;
+}
+
+.dbcm-prefs-link {
+    color: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+.dbcm-prefs-link:hover {
+    text-decoration: none;
+}
+.dbcm-prefs-link:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dbcm-prefs-btn { transition: none; }
+}
+@media (forced-colors: active) {
+    .dbcm-prefs-btn { border: 1px solid CanvasText; }
+}
+
+/* =========================================================================
+ * Animations
+ * ========================================================================= */
+@keyframes dbcm-slide-in {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.dbcm-banner--bottom-center { animation: none; } /* l'animazione interferisce col translateX */
+
+@keyframes dbcm-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* =========================================================================
+ * Responsive
+ * ========================================================================= */
+@media (max-width: 600px) {
+    .dbcm-banner--bottom-right,
+    .dbcm-banner--bottom-left,
+    .dbcm-banner--bottom-center {
+        left: 16px;
+        right: 16px;
+        width: auto;
+        max-width: none;
+        transform: none;
+    }
+    .dbcm-banner--preferences {
+        left: 16px;
+        right: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: auto;
+        max-width: none;
+    }
+    .dbcm-banner__actions { gap: 6px; }
+    .dbcm-banner__actions .dbcm-btn { flex: 1 1 auto; }
+}
+
+/* =========================================================================
+ * Reduced motion / forced colors
+ * ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
     .dbcm-banner,
     .dbcm-overlay,
-    .dbcm-details.is-open {
-        animation: none;
-    }
-
     .dbcm-toggle__slider,
     .dbcm-toggle__slider::before,
     .dbcm-btn,
-    .dbcm-reopen,
-    .dbcm-details__close {
-        transition: none;
+    .dbcm-reopen {
+        animation: none !important;
+        transition: none !important;
     }
 }
 
-/* ========================================
-   Mobile
-   ======================================== */
-@media (max-width: 767px) {
-    .dbcm-banner--bar .dbcm-banner__inner {
-        flex-direction: column;
-        align-items: stretch;
-        padding: 20px;
-        gap: 16px;
+@media (forced-colors: active) {
+    .dbcm-banner,
+    .dbcm-btn,
+    .dbcm-pref__row,
+    .dbcm-toggle__slider,
+    .dbcm-reopen {
+        border: 1px solid CanvasText;
     }
-
-    .dbcm-banner--bar .dbcm-banner__actions {
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .dbcm-banner--card {
-        max-width: none;
-        left: 10px;
-        right: 10px;
-        margin: 10px;
-    }
-
-    .dbcm-details__inner {
-        max-height: 88vh;
-    }
-
-    .dbcm-details__header,
-    .dbcm-details__footer {
-        padding: 16px 20px;
-    }
-
-    .dbcm-details__cat-header {
-        padding: 16px 20px;
-    }
-
-    .dbcm-details__cookies {
-        padding: 0 20px 14px;
-    }
-
-    .dbcm-details__footer {
-        flex-direction: column;
-    }
-
-    .dbcm-btn {
-        width: 100%;
-        padding: 13px 28px;
+    .dbcm-toggle__input:checked + .dbcm-toggle__slider {
+        background: Highlight;
     }
 }

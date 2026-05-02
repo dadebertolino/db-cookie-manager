@@ -1,181 +1,596 @@
 # DB Cookie Manager
 
-[![WordPress](https://img.shields.io/badge/WordPress-5.9%2B-blue.svg)](https://wordpress.org/)
-[![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple.svg)](https://php.net/)
-[![License](https://img.shields.io/badge/License-GPL%20v2-green.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
-[![Version](https://img.shields.io/badge/Version-2.0.1-orange.svg)](https://github.com/davidebertolinoit/db-cookie-manager/releases)
+> 🇮🇹 **Italiano** | 🇬🇧 [English](#-english)
 
-Gestione completa dei cookie per WordPress: scansione automatica, banner GDPR con blocco preventivo, classificazione intelligente, generatore Cookie Policy e registro consensi.
+---
 
-Conforme alle linee guida del Garante Privacy italiano (giugno 2021) e al Regolamento (UE) 2016/679 (GDPR).
+## 🇮🇹 Italiano
 
-## Funzionalità
+**Plugin WordPress per la gestione GDPR-compliant dei cookie**, con banner multilingua, scanner automatico, registro consensi, generatore di Cookie Policy e integrazione nativa con la WP Consent API.
 
-### 🔍 Scansione automatica
-- Scansione asincrona delle pagine del sito (una alla volta, nessun timeout)
-- Rilevamento cookie da HTTP headers e script nel codice HTML
-- Database di 50+ cookie noti con classificazione automatica
-- Riconoscimento di Google Analytics, Facebook Pixel, Hotjar, YouTube, HubSpot, LinkedIn, TikTok e altri
+Sviluppato da **Davide Bertolino** per uso personale e professionale, rilasciato come open-source (GPL v2+).
 
-### 🍪 Banner cookie GDPR
-- Tre layout: barra, card floating, fullscreen
-- Tre bottoni: Accetta tutto, Solo necessari, Personalizza
-- Pannello dettagli con toggle per categoria (Necessari, Prestazioni, Analitici, Marketing)
-- Lista cookie per categoria con nome, fornitore e durata
-- Tema chiaro e scuro con colori personalizzabili
-- Icona riapertura preferenze (🍪) sempre visibile
-- Multilingua integrato (IT, EN, FR, DE, ES, PT) con rilevamento automatico della lingua del browser
+> **Integrazione con DB SEO Manager 1.2.0+**: se entrambi i plugin sono installati, la dashboard "Stato GDPR" del SEO Manager riconosce il Cookie Manager (bonus +5 al punteggio), il registro privacy mostra automaticamente i tre trattamenti del Cookie Manager con il badge "Plugin esterno", e l'audit homepage arricchisce ogni host noto con i cookie rilevati dallo scanner. Nessuna configurazione richiesta: l'integrazione è automatica e bidirezionale.
 
-### 🛡️ Blocco preventivo script
-- Blocca script di analisi e marketing prima del consenso
-- Due meccanismi: filtro `script_loader_tag` + output buffering
-- Attivazione dinamica senza ricaricare la pagina
-- Placeholder per iframe bloccati (YouTube, Vimeo, Google Maps) con bottone "Accetta e carica"
-- Pattern noti preconfigurati, estensibile
+---
 
-### 📋 Generatore Cookie Policy
-- Testo completo in italiano conforme al GDPR
-- Tabelle cookie per categoria con nome, fornitore, finalità e durata
-- Sezione Google Fonts e servizi esterni
-- Bottone "Copia HTML" per incollare nella pagina
-- Riferimenti normativi aggiornati
+### Caratteristiche principali
 
-### 📊 Registro consensi
-- Log anonimizzato di ogni consenso (hash SHA-256 dell'IP)
-- Filtri per tipo e periodo, paginazione
-- Statistiche: accetta tutto, solo necessari, personalizzato
-- Export CSV per Excel
-- Pulizia automatica configurabile (WP Cron)
+- **Banner cookie multilingua** (Italiano, English, Français, Deutsch, Español, Português) con auto-detect dalla lingua del browser
+- **5 categorie standard WP Consent API**: `functional`, `preferences`, `statistics`, `statistics-anonymous`, `marketing`
+- **Blocco preventivo** degli script di tracking (Google Analytics, Meta Pixel, GTM, TikTok, ecc.) e degli iframe (YouTube, Vimeo, Maps, Spotify, ecc.)
+- **Scanner automatico** che visita le pagine principali, parsa i `Set-Cookie` e rileva firme di servizi terzi — 64 cookie noti pre-classificati
+- **Cookie Policy generator** conforme alle Linee Guida del Garante 10 giugno 2021 (rif. art. 122 D.Lgs. 196/2003 + GDPR)
+- **Registro consensi GDPR-friendly** con IP hashato (irreversibile) e user-agent aggregato — export CSV e JSON con filtri
+- **API JavaScript pubblica** `window.DBCM` per integrazioni custom
+- **Integrazione WP Consent API**: `wp_has_consent('statistics')` risponde correttamente in base al consenso del visitatore
+- **Segnali browser opzionali**: rispetta Do Not Track (DNT) e Global Privacy Control (GPC)
+- **Geo-targeting opzionale**: mostra il banner solo a visitatori UE/EEA/UK
+- **Shortcode `[dbcm_preferences]`** per il pulsante "Modifica preferenze"
+- **Auto-aggiornamento da GitHub** via [DB GitHub Updater](https://github.com/dadebertolino/db-github-updater)
+- **Design system condiviso** con gli altri plugin DB (`db-admin-ui.css`)
+- **Disinstallazione pulita** via `uninstall.php`
 
-### ♿ Accessibilità
-- Attributi ARIA (`role="dialog"`, `aria-modal`, `aria-label`)
-- Focus trap nel pannello dettagli
-- Navigazione completa da tastiera (Tab, Escape)
-- Focus visibile su tutti gli elementi interattivi
-- Supporto `prefers-reduced-motion`
+---
 
-## Requisiti
+### Requisiti
 
-- WordPress 5.9+
-- PHP 7.4+
+| Componente          | Versione minima                                                              |
+| ------------------- | ---------------------------------------------------------------------------- |
+| WordPress           | 6.0+                                                                         |
+| PHP                 | 7.4+                                                                         |
+| WP Consent API      | *(opzionale)* — per integrazione automatica con altri plugin compatibili     |
 
-## Installazione
+---
 
-### Da GitHub (consigliato)
-1. Scarica l'ultima release da [Releases](https://github.com/dadebertolino/db-cookie-manager/releases)
-2. In WordPress vai in **Plugin → Aggiungi nuovo → Carica plugin**
-3. Seleziona il file ZIP e clicca **Installa ora**
-4. Attiva il plugin
+### Installazione
 
-### Manuale via FTP
-1. Scarica e decomprimi il file ZIP
-2. Carica la cartella `db-cookie-manager` in `wp-content/plugins/`
-3. Attiva il plugin dal pannello **Plugin**
+1. Scarica l'ultima release ZIP da [GitHub Releases](https://github.com/dadebertolino/db-cookie-manager/releases)
+2. WordPress admin → **Plugin → Aggiungi nuovo → Carica plugin** → seleziona lo ZIP → **Installa ora** → **Attiva**
+3. Vai a **Cookie Manager** nel menu sidebar
+4. Configura in ordine: **Banner & aspetto** → **Scanner** → **Cookie Policy** → **Avanzate**
 
-## Configurazione
+Gli aggiornamenti successivi arrivano automaticamente via GitHub Updater.
 
-Dopo l'attivazione, vai in **Strumenti → Cookie Manager**:
+---
 
-1. **Scansione** — Clicca "Avvia scansione" per rilevare i cookie del tuo sito
-2. **Risultati** — Verifica e riclassifica i cookie trovati
-3. **Impostazioni** — Configura aspetto, comportamento, testi e lingue del banner
-4. **Genera Policy** — Copia il testo della Cookie Policy nella pagina dedicata
-5. **Registro** — Monitora i consensi raccolti
+### Configurazione consigliata
 
-## Struttura del progetto
+**Per la maggior parte dei siti italiani:**
 
-```
-db-cookie-manager/
-├── db-cookie-manager.php          # File principale del plugin
-├── assets/
-│   ├── css/
-│   │   └── banner.css             # Stili del banner frontend
-│   └── js/
-│       └── banner.js              # Logica frontend (consent, toggle, blocker)
-├── inc/
-│   ├── class-admin.php            # Pagina admin (tab, form, risultati)
-│   ├── class-banner.php           # Rendering e asset del banner
-│   ├── class-blocker.php          # Blocco preventivo script e iframe
-│   ├── class-consent-log.php      # Registro consensi con export CSV
-│   ├── class-cookie-database.php  # Database cookie noti (50+)
-│   ├── class-policy-generator.php # Generatore testo Cookie Policy
-│   ├── class-scanner.php          # Scanner asincrono AJAX
-│   └── class-settings.php         # Impostazioni con multilingua
-├── README.md
-├── readme.txt                     # Formato WordPress.org
-└── LICENSE
+1. Banner: layout *"Riquadro flottante"*, posizione *"In basso a destra"*, tema *"Auto"*
+2. Default categorie: **tutte disattivate** (richiesto dal GDPR)
+3. Durata consenso: **180 giorni** (raccomandazione del Garante)
+4. Scanner: lancia almeno una scansione, poi rivedi i cookie marketing non noti
+5. Cookie Policy: crea la pagina automaticamente, poi compila `[NOME COMPLETO / RAGIONE SOCIALE]` e `[INDIRIZZO]`
+6. Avanzate: DNT/GPC **off** per consensi espliciti, **on** per massima privacy by default
+
+---
+
+### API JavaScript
+
+```js
+// Verifica consenso
+if (window.DBCM.hasConsent('statistics')) { loadGoogleAnalytics(); }
+
+// Reagisci ai cambi
+window.DBCM.onConsent(function(consent, type) {
+    console.log('Type:', type);       // 'accept_all' | 'reject_all' | 'custom'
+    console.log('Marketing:', consent.marketing);
+});
+
+// Apri il modal preferenze
+window.DBCM.openPreferences();
+
+// Imposta programmaticamente
+window.DBCM.setConsent('marketing', true);
+
+// Mappa completa (null se nessun consenso ancora dato)
+var consent = window.DBCM.getConsent();
+
+// Lista canonica delle 5 categorie
+console.log(window.DBCM.categories);
 ```
 
-## Categorie cookie
+Evento DOM alternativo:
 
-| Categoria | Descrizione | Consenso |
-|-----------|------------|----------|
-| **Necessari** | Cookie essenziali (sessione, CSRF, consenso) | Non richiesto |
-| **Prestazioni** | CDN, caching, load balancing (Cloudflare) | Richiesto |
-| **Analitici** | Misurazione traffico (Google Analytics, Hotjar) | Richiesto |
-| **Marketing** | Pubblicità e tracciamento (Facebook, YouTube) | Richiesto |
-
-## Hook e filtri
-
-Il plugin dispone di un evento JavaScript per integrazioni personalizzate:
-
-```javascript
-document.addEventListener('dbcm:consent', function(e) {
-    console.log(e.detail.type);    // 'all', 'necessary', 'custom'
-    console.log(e.detail.consent); // { necessary: true, performance: true, analytics: false, marketing: false }
+```js
+document.addEventListener('dbcm:consent', function(ev) {
+    var consent = ev.detail.consent;
+    var type    = ev.detail.type;
 });
 ```
 
-## FAQ
+---
 
-**Il plugin rallenta il sito?**
-No. La scansione è asincrona e avviene solo su richiesta. Il banner aggiunge un file CSS (~4KB) e un file JS (~8KB), entrambi caricati dal tuo server.
+### Hooks e filtri PHP
 
-**Funziona con i page builder?**
-Sì. Il plugin usa `wp_footer` e `wp_enqueue_scripts`, compatibili con qualsiasi tema e page builder.
+#### Banner
 
-**Come gestisce il blocco di Google Tag Manager?**
-Il plugin intercetta lo script di GTM e lo blocca cambiando `type="text/javascript"` in `type="text/plain"`. Quando l'utente dà il consenso, lo script viene riattivato senza ricaricare la pagina.
+| Hook                          | Tipo    | Note                                                      |
+| ----------------------------- | ------- | --------------------------------------------------------- |
+| `dbcm_should_render_banner`   | filter  | Default `true` — sopprimi il banner su pagine specifiche  |
+| `dbcm_banner_translations`    | filter  | Aggiungi/sovrascrivi traduzioni                           |
+| `dbcm_visitor_country_code`   | filter  | Fornisci il codice paese ISO-3166 alpha-2                 |
+| `dbcm_eu_country_codes`       | filter  | Personalizza la lista paesi UE/EEA per il geo-targeting   |
 
-**È compatibile con WPML/Polylang?**
-Il plugin ha un sistema multilingua integrato indipendente. Non richiede WPML o Polylang.
+#### Consent
 
-**Dove vengono salvati i dati?**
-Due tabelle nel database WordPress: `wp_dbcm_cookies` (risultati scansione) e `wp_dbcm_consent_log` (registro consensi). Le impostazioni sono in `wp_options`.
+| Hook                        | Tipo    | Note                                                         |
+| --------------------------- | ------- | ------------------------------------------------------------ |
+| `dbcm_consent_set`          | action  | Fired ad ogni cambio consenso — args: `$type, $consent`      |
+| `dbcm_consent_propagated`   | action  | Fired dopo la propagazione a `wp_set_consent()`              |
+| `dbcm_consent_type`         | filter  | Default `'optin'` — sovrascrivi il consent type WP API       |
 
-## Changelog
+#### Blocker
 
-### 2.0.1
-- Fix layout banner "barra": disposizione orizzontale su desktop (testo a sinistra, bottoni a destra)
-- Cookie WordPress core (wordpress_sec_*, wordpress_logged_in_*, wp-settings_*, wordpress_test_cookie) iniettati automaticamente nei risultati della scansione
-- Rilevamento Google Fonts alternativo via stili registrati WordPress e theme_mod (fallback per hosting con loopback bloccato)
-- Fix salvataggio impostazioni: i checkbox non vengono più azzerati salvando da un'altra sezione
-- Crediti "Powered by DB Cookie Manager" opzionali nel banner
-- Try-catch nell'init JS per debug errori
+| Hook                              | Tipo   | Note                                         |
+| --------------------------------- | ------ | -------------------------------------------- |
+| `dbcm_blocker_patterns`           | filter | Aggiungi/rimuovi pattern di blocco           |
+| `dbcm_blocker_placeholder_text`   | filter | Testo del placeholder iframe (multilingua)   |
+| `dbcm_blocker_placeholder_btn_label` | filter | Label del pulsante del placeholder        |
 
-### 2.0.0
-- Banner cookie frontend con 3 layout e tema chiaro/scuro
-- Blocco preventivo script con attivazione dinamica
-- Placeholder per iframe bloccati
-- Registro consensi con export CSV e pulizia automatica
-- Sistema multilingua integrato (6 lingue)
-- Categoria "Prestazioni" per cookie CDN/caching
-- Pagina impostazioni completa con anteprima colori live
-- Accessibilità WCAG: ARIA, focus trap, keyboard navigation, reduced motion
+#### Scanner
 
-### 1.0.0
-- Scansione asincrona AJAX
-- Database 50+ cookie noti
-- Classificazione automatica
-- Generatore Cookie Policy
-- Report con modifica manuale
+| Hook                            | Tipo   | Note                                             |
+| ------------------------------- | ------ | ------------------------------------------------ |
+| `dbcm_known_cookies`            | filter | Aggiungi cookie custom al database statico       |
+| `dbcm_scan_urls`                | filter | Personalizza le URL scansionate                  |
+| `dbcm_scanner_html_detections`  | filter | Aggiungi firme HTML di servizi terzi             |
 
-## Licenza
+#### Cookie Policy
 
-Questo plugin è rilasciato sotto licenza [GPL v2 or later](https://www.gnu.org/licenses/gpl-2.0.html).
+| Hook                      | Tipo   | Note                                                                                            |
+| ------------------------- | ------ | ----------------------------------------------------------------------------------------------- |
+| `dbcm_policy_sections`    | filter | Riordina/rimuovi sezioni                                                                        |
+| `dbcm_policy_html`        | filter | Modifica l'HTML finale                                                                          |
+| `dbcm_policy_section_*`   | filter | Modifica singole sezioni (`header`, `definitions`, `cookies`, `external`, `browser`, ecc.)     |
 
-## Autore
+#### Consent Log
 
-**Davide "The Prof." Bertolino**
-- Sito: [davidebertolino.it](https://www.davidebertolino.it)
-- GitHub: [davidebertolinoit](https://github.com/davidebertolinoit)
+| Hook                      | Tipo   | Note                                                               |
+| ------------------------- | ------ | ------------------------------------------------------------------ |
+| `dbcm_trust_proxy_headers`| filter | Default `false` — fidati di `X-Forwarded-For` e simili per l'IP   |
+
+---
+
+### API server-side per altri plugin
+
+#### `DBCM_Consent_API::has_consent($category)` _(dalla 3.0.0)_
+
+Helper unificato per leggere il consenso. Strategia a 3 livelli: `wp_has_consent()` se WP Consent API installata, altrimenti cookie diretto, altrimenti `false`.
+
+#### `DBCM_Scanner::get_cookies_by_provider_keyword($keyword, $limit = 50)` _(dalla 3.0.2)_
+
+Ricerca i cookie scansionati il cui campo `provider` contiene la keyword (LIKE substring, case-insensitive). Usato da DB SEO Manager 1.2.0+.
+
+```php
+if (class_exists('DBCM_Scanner')) {
+    $cookies = DBCM_Scanner::get_cookies_by_provider_keyword('Google Analytics');
+    foreach ($cookies as $c) {
+        echo $c->cookie_name . ' (' . $c->category . ')';
+    }
+}
+```
+
+---
+
+### Esempi pratici
+
+**Caricare Google Analytics solo dopo consenso `statistics`:**
+
+```php
+add_action('wp_footer', function() {
+    if (function_exists('wp_has_consent') && wp_has_consent('statistics')) { ?>
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXX"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-XXXXX');
+        </script>
+    <?php }
+});
+```
+
+**Sopprimere il banner su una landing page:**
+
+```php
+add_filter('dbcm_should_render_banner', function($render) {
+    if (is_page('landing-newsletter')) return false;
+    return $render;
+});
+```
+
+**Aggiungere un cookie custom allo scanner:**
+
+```php
+add_filter('dbcm_known_cookies', function($cookies) {
+    $cookies['my_app_session'] = [
+        'category'    => 'functional',
+        'description' => 'Sessione applicativa interna.',
+        'duration'    => 'Sessione',
+        'provider'    => 'My App',
+    ];
+    return $cookies;
+});
+```
+
+**Link "Modifica preferenze" nel footer:**
+
+```php
+echo do_shortcode('[dbcm_preferences label="Cookie" style="link"]');
+```
+
+---
+
+### FAQ
+
+**Il plugin è davvero conforme al GDPR?**
+Fornisce gli strumenti tecnici per la conformità. La conformità completa dipende dalla configurazione e dalle scelte editoriali. Una revisione da DPO o avvocato resta necessaria per rassicurazioni legali.
+
+**Posso usarlo con altri consent manager?**
+No — solo uno alla volta. Disattiva l'altro prima.
+
+**Funziona in multisite?**
+Sì. Ogni sito ha le proprie option e il proprio log. La disinstallazione è multisite-aware.
+
+**Il blocco preventivo rompe il mio sito?**
+Solo se il tema dipende esattamente da uno script di tracking bloccato (raro). Se hai problemi, disabilita "Blocco preventivo" nella pagina Scanner.
+
+**Come gestisce IPv6?**
+Hashing SHA256 dell'IP completo (v4 o v6) + salt site-specifico. Irreversibile in pratica.
+
+**Posso esportare il log per richieste GDPR?**
+Sì — **Registro consensi → Scarica CSV** o **Scarica JSON**, con filtri per tipo e data.
+
+---
+
+### Privacy
+
+Il plugin **non comunica con server esterni**. Niente telemetria, niente phone-home. L'unica connessione esterna è GitHub Updater per gli aggiornamenti del plugin.
+
+Cookie scritti dal plugin:
+
+| Cookie         | Categoria   | Durata                   | Scopo                          |
+| -------------- | ----------- | ------------------------ | ------------------------------ |
+| `dbcm_consent` | functional  | 365 giorni (configurabile) | Memorizza la scelta dell'utente |
+
+---
+
+### Changelog
+
+#### 3.0.2 — API pubblica scanner _(2026)_
+- Nuovo metodo pubblico `DBCM_Scanner::get_cookies_by_provider_keyword($keyword, $limit = 50)`
+- Sanitizzazione difensiva: keyword min 2 caratteri, solo alfanumerici + spazi/underscore/trattini, hard cap 200 righe
+
+#### 3.0.1 — Integrazione registro privacy SEO Manager _(2026)_
+- Nuovo modulo `DBCM_Privacy_Declarations`: dichiara automaticamente i tre trattamenti al registro privacy del DB SEO Manager 1.2.0+
+- Pattern dimostrativo per i futuri plugin DB
+
+#### 3.0.0 — Rebuild completo _(2026)_
+Riscrittura da zero, **non retrocompatibile** con 2.x. Svuotare le option (`dbcm_*`) e ricreare le tabelle.
+
+- Integrazione WP Consent API nativa
+- 5 categorie standard invece delle 4 custom 2.x
+- Blocker preventivo riallineato (Cloudflare CDN sbloccato, aggiunti TikTok/Pinterest/Bing UET/MS Clarity/Mixpanel/Heap/Amplitude/FullStory/GTM)
+- Consent log GDPR-friendly: UA aggregato, IP solo hashato, export JSON, schema versionato
+- Scanner: schema versionato, HTML detection allineata al blocker, injection automatica `dbcm_consent` nelle policy
+- Cookie database: 64 cookie noti, cookie unmatched → `marketing` safer-by-default
+- Policy generator: sezioni modulari filtrabili, riferimento Linee Guida Garante 2021
+- Admin UI completa: dashboard + 5 sottopagine, design system `db-admin-ui.css`
+- GitHub Updater integrato
+- `uninstall.php` con cleanup completo
+- Shortcode `[dbcm_preferences]`
+- DNT/GPC runtime opt-out automatico
+- Geo-targeting opzionale UE/EEA/UK
+
+#### 2.x e precedenti
+Vedi git tags. Versioni 2.x in modalità "manutenzione critica" fino a fine 2026.
+
+---
+
+### Licenza
+
+GPL v2 o successiva — vedi [LICENSE](LICENSE).
+
+### Crediti
+
+Sviluppato da [Davide Bertolino](https://davidebertolino.it). Design system `db-admin-ui.css` condiviso con la suite plugin DB. Riconoscimenti a [WP Consent API](https://wordpress.org/plugins/wp-consent-api/) per lo standard di interoperabilità.
+
+---
+---
+
+## 🇬🇧 English
+
+**WordPress plugin for GDPR-compliant cookie management**, with a multilingual banner, automatic scanner, consent log, Cookie Policy generator, and native WP Consent API integration.
+
+Developed by **Davide Bertolino** for personal and professional use, released as open-source (GPL v2+).
+
+> **Integration with DB SEO Manager 1.2.0+**: when both plugins are installed, the SEO Manager's "GDPR Status" dashboard recognises Cookie Manager (bonus +5 to score), the privacy register automatically shows the three Cookie Manager treatments with an "External Plugin" badge, and the homepage audit enriches each known host with cookies actually detected by the scanner. No configuration required: the integration is automatic and bidirectional.
+
+---
+
+### Main Features
+
+- **Multilingual cookie banner** (Italian, English, French, German, Spanish, Portuguese) with auto-detect from browser language
+- **5 standard WP Consent API categories**: `functional`, `preferences`, `statistics`, `statistics-anonymous`, `marketing`
+- **Preventive blocking** of tracking scripts (Google Analytics, Meta Pixel, GTM, TikTok, etc.) and iframes (YouTube, Vimeo, Maps, Spotify, etc.)
+- **Automatic scanner** that visits main pages, parses `Set-Cookie` headers and detects third-party service signatures — 64 pre-classified known cookies
+- **Cookie Policy generator** compliant with the Italian DPA Guidelines of 10 June 2021 (ref. art. 122 D.Lgs. 196/2003 + GDPR)
+- **GDPR-friendly consent log** with hashed (irreversible) IP and aggregated user-agent — CSV and JSON export with filters
+- **Public JavaScript API** `window.DBCM` for custom integrations
+- **WP Consent API integration**: `wp_has_consent('statistics')` responds correctly based on visitor consent
+- **Optional browser signals**: respects Do Not Track (DNT) and Global Privacy Control (GPC)
+- **Optional geo-targeting**: shows banner only to EU/EEA/UK visitors
+- **Shortcode `[dbcm_preferences]`** for a "Manage preferences" button anywhere
+- **Auto-update from GitHub** via [DB GitHub Updater](https://github.com/dadebertolino/db-github-updater)
+- **Shared design system** with other DB plugins (`db-admin-ui.css`)
+- **Clean uninstall** via `uninstall.php`
+
+---
+
+### Requirements
+
+| Component       | Minimum version                                                               |
+| --------------- | ----------------------------------------------------------------------------- |
+| WordPress       | 6.0+                                                                          |
+| PHP             | 7.4+                                                                          |
+| WP Consent API  | *(optional)* — for automatic integration with other compatible plugins        |
+
+---
+
+### Installation
+
+1. Download the latest ZIP from [GitHub Releases](https://github.com/dadebertolino/db-cookie-manager/releases)
+2. WordPress admin → **Plugins → Add new → Upload plugin** → select ZIP → **Install now** → **Activate**
+3. Go to **Cookie Manager** in the sidebar menu
+4. Configure in order: **Banner & appearance** → **Scanner** → **Cookie Policy** → **Advanced**
+
+Subsequent updates arrive automatically via GitHub Updater.
+
+---
+
+### Recommended Configuration
+
+**For most websites:**
+
+1. Banner: layout *"Floating box"*, position *"Bottom right"*, theme *"Auto"*
+2. Default categories: **all disabled** (required by GDPR)
+3. Consent duration: **180 days** (DPA recommendation)
+4. Scanner: run at least one scan, then manually review unrecognised marketing cookies
+5. Cookie Policy: auto-create the page, then fill in `[FULL NAME / COMPANY NAME]` and `[ADDRESS]`
+6. Advanced: DNT/GPC **off** for explicit consent collection, **on** for maximum privacy by default
+
+---
+
+### JavaScript API
+
+```js
+// Check consent
+if (window.DBCM.hasConsent('statistics')) { loadGoogleAnalytics(); }
+
+// React to changes
+window.DBCM.onConsent(function(consent, type) {
+    console.log('Type:', type);       // 'accept_all' | 'reject_all' | 'custom'
+    console.log('Marketing:', consent.marketing);
+});
+
+// Open preferences modal
+window.DBCM.openPreferences();
+
+// Set programmatically
+window.DBCM.setConsent('marketing', true);
+
+// Full map (null if no consent given yet)
+var consent = window.DBCM.getConsent();
+
+// Canonical list of 5 categories
+console.log(window.DBCM.categories);
+```
+
+Alternative DOM event:
+
+```js
+document.addEventListener('dbcm:consent', function(ev) {
+    var consent = ev.detail.consent;
+    var type    = ev.detail.type;
+});
+```
+
+---
+
+### PHP Hooks & Filters
+
+#### Banner
+
+| Hook                          | Type    | Notes                                                     |
+| ----------------------------- | ------- | --------------------------------------------------------- |
+| `dbcm_should_render_banner`   | filter  | Default `true` — suppress banner on specific pages        |
+| `dbcm_banner_translations`    | filter  | Add/override translations                                 |
+| `dbcm_visitor_country_code`   | filter  | Supply ISO-3166 alpha-2 country code from MaxMind/GeoIP   |
+| `dbcm_eu_country_codes`       | filter  | Customise EU/EEA country list for geo-targeting           |
+
+#### Consent
+
+| Hook                        | Type    | Notes                                                           |
+| --------------------------- | ------- | --------------------------------------------------------------- |
+| `dbcm_consent_set`          | action  | Fired on every consent change — args: `$type, $consent`         |
+| `dbcm_consent_propagated`   | action  | Fired after propagation to `wp_set_consent()`                   |
+| `dbcm_consent_type`         | filter  | Default `'optin'` — override WP API consent type                |
+
+#### Blocker
+
+| Hook                                  | Type   | Notes                                      |
+| ------------------------------------- | ------ | ------------------------------------------ |
+| `dbcm_blocker_patterns`               | filter | Add/remove blocking patterns               |
+| `dbcm_blocker_placeholder_text`       | filter | Iframe placeholder text (multilingual)     |
+| `dbcm_blocker_placeholder_btn_label`  | filter | Placeholder button label                   |
+
+#### Scanner
+
+| Hook                            | Type   | Notes                                         |
+| ------------------------------- | ------ | --------------------------------------------- |
+| `dbcm_known_cookies`            | filter | Add custom cookies to the static database     |
+| `dbcm_scan_urls`                | filter | Customise scanned URLs                        |
+| `dbcm_scanner_html_detections`  | filter | Add HTML signatures of third-party services   |
+
+#### Cookie Policy
+
+| Hook                      | Type   | Notes                                                                                               |
+| ------------------------- | ------ | --------------------------------------------------------------------------------------------------- |
+| `dbcm_policy_sections`    | filter | Reorder/remove sections                                                                             |
+| `dbcm_policy_html`        | filter | Modify final HTML                                                                                   |
+| `dbcm_policy_section_*`   | filter | Modify individual sections (`header`, `definitions`, `cookies`, `external`, `browser`, etc.)        |
+
+#### Consent Log
+
+| Hook                       | Type   | Notes                                                                  |
+| -------------------------- | ------ | ---------------------------------------------------------------------- |
+| `dbcm_trust_proxy_headers` | filter | Default `false` — trust `X-Forwarded-For` and similar headers for IP   |
+
+---
+
+### Server-side API for Other Plugins
+
+#### `DBCM_Consent_API::has_consent($category)` _(since 3.0.0)_
+
+Unified helper for reading consent. 3-level strategy: `wp_has_consent()` if WP Consent API is installed, otherwise direct cookie, otherwise `false`.
+
+#### `DBCM_Scanner::get_cookies_by_provider_keyword($keyword, $limit = 50)` _(since 3.0.2)_
+
+Searches scanned cookies whose `provider` field contains the keyword (LIKE substring, case-insensitive). Used by DB SEO Manager 1.2.0+.
+
+```php
+if (class_exists('DBCM_Scanner')) {
+    $cookies = DBCM_Scanner::get_cookies_by_provider_keyword('Google Analytics');
+    foreach ($cookies as $c) {
+        echo $c->cookie_name . ' (' . $c->category . ')';
+    }
+}
+```
+
+---
+
+### Practical Examples
+
+**Load Google Analytics only after `statistics` consent:**
+
+```php
+add_action('wp_footer', function() {
+    if (function_exists('wp_has_consent') && wp_has_consent('statistics')) { ?>
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXX"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-XXXXX');
+        </script>
+    <?php }
+});
+```
+
+**Suppress banner on a landing page:**
+
+```php
+add_filter('dbcm_should_render_banner', function($render) {
+    if (is_page('landing-newsletter')) return false;
+    return $render;
+});
+```
+
+**Add a custom cookie to the scanner:**
+
+```php
+add_filter('dbcm_known_cookies', function($cookies) {
+    $cookies['my_app_session'] = [
+        'category'    => 'functional',
+        'description' => 'Internal application session.',
+        'duration'    => 'Session',
+        'provider'    => 'My App',
+    ];
+    return $cookies;
+});
+```
+
+**"Manage preferences" link in footer:**
+
+```php
+echo do_shortcode('[dbcm_preferences label="Cookie" style="link"]');
+```
+
+---
+
+### FAQ
+
+**Is the plugin truly GDPR-compliant?**
+It provides the technical tools for compliance. Full compliance depends on your configuration and editorial choices. A review by a DPO or lawyer remains necessary for legal assurance.
+
+**Can I use it alongside another consent manager?**
+No — only one at a time. Deactivate the other first.
+
+**Does it work in multisite?**
+Yes. Each site has its own options and its own log. Uninstallation is multisite-aware.
+
+**Does preventive blocking break my site?**
+Only if a theme depends on exactly one of the blocked tracking scripts (rare). If you encounter issues, disable "Preventive blocking" on the Scanner page.
+
+**How does it handle IPv6?**
+SHA256 hashing of the full IP (v4 or v6) + site-specific salt. Irreversible in practice.
+
+**Can I export the log for GDPR requests?**
+Yes — **Consent log → Download CSV** or **Download JSON**, with filters by type and date.
+
+---
+
+### Privacy
+
+The plugin **does not communicate with external servers**. No telemetry, no phone-home. The only external connection is GitHub Updater checking for plugin updates.
+
+Cookies written by the plugin:
+
+| Cookie         | Category   | Duration                    | Purpose                        |
+| -------------- | ---------- | --------------------------- | ------------------------------ |
+| `dbcm_consent` | functional | 365 days (configurable)     | Stores the visitor's choice    |
+
+---
+
+### Changelog
+
+#### 3.0.2 — Public scanner API _(2026)_
+- New public method `DBCM_Scanner::get_cookies_by_provider_keyword($keyword, $limit = 50)`
+- Defensive sanitisation: keyword min 2 chars, alphanumeric + spaces/underscores/hyphens only, hard cap 200 rows
+
+#### 3.0.1 — SEO Manager privacy register integration _(2026)_
+- New `DBCM_Privacy_Declarations` module: automatically declares three Cookie Manager treatments to DB SEO Manager 1.2.0+ via `dbseo_processing_register` filter
+- Reference pattern for future DB plugins
+
+#### 3.0.0 — Full rebuild _(2026)_
+Ground-up rewrite, **not backward-compatible** with 2.x. Flush `dbcm_*` options and recreate tables, or reinstall from scratch.
+
+- Native WP Consent API integration
+- 5 standard categories replacing 4 custom 2.x categories
+- Realigned preventive blocker (Cloudflare CDN unblocked; added TikTok, Pinterest, Bing UET, MS Clarity, Mixpanel, Heap, Amplitude, FullStory, GTM)
+- GDPR-friendly consent log: aggregated UA, IP hashed only, JSON export, versioned schema with JIT migration
+- Scanner: versioned schema, HTML detection aligned to blocker, automatic `dbcm_consent` injection in policies
+- Cookie database: 64 known cookies, unmatched cookies → `marketing` safer-by-default
+- Policy generator: filterable modular sections, reference to 2021 DPA Guidelines
+- Full admin UI: dashboard + 5 sub-pages, `db-admin-ui.css` design system
+- GitHub Updater integrated
+- `uninstall.php` with complete cleanup
+- `[dbcm_preferences]` shortcode
+- DNT/GPC runtime automatic opt-out
+- Optional EU/EEA/UK geo-targeting
+
+#### 2.x and earlier
+See git tags. 2.x versions are in "critical maintenance" mode until end of 2026.
+
+---
+
+### License
+
+GPL v2 or later — see [LICENSE](LICENSE).
+
+### Credits
+
+Developed by [Davide Bertolino](https://davidebertolino.it). `db-admin-ui.css` design system shared across the DB plugin suite. Credits to [WP Consent API](https://wordpress.org/plugins/wp-consent-api/) for the interoperability standard.

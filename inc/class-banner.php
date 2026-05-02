@@ -1,164 +1,425 @@
 <?php
 /**
- * Cookie Banner Frontend
+ * DBCM_Banner — Rendering del banner cookie sul frontend.
  *
- * @package db-cookie-manager
+ * Responsabilità:
+ *  - Decidere se mostrare il banner (cookie già presente? geo? DNT/GPC?).
+ *  - Enqueue di banner.js e banner.css.
+ *  - Localize della config: categorie, traduzioni, nonce, AJAX URL.
+ *  - Render del markup HTML (banner principale + modal preferenze).
+ *
+ * Non gestisce:
+ *  - La scrittura del cookie (la fa banner.js).
+ *  - La propagazione a WP Consent API (la fa DBCM_Consent_API via AJAX).
+ *  - Il blocco preventivo degli script (lo farà DBCM_Blocker — step 3).
+ *
+ * @package DBCM
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
-    exit;
+	exit;
 }
 
-class DBCM_Banner {
+if ( ! class_exists( 'DBCM_Banner' ) ) {
 
-    /**
-     * Initialize
-     */
-    public static function init() {
-        // Don't show banner in admin or if disabled
-        if ( is_admin() ) {
-            return;
-        }
+	class DBCM_Banner {
 
-        if ( ! DBCM_Settings::get( 'banner_enabled' ) ) {
-            return;
-        }
+		/**
+		 * Inizializzazione — chiamata da DBCM_Plugin->init_modules().
+		 */
+		public static function init() {
+			if ( is_admin() ) {
+				return;
+			}
+			add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_assets' ) );
+			add_action( 'wp_footer', array( __CLASS__, 'render' ), 5 );
+		}
 
-        add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_assets' ) );
-        add_action( 'wp_footer', array( __CLASS__, 'render_banner' ), 100 );
-    }
+		/**
+		 * Decide se il banner deve essere mostrato a questa richiesta.
+		 *
+		 * Punti decisionali:
+		 *  - Banner disabilitato in settings → no.
+		 *  - Cookie di consenso già presente e valido → no.
+		 *  - geo_targeting=true e visitatore fuori UE/EEA/UK → no.
+		 *  - Filtro dbcm_should_render_banner restituisce false → no.
+		 *
+		 * GPC e DNT non sono gestiti qui ma lato JS al boot (vedi banner.js):
+		 * il banner viene reso ma JS scrive subito un cookie "reject_all"
+		 * e nasconde il banner senza interazione utente. Questo permette
+		 * il logging del consenso "rifiutato per GPC/DNT" ai fini di prova.
+		 *
+		 * @return bool
+		 */
+		public static function should_render() {
+			if ( ! DBCM_Settings::get( 'banner_enabled', true ) ) {
+				return false;
+			}
 
-    /**
-     * Enqueue banner CSS and JS
-     */
-    public static function enqueue_assets() {
-        wp_enqueue_style(
-            'dbcm-banner',
-            DBCM_URL . 'assets/css/banner.css',
-            array(),
-            DBCM_VERSION
-        );
+			// Se il cookie è già stato accettato (con schema corretto), non
+			// mostrare il banner. La gestione del bottone "Riapri preferenze"
+			// è a parte: lì il banner viene riaperto via JS senza ricaricare.
+			if ( null !== DBCM_Consent_API::read_cookie() ) {
+				return false;
+			}
 
-        wp_enqueue_script(
-            'dbcm-banner',
-            DBCM_URL . 'assets/js/banner.js',
-            array(),
-            DBCM_VERSION,
-            true
-        );
+			// Geo-targeting: se attivo, mostra solo a UE/EEA/UK.
+			if ( DBCM_Settings::get( 'geo_targeting', false ) && ! self::is_eu_visitor() ) {
+				return false;
+			}
 
-        // Pass settings to JS
-        $s = DBCM_Settings::get_all();
+			/**
+			 * Permette ad altri plugin/temi di sopprimere il banner
+			 * (es. su pagine specifiche).
+			 *
+			 * @param bool $render
+			 */
+			return (bool) apply_filters( 'dbcm_should_render_banner', true );
+		}
 
-        // Get cookie list grouped by category for the details panel
-        $cookie_list = self::get_cookie_list();
+		/**
+		 * Determina se il visitatore corrente è UE/EEA/UK.
+		 *
+		 * Strategia (in ordine di affidabilità):
+		 *  1. Header CF-IPCountry (Cloudflare, ISO-3166 a 2 lettere) — affidabile.
+		 *  2. Header CloudFront-Viewer-Country (AWS) — affidabile.
+		 *  3. Filtro 'dbcm_visitor_country_code' — chi usa MaxMind o GeoIP locale
+		 *     può fornire il codice via filtro.
+		 *  4. Fallback debole su Accept-Language (es. "it-IT" → IT) — molto
+		 *     impreciso ma meglio di niente quando nessuna geolocation è disponibile.
+		 *
+		 * Default in caso di rilevamento fallito: true (mostra il banner).
+		 * Meglio mostrare il banner a qualcuno fuori UE che nasconderlo a
+		 * un utente UE — il rischio legale è asimmetrico.
+		 *
+		 * @return bool
+		 */
+		private static function is_eu_visitor() {
+			$country = '';
 
-        // Policy page URL
-        $policy_url = '';
-        if ( $s['policy_page_id'] > 0 ) {
-            $policy_url = get_permalink( $s['policy_page_id'] );
-        }
+			// 1. Cloudflare.
+			if ( ! empty( $_SERVER['HTTP_CF_IPCOUNTRY'] ) ) {
+				$country = strtoupper( substr( sanitize_text_field( wp_unslash( $_SERVER['HTTP_CF_IPCOUNTRY'] ) ), 0, 2 ) );
+			}
 
-        wp_localize_script( 'dbcm-banner', 'dbcmBanner', array(
-            // Layout
-            'layout'         => $s['banner_layout'],
-            'position'       => $s['banner_position'],
-            'overlay'        => $s['banner_overlay'],
-            'showCredits'    => $s['banner_credits'],
-            'showReopen'     => $s['show_reopen_btn'],
-            'reopenPosition' => $s['reopen_position'],
-            'theme'          => $s['banner_theme'],
+			// 2. CloudFront.
+			if ( '' === $country && ! empty( $_SERVER['HTTP_CLOUDFRONT_VIEWER_COUNTRY'] ) ) {
+				$country = strtoupper( substr( sanitize_text_field( wp_unslash( $_SERVER['HTTP_CLOUDFRONT_VIEWER_COUNTRY'] ) ), 0, 2 ) );
+			}
 
-            // Colors
-            'colorBg'        => $s['banner_color_bg'],
-            'colorText'      => $s['banner_color_text'],
-            'colorBtn'       => $s['banner_color_btn'],
-            'colorBtnText'   => $s['banner_color_btn_text'],
+			// 3. Filtro per integrazione GeoIP locale.
+			$country = (string) apply_filters( 'dbcm_visitor_country_code', $country );
+			$country = strtoupper( substr( $country, 0, 2 ) );
 
-            // Texts (all languages)
-            'translations'   => DBCM_Settings::get_all_texts_for_js(),
-            'defaultLang'    => get_option( 'dbcm_banner_default_lang', 'it' ),
-            'activeLangs'    => DBCM_Settings::get_active_languages(),
+			// 4. Fallback su Accept-Language (debole).
+			if ( '' === $country && ! empty( $_SERVER['HTTP_ACCEPT_LANGUAGE'] ) ) {
+				$lang = sanitize_text_field( wp_unslash( $_SERVER['HTTP_ACCEPT_LANGUAGE'] ) );
+				if ( preg_match( '/[a-z]{2}-([A-Z]{2})/', $lang, $m ) ) {
+					$country = strtoupper( $m[1] );
+				}
+			}
 
-            // Behavior
-            'consentDuration'  => $s['consent_duration'],
-            'policyUrl'        => $policy_url,
-            'defaultAnalytics'  => $s['default_analytics'],
-            'defaultPerformance' => $s['default_performance'],
-            'defaultMarketing'  => $s['default_marketing'],
+			// Se ancora niente, default permissivo (mostra banner).
+			if ( '' === $country ) {
+				return true;
+			}
 
-            // Cookie data for details panel
-            'cookieList'      => $cookie_list,
+			return in_array( $country, self::eu_country_codes(), true );
+		}
 
-            // Custom CSS
-            'customCss'       => $s['banner_custom_css'],
+		/**
+		 * Codici ISO-3166 alpha-2 dei paesi UE/EEA/UK + filtri.
+		 *
+		 * @return array
+		 */
+		private static function eu_country_codes() {
+			$codes = array(
+				// EU 27.
+				'AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR',
+				'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL',
+				'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE',
+				// EEA non UE.
+				'IS', 'LI', 'NO',
+				// UK (post-Brexit GDPR-equivalent).
+				'GB',
+			);
+			/**
+			 * Permette di personalizzare la lista dei paesi che mostrano il
+			 * banner quando geo_targeting è attivo. Esempio: aggiungere CH
+			 * (Svizzera) o rimuovere GB.
+			 *
+			 * @param array $codes
+			 */
+			return (array) apply_filters( 'dbcm_eu_country_codes', $codes );
+		}
 
-            // AJAX for consent logging
-            'ajaxurl'         => admin_url( 'admin-ajax.php' ),
-        ) );
-    }
+		/* =====================================================================
+		 * Asset enqueue
+		 * ================================================================== */
 
-    /**
-     * Get cookie list from scan results, grouped for the details panel
-     */
-    private static function get_cookie_list() {
-        $grouped = DBCM_Scanner::get_results_grouped();
-        $list = array(
-            'necessary'   => array(),
-            'performance' => array(),
-            'analytics'   => array(),
-            'marketing'   => array(),
-        );
+		public static function enqueue_assets() {
+			// CSS del banner — sempre caricato (anche quando il banner non
+			// si mostra, perché il pulsante "Riapri preferenze" può essere
+			// presente comunque).
+			wp_enqueue_style(
+				'dbcm-banner',
+				DBCM_URL . 'assets/css/banner.css',
+				array(),
+				DBCM_VERSION
+			);
 
-        // Map DB categories to banner categories
-        $category_map = array(
-            'tecnico'      => 'necessary',
-            'prestazioni'  => 'performance',
-            'analitica'    => 'analytics',
-            'marketing'    => 'marketing',
-            'sconosciuto'  => 'marketing', // Unknown = treat as marketing (safer)
-        );
+			// JS del banner.
+			wp_enqueue_script(
+				'dbcm-banner',
+				DBCM_URL . 'assets/js/banner.js',
+				array(),
+				DBCM_VERSION,
+				true // in footer
+			);
 
-        foreach ( $grouped as $category => $cookies ) {
-            $banner_cat = isset( $category_map[ $category ] ) ? $category_map[ $category ] : 'marketing';
-            foreach ( $cookies as $cookie ) {
-                $list[ $banner_cat ][] = array(
-                    'name'     => $cookie->cookie_name,
-                    'provider' => $cookie->provider,
-                    'desc'     => $cookie->description,
-                    'duration' => $cookie->cookie_duration,
-                );
-            }
-        }
+			wp_localize_script( 'dbcm-banner', 'dbcmBanner', self::build_config() );
+		}
 
-        // Always include dbcm_consent in necessary
-        $has_dbcm = false;
-        foreach ( $list['necessary'] as $c ) {
-            if ( $c['name'] === 'dbcm_consent' ) {
-                $has_dbcm = true;
-                break;
-            }
-        }
-        if ( ! $has_dbcm ) {
-            array_unshift( $list['necessary'], array(
-                'name'     => 'dbcm_consent',
-                'provider' => 'DB Cookie Manager',
-                'desc'     => 'Memorizza la scelta dell\'utente sui cookie.',
-                'duration' => DBCM_Settings::get( 'consent_duration' ) . ' giorni',
-            ) );
-        }
+		/**
+		 * Costruisce l'oggetto di configurazione passato a banner.js.
+		 *
+		 * @return array
+		 */
+		private static function build_config() {
+			$s = DBCM_Settings::all();
 
-        return $list;
-    }
+			return array(
+				/* ---- AJAX ---- */
+				'ajaxUrl'           => admin_url( 'admin-ajax.php' ),
+				'nonce'             => wp_create_nonce( 'dbcm_consent_nonce' ),
 
-    /**
-     * Render banner HTML shell (content built by JS for performance)
-     */
-    public static function render_banner() {
-        ?>
-        <!-- DB Cookie Manager Banner -->
-        <div id="dbcm-banner-wrap" style="display:none;"></div>
-        <div id="dbcm-reopen-wrap" style="display:none;"></div>
-        <?php
-    }
+				/* ---- Cookie ---- */
+				'cookieName'        => DBCM_Settings::COOKIE_NAME,
+				'cookieSchema'      => DBCM_Settings::COOKIE_SCHEMA_VERSION,
+				'consentDuration'   => (int) $s['consent_duration'],
+
+				/* ---- Categorie ----
+				 * Sole 5 categorie standard WP Consent API. 'functional'
+				 * è sempre true: il banner JS non deve nemmeno permettere
+				 * di toccarla. */
+				'categories'        => DBCM_Settings::categories(),
+				'categoriesOptional' => DBCM_Settings::categories_optional(),
+
+				/* ---- Default delle categorie opzionali ----
+				 * Stato iniziale dei toggle nel modal "Personalizza".
+				 * GDPR: tutti false. */
+				'defaults'          => array(
+					'functional'           => true,
+					'preferences'          => (bool) $s['default_preferences'],
+					'statistics'           => (bool) $s['default_statistics'],
+					'statistics-anonymous' => (bool) $s['default_statistics_anonymous'],
+					'marketing'            => (bool) $s['default_marketing'],
+				),
+
+				/* ---- Aspetto / posizione ---- */
+				'layout'            => $s['banner_layout'],
+				'position'          => $s['banner_position'],
+				'overlay'           => (bool) $s['banner_overlay'],
+				'theme'             => $s['banner_theme'],
+				'showReopenBtn'     => (bool) $s['show_reopen_btn'],
+				'reopenPosition'    => $s['reopen_position'],
+
+				/* ---- Lingue ---- */
+				'activeLangs'       => array_values( (array) $s['banner_languages'] ),
+				'defaultLang'       => $s['banner_default_lang'],
+				'translations'      => self::translations(),
+
+				/* ---- Cookie policy link ---- */
+				'policyUrl'         => self::policy_url(),
+
+				/* ---- Segnali browser (priorità 3 — saranno gestiti negli step successivi) ---- */
+				'respectGpc'        => (bool) $s['respect_gpc'],
+				'respectDnt'        => (bool) $s['respect_dnt'],
+
+				/* ---- Render decision ----
+				 * Se false, il banner JS sa di non auto-mostrarsi (ma lascia
+				 * comunque il pulsante "Riapri" disponibile). */
+				'autoOpen'          => self::should_render(),
+			);
+		}
+
+		/**
+		 * URL della Cookie Policy se l'admin ha selezionato una pagina,
+		 * stringa vuota altrimenti.
+		 *
+		 * @return string
+		 */
+		private static function policy_url() {
+			$page_id = (int) DBCM_Settings::get( 'policy_page_id', 0 );
+			if ( $page_id > 0 ) {
+				$url = get_permalink( $page_id );
+				return $url ? $url : '';
+			}
+			return '';
+		}
+
+		/**
+		 * Traduzioni del banner per le 6 lingue precompilate.
+		 *
+		 * Sistema custom interno (non WP i18n) — coerente con lo standard
+		 * DB Cookie Manager (vedi skill: "built-in multilingual support
+		 * via settings with language tabs").
+		 *
+		 * Le label sono allineate alle 5 categorie WP Consent API standard.
+		 *
+		 * @return array
+		 */
+		private static function translations() {
+			$base = array(
+				'it' => array(
+					'title'        => 'Rispettiamo la tua privacy',
+					'message'      => 'Usiamo cookie tecnici per il funzionamento del sito e, con il tuo consenso, cookie di preferenze, statistiche e marketing.',
+					'accept_all'   => 'Accetta tutto',
+					'reject_all'   => 'Rifiuta',
+					'customize'    => 'Personalizza',
+					'save'         => 'Salva preferenze',
+					'reopen'       => 'Modifica preferenze',
+					'policy_link'  => 'Cookie Policy',
+					'cat_functional'           => 'Tecnici',
+					'cat_functional_desc'      => 'Necessari al funzionamento del sito. Sempre attivi.',
+					'cat_preferences'          => 'Preferenze',
+					'cat_preferences_desc'     => 'Memorizzano scelte come lingua o regione per migliorare l\'esperienza.',
+					'cat_statistics'           => 'Statistiche',
+					'cat_statistics_desc'      => 'Misurano l\'uso del sito con identificatori personali (es. Google Analytics).',
+					'cat_statistics-anonymous' => 'Statistiche anonime',
+					'cat_statistics-anonymous_desc' => 'Misurano l\'uso in forma aggregata, senza identificare l\'utente.',
+					'cat_marketing'            => 'Marketing',
+					'cat_marketing_desc'       => 'Tracciamento pubblicitario, retargeting e social plugin.',
+				),
+				'en' => array(
+					'title'        => 'We respect your privacy',
+					'message'      => 'We use technical cookies to make the site work and, with your consent, preference, analytics, and marketing cookies.',
+					'accept_all'   => 'Accept all',
+					'reject_all'   => 'Reject',
+					'customize'    => 'Customize',
+					'save'         => 'Save preferences',
+					'reopen'       => 'Change preferences',
+					'policy_link'  => 'Cookie Policy',
+					'cat_functional'           => 'Functional',
+					'cat_functional_desc'      => 'Required for the site to work. Always active.',
+					'cat_preferences'          => 'Preferences',
+					'cat_preferences_desc'     => 'Remember choices like language or region to improve your experience.',
+					'cat_statistics'           => 'Statistics',
+					'cat_statistics_desc'      => 'Measure site usage with personal identifiers (e.g. Google Analytics).',
+					'cat_statistics-anonymous' => 'Anonymous statistics',
+					'cat_statistics-anonymous_desc' => 'Measure aggregate site usage without identifying the user.',
+					'cat_marketing'            => 'Marketing',
+					'cat_marketing_desc'       => 'Advertising tracking, retargeting, and social plugins.',
+				),
+				'fr' => array(
+					'title'        => 'Nous respectons votre vie privée',
+					'message'      => 'Nous utilisons des cookies techniques pour faire fonctionner le site et, avec votre consentement, des cookies de préférences, statistiques et marketing.',
+					'accept_all'   => 'Tout accepter',
+					'reject_all'   => 'Refuser',
+					'customize'    => 'Personnaliser',
+					'save'         => 'Enregistrer',
+					'reopen'       => 'Modifier les préférences',
+					'policy_link'  => 'Politique des cookies',
+					'cat_functional'           => 'Techniques',
+					'cat_functional_desc'      => 'Nécessaires au fonctionnement du site. Toujours actifs.',
+					'cat_preferences'          => 'Préférences',
+					'cat_preferences_desc'     => 'Mémorisent vos choix (langue, région) pour améliorer l\'expérience.',
+					'cat_statistics'           => 'Statistiques',
+					'cat_statistics_desc'      => 'Mesurent l\'utilisation du site avec des identifiants personnels.',
+					'cat_statistics-anonymous' => 'Statistiques anonymes',
+					'cat_statistics-anonymous_desc' => 'Mesurent l\'utilisation de manière agrégée, sans identifier l\'utilisateur.',
+					'cat_marketing'            => 'Marketing',
+					'cat_marketing_desc'       => 'Suivi publicitaire, retargeting et plugins sociaux.',
+				),
+				'de' => array(
+					'title'        => 'Wir respektieren Ihre Privatsphäre',
+					'message'      => 'Wir verwenden technische Cookies für die Funktion der Website und, mit Ihrer Einwilligung, Cookies für Präferenzen, Statistiken und Marketing.',
+					'accept_all'   => 'Alle akzeptieren',
+					'reject_all'   => 'Ablehnen',
+					'customize'    => 'Anpassen',
+					'save'         => 'Einstellungen speichern',
+					'reopen'       => 'Einstellungen ändern',
+					'policy_link'  => 'Cookie-Richtlinie',
+					'cat_functional'           => 'Technisch',
+					'cat_functional_desc'      => 'Erforderlich für die Funktion der Website. Immer aktiv.',
+					'cat_preferences'          => 'Präferenzen',
+					'cat_preferences_desc'     => 'Speichern Auswahlen wie Sprache oder Region.',
+					'cat_statistics'           => 'Statistiken',
+					'cat_statistics_desc'      => 'Messen die Nutzung der Website mit persönlichen Identifikatoren.',
+					'cat_statistics-anonymous' => 'Anonyme Statistiken',
+					'cat_statistics-anonymous_desc' => 'Messen die Nutzung aggregiert, ohne den Benutzer zu identifizieren.',
+					'cat_marketing'            => 'Marketing',
+					'cat_marketing_desc'       => 'Werbe-Tracking, Retargeting und Social-Plugins.',
+				),
+				'es' => array(
+					'title'        => 'Respetamos tu privacidad',
+					'message'      => 'Usamos cookies técnicas para el funcionamiento del sitio y, con tu consentimiento, cookies de preferencias, estadísticas y marketing.',
+					'accept_all'   => 'Aceptar todo',
+					'reject_all'   => 'Rechazar',
+					'customize'    => 'Personalizar',
+					'save'         => 'Guardar preferencias',
+					'reopen'       => 'Cambiar preferencias',
+					'policy_link'  => 'Política de cookies',
+					'cat_functional'           => 'Técnicas',
+					'cat_functional_desc'      => 'Necesarias para el funcionamiento del sitio. Siempre activas.',
+					'cat_preferences'          => 'Preferencias',
+					'cat_preferences_desc'     => 'Recuerdan elecciones como idioma o región.',
+					'cat_statistics'           => 'Estadísticas',
+					'cat_statistics_desc'      => 'Miden el uso del sitio con identificadores personales.',
+					'cat_statistics-anonymous' => 'Estadísticas anónimas',
+					'cat_statistics-anonymous_desc' => 'Miden el uso de forma agregada, sin identificar al usuario.',
+					'cat_marketing'            => 'Marketing',
+					'cat_marketing_desc'       => 'Seguimiento publicitario, retargeting y plugins sociales.',
+				),
+				'pt' => array(
+					'title'        => 'Respeitamos a sua privacidade',
+					'message'      => 'Usamos cookies técnicos para o funcionamento do site e, com o seu consentimento, cookies de preferências, estatísticas e marketing.',
+					'accept_all'   => 'Aceitar tudo',
+					'reject_all'   => 'Rejeitar',
+					'customize'    => 'Personalizar',
+					'save'         => 'Guardar preferências',
+					'reopen'       => 'Alterar preferências',
+					'policy_link'  => 'Política de cookies',
+					'cat_functional'           => 'Técnicos',
+					'cat_functional_desc'      => 'Necessários ao funcionamento do site. Sempre ativos.',
+					'cat_preferences'          => 'Preferências',
+					'cat_preferences_desc'     => 'Memorizam escolhas como idioma ou região.',
+					'cat_statistics'           => 'Estatísticas',
+					'cat_statistics_desc'      => 'Medem o uso do site com identificadores pessoais.',
+					'cat_statistics-anonymous' => 'Estatísticas anónimas',
+					'cat_statistics-anonymous_desc' => 'Medem o uso de forma agregada, sem identificar o utilizador.',
+					'cat_marketing'            => 'Marketing',
+					'cat_marketing_desc'       => 'Rastreio publicitário, retargeting e plugins sociais.',
+				),
+			);
+
+			/**
+			 * Permette ad altri plugin/tema di sovrascrivere o aggiungere
+			 * lingue alle traduzioni del banner.
+			 *
+			 * @param array $translations
+			 */
+			return apply_filters( 'dbcm_banner_translations', $base );
+		}
+
+		/* =====================================================================
+		 * Render
+		 * ================================================================== */
+
+		/**
+		 * Stampa il markup base nel footer.
+		 *
+		 * Lo step 2 ha un markup MINIMALE — sufficiente per testare il
+		 * flusso end-to-end. Lo step UI dedicato lo arricchirà con il
+		 * full design.
+		 */
+		public static function render() {
+			// Il container è sempre presente nel DOM (anche se autoOpen=false)
+			// così il pulsante "Riapri preferenze" può aprirlo via JS senza
+			// dover ricaricare la pagina o iniettare il markup runtime.
+			?>
+			<div id="dbcm-banner-root" data-theme="<?php echo esc_attr( DBCM_Settings::get( 'banner_theme', 'light' ) ); ?>"></div>
+			<?php
+		}
+	}
 }

@@ -1,0 +1,53 @@
+/**
+ * DB Cookie Manager — Admin CSS
+ *
+ * Estende il design system db-admin-ui.css con regole specifiche del
+ * plugin. Usa SOLO le CSS variables --db-* (mai colori hardcoded), in
+ * modo che il design resti coerente con tutti gli altri plugin DB.
+ */
+
+.dbcm-wrap {
+    max-width: 1200px;
+}
+
+/* =========================================================================
+ * Dashboard cards (link)
+ * ========================================================================= */
+.dbcm-dash-card {
+    transition: transform var(--db-transition), box-shadow var(--db-transition);
+}
+.dbcm-dash-card:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--db-shadow-md);
+}
+.dbcm-dash-card:focus-visible {
+    outline: 2px solid var(--db-primary);
+    outline-offset: 2px;
+}
+
+/* =========================================================================
+ * Form spacing dentro le card
+ * ========================================================================= */
+.dbcm-form .db-ui-card {
+    margin-bottom: 14px;
+}
+
+.dbcm-form .db-ui-field input[type="text"],
+.dbcm-form .db-ui-field input[type="number"],
+.dbcm-form .db-ui-field input[type="url"],
+.dbcm-form .db-ui-field select,
+.dbcm-form .db-ui-field textarea {
+    max-width: 640px;
+}
+
+.dbcm-form .db-ui-field textarea {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+}
+
+/* =========================================================================
+ * Reduced motion
+ * ========================================================================= */
+@media (prefers-reduced-motion: reduce) {
+    .dbcm-dash-card { transition: none; }
+}
