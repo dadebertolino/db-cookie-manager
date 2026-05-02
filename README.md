@@ -260,33 +260,51 @@ Cookie scritti dal plugin:
 
 ### Changelog
 
-#### 3.0.2 — API pubblica scanner _(2026)_
+#### 3.0.2 — API pubblica scanner e README bilingue _(2026)_
 - Nuovo metodo pubblico `DBCM_Scanner::get_cookies_by_provider_keyword($keyword, $limit = 50)`
-- Sanitizzazione difensiva: keyword min 2 caratteri, solo alfanumerici + spazi/underscore/trattini, hard cap 200 righe
+- Modulo `DBCM_Privacy_Declarations`: integrazione automatica con DB SEO Manager 1.2.0+
+- Sanitizzazione difensiva: keyword min 2 caratteri, hard cap 200 righe
+- README bilingue IT/EN con tabelle allineate
 
 #### 3.0.1 — Integrazione registro privacy SEO Manager _(2026)_
-- Nuovo modulo `DBCM_Privacy_Declarations`: dichiara automaticamente i tre trattamenti al registro privacy del DB SEO Manager 1.2.0+
-- Pattern dimostrativo per i futuri plugin DB
+- Modulo `DBCM_Privacy_Declarations`: dichiara i tre trattamenti al registro privacy DB SEO Manager 1.2.0+
 
-#### 3.0.0 — Rebuild completo _(2026)_
-Riscrittura da zero, **non retrocompatibile** con 2.x. Svuotare le option (`dbcm_*`) e ricreare le tabelle.
+#### 3.0.0 — Rebuild completo _(2026)_ ⚠️ Breaking change
+Riscrittura da zero, **non retrocompatibile** con 2.x. Svuotare le option `dbcm_*` e ricreare le tabelle.
 
-- Integrazione WP Consent API nativa
-- 5 categorie standard invece delle 4 custom 2.x
-- Blocker preventivo riallineato (Cloudflare CDN sbloccato, aggiunti TikTok/Pinterest/Bing UET/MS Clarity/Mixpanel/Heap/Amplitude/FullStory/GTM)
-- Consent log GDPR-friendly: UA aggregato, IP solo hashato, export JSON, schema versionato
-- Scanner: schema versionato, HTML detection allineata al blocker, injection automatica `dbcm_consent` nelle policy
-- Cookie database: 64 cookie noti, cookie unmatched → `marketing` safer-by-default
-- Policy generator: sezioni modulari filtrabili, riferimento Linee Guida Garante 2021
-- Admin UI completa: dashboard + 5 sottopagine, design system `db-admin-ui.css`
-- GitHub Updater integrato
-- `uninstall.php` con cleanup completo
-- Shortcode `[dbcm_preferences]`
-- DNT/GPC runtime opt-out automatico
-- Geo-targeting opzionale UE/EEA/UK
+- Integrazione WP Consent API nativa — 5 categorie standard (`functional`, `preferences`, `statistics`, `statistics-anonymous`, `marketing`)
+- Blocker preventivo riallineato: Cloudflare CDN sbloccato, aggiunti TikTok/Pinterest/Bing UET/MS Clarity/Mixpanel/Heap/Amplitude/FullStory/GTM; embed estesi (Instagram, X, Spotify, SoundCloud); placeholder iframe traducibile
+- Consent log GDPR-friendly: UA aggregato, IP solo hashato, export JSON oltre a CSV, schema versionato con migrazione just-in-time
+- Scanner: schema versionato, HTML detection allineata al blocker, parsing `Set-Cookie` compatibile WP < 6.2 e ≥ 6.2, injection automatica `dbcm_consent` nelle policy
+- Cookie database: 64 cookie noti, cookie unmatched → `marketing` safer-by-default, `guess_provider` esteso a 26 prefix
+- Policy generator: sezioni modulari filtrabili, riferimento Linee Guida Garante 2021, sezione "Servizi senza cookie"
+- Admin UI completa: dashboard + 5 sottopagine, dispatcher centralizzato, `db-admin-ui.css`
+- GitHub Updater integrato, `uninstall.php` con cleanup completo, shortcode `[dbcm_preferences]`
+- DNT/GPC runtime opt-out automatico, geo-targeting opzionale UE/EEA/UK
 
-#### 2.x e precedenti
-Vedi git tags. Versioni 2.x in modalità "manutenzione critica" fino a fine 2026.
+#### 2.0.1 _(2026)_
+- Fix layout banner "barra": disposizione orizzontale su desktop (testo a sinistra, bottoni a destra)
+- Cookie WordPress core (`wordpress_sec_*`, `wordpress_logged_in_*`, `wp-settings-*`, `wordpress_test_cookie`) iniettati automaticamente nei risultati della scansione
+- Rilevamento Google Fonts alternativo via stili registrati WordPress e `theme_mod` (fallback per hosting con loopback bloccato)
+- Fix salvataggio impostazioni: i checkbox non vengono più azzerati salvando da un'altra sezione
+- Crediti "Powered by DB Cookie Manager" opzionali nel banner
+- Try-catch nell'init JS per debug errori
+
+#### 2.0.0 _(2026)_
+- Banner cookie frontend con 3 layout e tema chiaro/scuro
+- Blocco preventivo script con attivazione dinamica
+- Placeholder per iframe bloccati
+- Registro consensi con export CSV e pulizia automatica
+- Sistema multilingua integrato (6 lingue)
+- Categoria "Prestazioni" per cookie CDN/caching
+- Pagina impostazioni completa con anteprima colori live
+- Accessibilità WCAG: ARIA, focus trap, keyboard navigation, reduced motion
+
+#### 1.0.0 _(2026)_
+- Scansione asincrona AJAX
+- Database 50+ cookie noti con classificazione automatica
+- Generatore Cookie Policy
+- Report con modifica manuale
 
 ---
 
@@ -557,33 +575,51 @@ Cookies written by the plugin:
 
 ### Changelog
 
-#### 3.0.2 — Public scanner API _(2026)_
+#### 3.0.2 — Public scanner API and bilingual README _(2026)_
 - New public method `DBCM_Scanner::get_cookies_by_provider_keyword($keyword, $limit = 50)`
-- Defensive sanitisation: keyword min 2 chars, alphanumeric + spaces/underscores/hyphens only, hard cap 200 rows
+- `DBCM_Privacy_Declarations` module: automatic integration with DB SEO Manager 1.2.0+
+- Defensive sanitisation: keyword min 2 chars, hard cap 200 rows
+- Bilingual IT/EN README with aligned tables
 
 #### 3.0.1 — SEO Manager privacy register integration _(2026)_
-- New `DBCM_Privacy_Declarations` module: automatically declares three Cookie Manager treatments to DB SEO Manager 1.2.0+ via `dbseo_processing_register` filter
-- Reference pattern for future DB plugins
+- `DBCM_Privacy_Declarations` module: automatically declares the three Cookie Manager treatments to the DB SEO Manager 1.2.0+ privacy register
 
-#### 3.0.0 — Full rebuild _(2026)_
-Ground-up rewrite, **not backward-compatible** with 2.x. Flush `dbcm_*` options and recreate tables, or reinstall from scratch.
+#### 3.0.0 — Full rebuild _(2026)_ ⚠️ Breaking change
+Ground-up rewrite, **not backward-compatible** with 2.x. Flush `dbcm_*` options and recreate tables.
 
-- Native WP Consent API integration
-- 5 standard categories replacing 4 custom 2.x categories
-- Realigned preventive blocker (Cloudflare CDN unblocked; added TikTok, Pinterest, Bing UET, MS Clarity, Mixpanel, Heap, Amplitude, FullStory, GTM)
-- GDPR-friendly consent log: aggregated UA, IP hashed only, JSON export, versioned schema with JIT migration
-- Scanner: versioned schema, HTML detection aligned to blocker, automatic `dbcm_consent` injection in policies
-- Cookie database: 64 known cookies, unmatched cookies → `marketing` safer-by-default
-- Policy generator: filterable modular sections, reference to 2021 DPA Guidelines
-- Full admin UI: dashboard + 5 sub-pages, `db-admin-ui.css` design system
-- GitHub Updater integrated
-- `uninstall.php` with complete cleanup
-- `[dbcm_preferences]` shortcode
-- DNT/GPC runtime automatic opt-out
-- Optional EU/EEA/UK geo-targeting
+- Native WP Consent API integration — 5 standard categories (`functional`, `preferences`, `statistics`, `statistics-anonymous`, `marketing`)
+- Realigned preventive blocker: Cloudflare CDN unblocked; added TikTok, Pinterest, Bing UET, MS Clarity, Mixpanel, Heap, Amplitude, FullStory, GTM; extended embeds (Instagram, X, Spotify, SoundCloud); translatable iframe placeholder
+- GDPR-friendly consent log: aggregated UA, IP hashed only, JSON export alongside CSV, versioned schema with just-in-time migration
+- Scanner: versioned schema, HTML detection aligned to blocker, `Set-Cookie` parsing compatible with WP < 6.2 and ≥ 6.2, automatic `dbcm_consent` injection in policies
+- Cookie database: 64 known cookies, unmatched cookies → `marketing` safer-by-default, `guess_provider` extended to 26 prefixes
+- Policy generator: filterable modular sections, reference to 2021 Italian DPA Guidelines, "Cookie-free services" section
+- Full admin UI: dashboard + 5 sub-pages, centralised dispatcher, `db-admin-ui.css`
+- GitHub Updater integrated, `uninstall.php` with complete cleanup, `[dbcm_preferences]` shortcode
+- DNT/GPC runtime automatic opt-out, optional EU/EEA/UK geo-targeting
 
-#### 2.x and earlier
-See git tags. 2.x versions are in "critical maintenance" mode until end of 2026.
+#### 2.0.1 _(2026)_
+- Fix "bar" banner layout: horizontal arrangement on desktop (text left, buttons right)
+- WordPress core cookies (`wordpress_sec_*`, `wordpress_logged_in_*`, `wp-settings-*`, `wordpress_test_cookie`) automatically injected into scan results
+- Alternative Google Fonts detection via registered WordPress styles and `theme_mod` (fallback for hosts with blocked loopback)
+- Fix settings save: checkboxes no longer reset when saving from a different section
+- Optional "Powered by DB Cookie Manager" credit in the banner
+- Try-catch in JS init for error debugging
+
+#### 2.0.0 _(2026)_
+- Frontend cookie banner with 3 layouts and light/dark theme
+- Preventive script blocking with dynamic re-activation
+- Placeholder for blocked iframes
+- Consent log with CSV export and automatic cleanup
+- Built-in multilingual system (6 languages)
+- "Performance" category for CDN/caching cookies
+- Full settings page with live colour preview
+- WCAG accessibility: ARIA, focus trap, keyboard navigation, reduced motion
+
+#### 1.0.0 _(2026)_
+- Asynchronous AJAX scanning
+- 50+ known cookies database with automatic classification
+- Cookie Policy generator
+- Report with manual editing
 
 ---
 
