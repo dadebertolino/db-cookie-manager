@@ -34,7 +34,7 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 		 * Versione dello schema della tabella. Incrementare se cambiano le
 		 * colonne così che maybe_upgrade_schema() possa intervenire.
 		 */
-		const SCHEMA_VERSION = 1;
+		const SCHEMA_VERSION = 2;
 
 		/**
 		 * Nome dell'option che traccia la versione dello schema installata.
@@ -60,13 +60,13 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 		 *   consent_data  VARCHAR(500) — JSON {functional,preferences,statistics,statistics-anonymous,marketing,v}
 		 *   consent_type  VARCHAR(20) — accept_all | reject_all | custom
 		 *   ua_summary    VARCHAR(64) — etichetta browser aggregata, oppure UA full troncato a 64
+		 *   policy_version BIGINT — ID snapshot Privacy Hub (3.2.0+, 0 se Hub assente)
 		 *   consent_date  TIMESTAMP — DEFAULT CURRENT_TIMESTAMP
 		 *
-		 * Differenza con 2.0.1: la colonna 'user_agent' VARCHAR(500) è stata
-		 * sostituita da 'ua_summary' VARCHAR(64). Salvare un UA completo
-		 * insieme all'hash IP nello stesso record permette correlazioni di
-		 * fingerprinting che la giustificazione GDPR "prova del consenso"
-		 * non richiede.
+		 * Schema 2 (3.2.0): aggiunta colonna `policy_version` per linkare il
+		 * consenso alla versione esatta della Privacy Policy in vigore al
+		 * momento. dbDelta è additivo: aggiunge la colonna alle installazioni
+		 * 3.1.x preservando i dati. Le righe pre-esistenti hanno policy_version=0.
 		 *
 		 * @return void
 		 */
@@ -81,11 +81,13 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 				consent_data VARCHAR(500) NOT NULL DEFAULT '',
 				consent_type VARCHAR(20) NOT NULL DEFAULT 'custom',
 				ua_summary VARCHAR(64) NOT NULL DEFAULT '',
+				policy_version BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
 				consent_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY  (id),
 				KEY consent_date (consent_date),
 				KEY consent_type (consent_type),
-				KEY ip_hash (ip_hash)
+				KEY ip_hash (ip_hash),
+				KEY policy_version (policy_version)
 			) {$charset};";
 
 			require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -129,6 +131,139 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 
 			// Schema check (just-in-time, una volta per request).
 			add_action( 'admin_init', array( __CLASS__, 'maybe_upgrade_schema' ) );
+
+			// 3.2.0: dichiara la fonte consensi al Privacy Hub via filter pubblico.
+			// Inerte se l'Hub non è installato (il filter non viene applicato).
+			add_filter( 'dbph_consents_register', array( __CLASS__, 'declare_consents_source' ) );
+		}
+
+		/* =====================================================================
+		 * INTEGRAZIONE PRIVACY HUB (3.2.0)
+		 * ================================================================== */
+
+		/**
+		 * Dichiara la fonte "consensi cookie" al filter `dbph_consents_register`.
+		 *
+		 * @param array $sources
+		 * @return array
+		 */
+		public static function declare_consents_source( $sources ) {
+			$sources['dbcm_cookie_consents'] = array(
+				'label'  => __( 'Cookie Manager — Consensi cookie', 'db-cookie-manager' ),
+				'icon'   => 'admin-network',
+				'count'  => array( __CLASS__, 'hub_count' ),
+				'query'  => array( __CLASS__, 'hub_query' ),
+				'export' => array( __CLASS__, 'hub_query' ), // stesso payload, l'Hub lo serializza
+			);
+			return $sources;
+		}
+
+		/**
+		 * Conta consensi che corrispondono ai filtri (per la card riepilogativa).
+		 *
+		 * @param array $args date_from, date_to, subject
+		 * @return int
+		 */
+		public static function hub_count( $args = array() ) {
+			global $wpdb;
+			$table = self::table_name();
+			list( $where_sql, $where_params ) = self::build_hub_where( $args );
+
+			if ( ! empty( $where_params ) ) {
+				$sql = "SELECT COUNT(*) FROM {$table} {$where_sql}";
+				return (int) $wpdb->get_var( $wpdb->prepare( $sql, $where_params ) );
+			}
+			return (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table} {$where_sql}" );
+		}
+
+		/**
+		 * Restituisce le righe normalizzate per il Registro consensi del Hub.
+		 *
+		 * @param array $args date_from, date_to, subject
+		 * @return array<array>
+		 */
+		public static function hub_query( $args = array() ) {
+			global $wpdb;
+			$table = self::table_name();
+			list( $where_sql, $where_params ) = self::build_hub_where( $args );
+
+			$limit = isset( $args['_internal_limit'] ) ? (int) $args['_internal_limit'] : 1000;
+			$limit = max( 1, min( 50000, $limit ) );
+
+			$sql = "SELECT * FROM {$table} {$where_sql} ORDER BY consent_date DESC LIMIT {$limit}";
+			$rows = ! empty( $where_params )
+				? $wpdb->get_results( $wpdb->prepare( $sql, $where_params ) )
+				: $wpdb->get_results( $sql );
+
+			$out = array();
+			foreach ( (array) $rows as $r ) {
+				$out[] = array(
+					'id'             => 'dbcm-' . (int) $r->id,
+					'timestamp'      => $r->consent_date,
+					'subject'        => 'IP-hash:' . substr( $r->ip_hash, 0, 12 ) . '…',
+					'consent_type'   => 'cookie:' . $r->consent_type,
+					'consent_text'   => self::format_consent_data_for_display( $r->consent_data, $r->consent_type ),
+					'policy_version' => (int) $r->policy_version,
+					'extra'          => array(
+						'ip_hash_full' => $r->ip_hash,
+						'ua_summary'   => $r->ua_summary,
+						'consent_data' => $r->consent_data,
+					),
+				);
+			}
+			return $out;
+		}
+
+		/**
+		 * Costruisce la WHERE clause per le query Hub.
+		 *
+		 * @param array $args
+		 * @return array{0:string,1:array} [WHERE_SQL, params]
+		 */
+		private static function build_hub_where( $args ) {
+			$where  = array();
+			$params = array();
+
+			if ( ! empty( $args['date_from'] ) ) {
+				$where[] = 'consent_date >= %s';
+				$params[] = $args['date_from'] . ' 00:00:00';
+			}
+			if ( ! empty( $args['date_to'] ) ) {
+				$where[] = 'consent_date <= %s';
+				$params[] = $args['date_to'] . ' 23:59:59';
+			}
+			if ( ! empty( $args['subject'] ) ) {
+				// Il "subject" lato cookie è IP-hash:abc…; permettiamo match parziale sul prefisso hash.
+				$where[] = 'ip_hash LIKE %s';
+				$params[] = '%' . $args['subject'] . '%';
+			}
+
+			$sql = empty( $where ) ? '' : ( 'WHERE ' . implode( ' AND ', $where ) );
+			return array( $sql, $params );
+		}
+
+		/**
+		 * Formatta consent_data JSON in stringa leggibile per il Registro consensi.
+		 */
+		private static function format_consent_data_for_display( $json, $type ) {
+			if ( $type === 'accept_all' )  return __( 'Tutte le categorie cookie accettate', 'db-cookie-manager' );
+			if ( $type === 'reject_all' )  return __( 'Tutte le categorie cookie rifiutate (solo necessari)', 'db-cookie-manager' );
+
+			$data = json_decode( (string) $json, true );
+			if ( ! is_array( $data ) ) return __( 'Configurazione personalizzata', 'db-cookie-manager' );
+
+			$accepted = array();
+			foreach ( $data as $cat => $val ) {
+				if ( $cat === 'v' ) continue;
+				if ( $val ) $accepted[] = $cat;
+			}
+			return empty( $accepted )
+				? __( 'Nessuna categoria opzionale accettata', 'db-cookie-manager' )
+				: sprintf(
+					/* translators: %s: lista categorie accettate */
+					__( 'Categorie accettate: %s', 'db-cookie-manager' ),
+					implode( ', ', $accepted )
+				);
 		}
 
 		/* =====================================================================
@@ -177,18 +312,26 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 				$consent_data = substr( (string) $consent_data, 0, 497 ) . '...';
 			}
 
+			// 3.2.0: linka il consenso alla versione Privacy Policy in vigore.
+			// Se il Privacy Hub non è installato, restiamo a 0 senza errori.
+			$policy_version = 0;
+			if ( class_exists( 'DBPH_Policy_Archive' ) && method_exists( 'DBPH_Policy_Archive', 'get_current_version_id' ) ) {
+				$policy_version = (int) DBPH_Policy_Archive::get_current_version_id();
+			}
+
 			$row = array(
-				'ip_hash'      => self::hash_ip( self::get_client_ip() ),
-				'consent_data' => $consent_data,
-				'consent_type' => self::sanitize_type( $type ),
-				'ua_summary'   => self::summarize_user_agent(),
+				'ip_hash'        => self::hash_ip( self::get_client_ip() ),
+				'consent_data'   => $consent_data,
+				'consent_type'   => self::sanitize_type( $type ),
+				'ua_summary'     => self::summarize_user_agent(),
+				'policy_version' => $policy_version,
 				// consent_date: lasciato a DEFAULT CURRENT_TIMESTAMP.
 			);
 
 			$result = $wpdb->insert(
 				$table,
 				$row,
-				array( '%s', '%s', '%s', '%s' )
+				array( '%s', '%s', '%s', '%s', '%d' )
 			);
 
 			return ( false !== $result ) ? (int) $wpdb->insert_id : false;

@@ -260,6 +260,26 @@ Cookie scritti dal plugin:
 
 ### Changelog
 
+#### 3.2.0 — Linking versione Privacy Policy + filter Hub consensi _(2026)_
+
+Allineamento con il **Privacy Hub 1.3.0** che introduce il Registro consensi unificato.
+
+**Linking automatico alla versione Privacy Policy:**
+- Ogni riga in `wp_dbcm_consent_log` ora include una colonna `policy_version BIGINT` che memorizza l'ID dello snapshot Privacy Policy in vigore al momento del consenso (letto via `DBPH_Policy_Archive::get_current_version_id()`).
+- Permette di dimostrare in audit "l'utente ha accettato leggendo *questa* versione del documento" (audit trail completo per art. 7.1 GDPR).
+- Senza il Privacy Hub: `policy_version=0`, comportamento identico alla 3.1.0 (nessuna regressione).
+
+**Filter `dbph_consents_register`:**
+- Cookie Manager dichiara la propria fonte di consensi al Privacy Hub via questo filter pubblico. La pagina `Privacy → Registro consensi` dell'Hub include automaticamente i consensi cookie nella vista unificata.
+- Callback fornite: `count`, `query`, `export`. L'Hub gestisce filtri (data range, identificativo, fonte) e produzione CSV.
+
+**Schema DB:**
+- Migrazione `wp_dbcm_consent_log` schema 1 → 2: aggiunta colonna `policy_version` + indice. dbDelta è additivo, dati esistenti preservati. Le righe pre-3.2.0 hanno `policy_version=0` (visibili nel registro Hub con label "—").
+
+**Compatibilità retroattiva:**
+- Nessun breaking change. Il plugin funziona identicamente in standalone, con SEO Manager, con Privacy Hub 1.0-1.2.x.
+- Privacy Hub 1.3.0+ è raccomandato (non richiesto) per visualizzare il Registro consensi unificato.
+
 #### 3.1.0 — Integrazione DB Privacy Hub _(2026)_
 - Nuovo metodo pubblico **`DBCM_Policy_Generator::get_sections()`** — espone le sezioni della Cookie Policy come array associativo per il riuso da parte del DB Privacy Hub (Privacy Policy unificata)
 - Sezione "Titolare del trattamento" della Cookie Policy ora **legge automaticamente i dati salvati nel DB Privacy Hub** (`dbph_titolare_*`): se il Privacy Hub è installato e configurato, niente più placeholder da sostituire a mano
