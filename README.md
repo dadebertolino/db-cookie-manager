@@ -26,6 +26,12 @@ Sviluppato da **Davide Bertolino** per uso personale e professionale, rilasciato
 - **Integrazione WP Consent API**: `wp_has_consent('statistics')` risponde correttamente in base al consenso del visitatore
 - **Segnali browser opzionali**: rispetta Do Not Track (DNT) e Global Privacy Control (GPC)
 - **Geo-targeting opzionale**: mostra il banner solo a visitatori UE/EEA/UK
+- **Google Consent Mode v2** *(opt-in)*: comunica il consenso ai tag Google con default negato nel `<head>` e update al consenso; mapping personalizzabile via `dbcm_gcm_mapping`
+- **Localizzazione Google Fonts** *(opt-in)*: rimuove i riferimenti remoti a Google Fonts così l'IP dell'utente non viene trasmesso a Google
+- **Cancellazione reattiva dei cookie**: rimuove dal browser i cookie delle categorie non concesse, rendendo effettiva la revoca del consenso
+- **Placeholder click-to-load** accessibile per gli embed bloccati (consenso granulare per singolo contenuto)
+- **Firme personalizzate**: aggiunta manuale di servizi/cookie con import/export JSON
+- **Report differenziale scanner**: evidenzia i cookie nuovi o rimossi tra due scansioni
 - **Shortcode `[dbcm_preferences]`** per il pulsante "Modifica preferenze"
 - **Auto-aggiornamento da GitHub** via [DB GitHub Updater](https://github.com/dadebertolino/db-github-updater)
 - **Design system condiviso** con gli altri plugin DB (`db-admin-ui.css`)
@@ -260,6 +266,38 @@ Cookie scritti dal plugin:
 
 ### Changelog
 
+#### 3.4.0 — Consent Mode v2, Google Fonts locali e report scanner _(2026)_
+
+Tre nuove funzionalità orientate alla conformità, tutte **opt-in** e disattivate di default.
+
+**Google Consent Mode v2:**
+- Nuova opzione (Avanzate → *Google Consent Mode v2*) che comunica lo stato del consenso ai tag Google (GA4, Google Ads).
+- Inietta nel `<head>`, il prima possibile, il comando `gtag('consent','default',…)` con **tutti i segnali negati** (`analytics_storage`, `ad_storage`, `ad_user_data`, `ad_personalization`) — privacy by default, GDPR Art. 25.
+- Al consenso, `banner.js` invia `gtag('consent','update',…)` con i soli segnali concessi. Mapping categoria→segnale personalizzabile via filtro **`dbcm_gcm_mapping`**.
+- Consigliata la disattivazione se il Consent Mode è già gestito via Google Tag Manager, per evitare doppie inizializzazioni.
+
+**Localizzazione Google Fonts:**
+- Nuova opzione (Avanzate → *Google Fonts*) che rimuove dall'HTML i riferimenti remoti a `fonts.googleapis.com` / `fonts.gstatic.com` (stylesheet, preconnect, dns-prefetch e `@import` correlati).
+- Il browser non contatta più i server Google al caricamento della pagina: l'indirizzo IP dell'utente non viene trasmesso (la trasmissione avverrebbe prima di ogni consenso). Rilevante dopo la sentenza del Tribunale di Monaco (gennaio 2022).
+- Il sito ripiega sui font di sistema del fallback CSS. L'opzione **rimuove** i font, non fa self-hosting (download + riscrittura locale).
+
+**Report differenziale scanner:**
+- La pagina Scanner mostra ora una card *"Modifiche dall'ultima scansione"* con i cookie **nuovi** e **rimossi** rispetto alla scansione precedente.
+- Utile per l'accountability (GDPR Art. 5.2): evidenzia se un aggiornamento del sito ha introdotto tracker inattesi. Un cookie che cambia categoria è segnalato come rimosso dalla vecchia e aggiunto alla nuova.
+- Snapshot leggero salvato in una singola option prima del `TRUNCATE` — nessuna nuova tabella.
+
+**Correzioni:**
+- Lo scanner allinea la classificazione al database firme condiviso: i cookie tecnici noti (es. `store_notice*` di WooCommerce) non vengono più erroneamente classificati come *marketing*. Il fallback consulta `DBCM_Signatures` prima di ripiegare su *marketing*.
+
+#### 3.3.0 — Segnali di consenso avanzati _(2026)_
+
+- **Cancellazione reattiva dei cookie**: alla revoca del consenso (o al load senza consenso), i cookie delle categorie non concesse vengono rimossi dal browser. Rende la revoca effettiva e non solo formale (GDPR Art. 7.3, 17, 5.1.e). Supporta i wildcard (es. `_ga_*`).
+- **UI aggiunta manuale firme**: nuova pagina *Firme personalizzate* per aggiungere servizi e cookie non coperti dal database interno, con pattern di blocco (substring/regex), pulizia reattiva e **import/export JSON**. Ogni scrittura è sanificata e le regex malformate degradano automaticamente a substring.
+- **Placeholder click-to-load**: gli embed bloccati (YouTube, Maps, ecc.) mostrano un placeholder accessibile (`role="region"`, navigabile da tastiera) con un pulsante *"Carica …"* che attiva il singolo contenuto senza scrivere un consenso persistente per l'intera categoria — consenso granulare e puntuale.
+
+#### 3.3.1 — Fix _(2026)_
+- Correzione classificazione `store_notice*` (poi consolidata in 3.4.0).
+
 #### 3.2.0 — Linking versione Privacy Policy + filter Hub consensi _(2026)_
 
 Allineamento con il **Privacy Hub 1.3.0** che introduce il Registro consensi unificato.
@@ -367,6 +405,12 @@ Developed by **Davide Bertolino** for personal and professional use, released as
 - **WP Consent API integration**: `wp_has_consent('statistics')` responds correctly based on visitor consent
 - **Optional browser signals**: respects Do Not Track (DNT) and Global Privacy Control (GPC)
 - **Optional geo-targeting**: shows banner only to EU/EEA/UK visitors
+- **Google Consent Mode v2** *(opt-in)*: signals consent to Google tags with a denied default in `<head>` and update on consent; mapping customisable via `dbcm_gcm_mapping`
+- **Google Fonts localisation** *(opt-in)*: strips remote Google Fonts references so the user's IP is not sent to Google
+- **Reactive cookie cleanup**: removes cookies of non-granted categories from the browser, making consent withdrawal effective
+- **Accessible click-to-load placeholder** for blocked embeds (granular per-embed consent)
+- **Custom signatures**: manually add services/cookies with JSON import/export
+- **Scanner differential report**: highlights cookies added or removed between two scans
 - **Shortcode `[dbcm_preferences]`** for a "Manage preferences" button anywhere
 - **Auto-update from GitHub** via [DB GitHub Updater](https://github.com/dadebertolino/db-github-updater)
 - **Shared design system** with other DB plugins (`db-admin-ui.css`)
@@ -600,6 +644,33 @@ Cookies written by the plugin:
 ---
 
 ### Changelog
+
+#### 3.4.0 — Consent Mode v2, local Google Fonts and scanner report _(2026)_
+
+Three new compliance-oriented features, all **opt-in** and disabled by default.
+
+**Google Consent Mode v2:**
+- New option (Advanced → *Google Consent Mode v2*) that signals consent state to Google tags (GA4, Google Ads).
+- Injects `gtag('consent','default',…)` as early as possible in `<head>` with **all signals denied** (`analytics_storage`, `ad_storage`, `ad_user_data`, `ad_personalization`) — privacy by default, GDPR Art. 25.
+- On consent, `banner.js` sends `gtag('consent','update',…)` with the granted signals only. Category→signal mapping customisable via the **`dbcm_gcm_mapping`** filter.
+- Recommended to leave off if Consent Mode is already handled through Google Tag Manager.
+
+**Google Fonts localisation:**
+- New option (Advanced → *Google Fonts*) that strips remote references to `fonts.googleapis.com` / `fonts.gstatic.com` from the HTML (stylesheets, preconnect, dns-prefetch and related `@import`).
+- The browser no longer contacts Google's servers on page load, so the user's IP is not transmitted. Relevant after the Munich court ruling (January 2022).
+- The site falls back to system fonts. This option **removes** the fonts; it does not self-host them.
+
+**Scanner differential report:**
+- The Scanner page now shows a *"Changes since last scan"* card listing **added** and **removed** cookies versus the previous scan.
+- Useful for accountability (GDPR Art. 5.2): flags unexpected trackers introduced by a site update. A cookie that changes category is reported as removed from the old and added to the new.
+
+**Fixes:**
+- The scanner aligns classification with the shared signatures database: known technical cookies (e.g. WooCommerce `store_notice*`) are no longer mis-classified as *marketing*.
+
+#### 3.3.0 — Advanced consent signals _(2026)_
+- **Reactive cookie cleanup**: on consent withdrawal (or on load without consent), cookies of non-granted categories are removed from the browser, making withdrawal effective (GDPR Art. 7.3, 17, 5.1.e). Wildcard support (e.g. `_ga_*`).
+- **Manual signature UI**: new *Custom signatures* page to add services and cookies not covered by the built-in database, with block patterns (substring/regex), reactive cleanup and **JSON import/export**.
+- **Click-to-load placeholder**: blocked embeds (YouTube, Maps, …) show an accessible placeholder (`role="region"`, keyboard-navigable) with a *"Load …"* button that activates a single embed without writing category-wide consent.
 
 #### 3.0.2 — Public scanner API and bilingual README _(2026)_
 - New public method `DBCM_Scanner::get_cookies_by_provider_keyword($keyword, $limit = 50)`
