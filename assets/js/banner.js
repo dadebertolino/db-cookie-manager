@@ -501,8 +501,10 @@
         var past = 'Thu, 01 Jan 1970 00:00:00 GMT';
         var host = location.hostname;
         var paths = ['/', location.pathname];
-        // Domini: nudo, host corrente, .host, e progressivamente i parent
-        // (.example.com per sottodomini). null = nessun attributo domain.
+        // Domini: nudo (nessun attributo), host corrente, .host, e i parent
+        // (.example.com per sottodomini). Un cookie scritto SENZA domain si
+        // cancella solo senza domain; uno scritto CON domain esplicito si
+        // cancella solo con quel domain → proviamo tutte le combinazioni.
         var domains = [null, host, '.' + host];
         var parts = host.split('.');
         for (var i = 1; i < parts.length - 1; i++) {
@@ -510,9 +512,12 @@
         }
         paths.forEach(function (path) {
             domains.forEach(function (domain) {
-                var c = name + '=;expires=' + past + ';path=' + path;
-                if (domain) c += ';domain=' + domain;
-                document.cookie = c + ';SameSite=Lax';
+                var base = name + '=;expires=' + past + ';path=' + path;
+                if (domain) base += ';domain=' + domain;
+                // Variante nuda (match cookie senza attributi SameSite/Secure).
+                document.cookie = base;
+                // Variante SameSite=Lax (match cookie scritti con SameSite).
+                document.cookie = base + ';SameSite=Lax';
             });
         });
     }
@@ -533,6 +538,10 @@
      */
     function reactiveCleanup(consent) {
         var list = C.reactiveCleanup;
+        // DIAGNOSTIC (temporaneo): rimuovere dopo che l'e2e è verde.
+        if (window.console && console.warn) {
+            console.warn('[DBCM] reactiveCleanup list length=' + (list ? list.length : 'undefined') + ' cookies=' + document.cookie);
+        }
         if (!list || !list.length) return;
         var present = currentCookieNames();
         list.forEach(function (entry) {
