@@ -46,9 +46,17 @@ class ScannerIntegrationTest extends WP_UnitTestCase {
 	public function test_create_table_creates_the_table(): void {
 		global $wpdb;
 		$table = DBCM_Scanner::table_name();
-		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-		$found = $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" );
-		$this->assertSame( $table, $found, 'La tabella dei cookie deve esistere dopo create_table().' );
+
+		// Nota: "SHOW TABLES LIKE '{$table}'" è inaffidabile qui — l'underscore
+		// è un wildcard LIKE e il comportamento sotto la transazione della test
+		// suite varia. Verifichiamo invece l'appartenenza esatta alla lista
+		// delle tabelle.
+		$tables = $wpdb->get_col( 'SHOW TABLES', 0 );
+		$this->assertContains(
+			$table,
+			$tables,
+			'La tabella dei cookie deve esistere dopo create_table().'
+		);
 	}
 
 	public function test_table_has_expected_columns(): void {
