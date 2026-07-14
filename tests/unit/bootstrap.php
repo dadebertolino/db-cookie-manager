@@ -200,6 +200,22 @@ function dbcm_test_reset_consent() {
 	unset( $_COOKIE[ DBCM_Settings::COOKIE_NAME ] );
 }
 
+/**
+ * Invoca un metodo privato/protetto statico via Reflection. Serve a testare
+ * logica critica non pubblica (es. sanitize_consent_payload) senza modificare
+ * la visibilità nel codice di produzione.
+ *
+ * @param string $class
+ * @param string $method
+ * @param array  $args
+ * @return mixed
+ */
+function dbcm_test_call_private( $class, $method, array $args = array() ) {
+	$ref = new ReflectionMethod( $class, $method );
+	$ref->setAccessible( true );
+	return $ref->invokeArgs( null, $args );
+}
+
 // Carica i sorgenti sotto test.
 require_once DBCM_TEST_ROOT . '/inc/data/signatures.php';
 require_once DBCM_TEST_ROOT . '/inc/class-signatures.php';
