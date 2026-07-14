@@ -487,24 +487,61 @@
             var category = ph.getAttribute('data-dbcm-category');
             var src      = ph.getAttribute('data-dbcm-src');
             if (!category || !src || !consent[category]) return;
-
-            var iframe = document.createElement('iframe');
-            iframe.setAttribute('src', src);
-            iframe.setAttribute('frameborder', '0');
-            iframe.setAttribute('allowfullscreen', '');
-            iframe.setAttribute('loading', 'lazy');
-
-            // Eredita le dimensioni del placeholder per evitare layout shift.
-            if (ph.style.width)  iframe.style.width  = ph.style.width;
-            if (ph.style.height) iframe.style.height = ph.style.height;
-            iframe.style.maxWidth = '100%';
-            iframe.style.border = '0';
-
-            if (ph.parentNode) {
-                ph.parentNode.replaceChild(iframe, ph);
-            }
+            replacePlaceholderWithIframe(ph);
         });
     }
+
+    /**
+     * Costruisce l'iframe reale a partire da un placeholder e lo sostituisce
+     * nel DOM. Riusato sia dal ripristino per consenso di categoria sia dal
+     * click-to-load puntuale. Emette l'evento 'dbcm:iframe-loaded'.
+     */
+    function replacePlaceholderWithIframe(ph) {
+        var src = ph.getAttribute('data-dbcm-src');
+        if (!src) return;
+
+        var iframe = document.createElement('iframe');
+        iframe.setAttribute('src', src);
+        iframe.setAttribute('frameborder', '0');
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.setAttribute('loading', 'lazy');
+
+        // Eredita le dimensioni del placeholder per evitare layout shift.
+        if (ph.style.width)  iframe.style.width  = ph.style.width;
+        if (ph.style.height) iframe.style.height = ph.style.height;
+        iframe.style.maxWidth = '100%';
+        iframe.style.border = '0';
+
+        if (ph.parentNode) {
+            ph.parentNode.replaceChild(iframe, ph);
+        }
+
+        try {
+            document.dispatchEvent(new CustomEvent('dbcm:iframe-loaded', {
+                detail: {
+                    src: src,
+                    category: ph.getAttribute('data-dbcm-category') || ''
+                }
+            }));
+        } catch (e) { /* CustomEvent non supportato: ignora */ }
+    }
+
+    /**
+     * Click-to-load granulare: caricare un singolo embed NON scrive un consenso
+     * persistente per l'intera categoria (minimizzazione, consenso puntuale).
+     * L'utente vede questo contenuto senza abilitare il tracking ovunque.
+     */
+    document.addEventListener('click', function (ev) {
+        var btn = ev.target;
+        if (!btn.closest) return;
+        var loadBtn = btn.closest('.dbcm-iframe-placeholder__load');
+        if (!loadBtn) return;
+        ev.preventDefault();
+        var ph = loadBtn.closest('.dbcm-iframe-placeholder');
+        if (ph) {
+            replacePlaceholderWithIframe(ph);
+        }
+    });
 
     /* =========================================================================
      * CANCELLAZIONE REATTIVA — rete di sicurezza sul "già presente"
