@@ -143,6 +143,12 @@ if ( ! class_exists( 'DBCM_Cookie_Database' ) ) {
 					'duration'    => 'Sessione',
 					'provider'    => 'WooCommerce',
 				),
+				'store_notice*' => array(
+					'category'    => 'functional',
+					'description' => __( 'Memorizza la chiusura della barra avviso dello store WooCommerce.', 'db-cookie-manager' ),
+					'duration'    => __( '1 mese', 'db-cookie-manager' ),
+					'provider'    => 'WooCommerce',
+				),
 
 				// Stripe (pagamento — funzionale).
 				'__stripe_mid' => array(
@@ -541,7 +547,28 @@ if ( ! class_exists( 'DBCM_Cookie_Database' ) ) {
 				}
 			}
 
-			// Fallback: cookie non identificato → marketing (safer-by-default).
+			// Fallback: prima di dare per sconosciuto il cookie, consultiamo il
+			// database firme (DBCM_Signatures). È la sorgente unica condivisa da
+			// blocker, scanner-HTML e cancellazione reattiva: se conosce questo
+			// cookie (es. store_notice* di WooCommerce), usiamo la sua categoria
+			// invece di ripiegare su 'marketing'. Questo tiene allineate le due
+			// viste ed evita falsi positivi (tecnici classificati come marketing).
+			if ( class_exists( 'DBCM_Signatures' ) ) {
+				$sig = DBCM_Signatures::classify_cookie( $name );
+				if ( is_array( $sig ) && ! empty( $sig['category'] ) ) {
+					return array(
+						'category'    => $sig['category'],
+						'description' => ! empty( $sig['service'] )
+							/* translators: %s: nome del servizio che imposta il cookie */
+							? sprintf( __( 'Cookie di %s.', 'db-cookie-manager' ), $sig['service'] )
+							: __( 'Cookie riconosciuto dal database firme.', 'db-cookie-manager' ),
+						'duration'    => __( 'Variabile', 'db-cookie-manager' ),
+						'provider'    => ! empty( $sig['service'] ) ? $sig['service'] : self::guess_provider( $name ),
+					);
+				}
+			}
+
+			// Cookie davvero non identificato → marketing (safer-by-default).
 			return array(
 				'category'    => 'marketing',
 				'description' => __( 'Cookie non identificato — verificare manualmente la finalità prima della pubblicazione.', 'db-cookie-manager' ),

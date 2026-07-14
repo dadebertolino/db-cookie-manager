@@ -144,4 +144,33 @@ class ScannerIntegrationTest extends WP_UnitTestCase {
 		$this->assertSame( 2, (int) $counts['statistics'] );
 		$this->assertSame( 1, (int) $counts['marketing'] );
 	}
+
+	/**
+	 * store_notice* è un cookie tecnico di WooCommerce: lo scanner deve
+	 * classificarlo come functional, non come marketing (era un falso positivo).
+	 */
+	public function test_store_notice_is_functional(): void {
+		$info = DBCM_Cookie_Database::identify_cookie( 'store_notice12345' );
+		$this->assertSame( 'functional', $info['category'], 'store_notice* deve essere tecnico, non marketing.' );
+	}
+
+	/**
+	 * Un cookie noto SOLO al database firme (non elencato esplicitamente in
+	 * get_known_cookies) viene comunque classificato tramite il fallback che
+	 * consulta DBCM_Signatures, invece di ripiegare su marketing.
+	 */
+	public function test_identify_cookie_consults_signatures(): void {
+		// _fbp è nelle firme come marketing: confermiamo che la classificazione
+		// derivi (categoria valida, non il fallback "Sconosciuta").
+		$info = DBCM_Cookie_Database::identify_cookie( '_fbp' );
+		$this->assertTrue(
+			DBCM_Settings::is_valid_category( $info['category'] ),
+			'Un cookie noto deve avere una categoria valida.'
+		);
+		$this->assertNotSame(
+			'Cookie non identificato — verificare manualmente la finalità prima della pubblicazione.',
+			$info['description'],
+			'Un cookie noto non deve cadere nel fallback "non identificato".'
+		);
+	}
 }
