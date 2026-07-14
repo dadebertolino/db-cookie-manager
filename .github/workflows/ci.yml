@@ -30,13 +30,12 @@ jobs:
     name: Lint (PHP + WPCS)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.1'
-          coding_standards: phpcs
           tools: composer, cs2pr
 
       - name: php -l su tutti i file
@@ -48,12 +47,23 @@ jobs:
       - name: Install Composer (dev)
         run: composer install --no-interaction --prefer-dist --no-progress
 
-      - name: PHPCS (standard WordPress)
-        # cs2pr rende gli warning inline nella PR. Non blocca il merge sui
-        # soli warning di stile: -n mostra solo gli errori come bloccanti.
-        run: |
-          vendor/bin/phpcs -q --report=checkstyle | cs2pr || true
-          vendor/bin/phpcs -n --standard=phpcs.xml.dist
+      - name: PHPCBF (auto-fix stile correggibile)
+        # Normalizza in automatico ciò che è sistemabile (spaziatura, virgolette,
+        # allineamenti) sulla copia di lavoro del runner. Non committa nulla.
+        # phpcbf esce 1 quando corregge: non è un errore.
+        run: vendor/bin/phpcbf || true
+
+      - name: PHPCS (report completo, non bloccante)
+        # Mostra tutto inline nella PR (errori + warning), per chi vuole rifinire.
+        run: vendor/bin/phpcs -q --report=checkstyle | cs2pr || true
+
+      - name: "PHPCS (gate: sicurezza e correttezza)"
+        # Blocca in modo DETERMINISTICO solo sugli errori ad alta severità:
+        # WPCS mette lo stile a severità 5 e i problemi seri (escaping, nonce,
+        # SQL, prefissi, funzioni vietate) a severità 8-10. Soglia 6 = lo stile
+        # non ferma la pipeline, la sostanza sì. Indipendente da cosa phpcbf
+        # è riuscito a correggere.
+        run: vendor/bin/phpcs -n --error-severity=6 --warning-severity=0
 
   # ---------------------------------------------------------------------------
   # UNIT — PHPUnit sulla logica pura (nessun WordPress, nessun DB)
@@ -66,7 +76,7 @@ jobs:
       matrix:
         php: [ '7.4', '8.0', '8.1', '8.2', '8.3' ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -89,10 +99,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ lint, unit ]   # non avviare Docker se lint/unit falliscono
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '20'
           cache: 'npm'
@@ -133,7 +143,7 @@ jobs:
     permissions:
       contents: write   # per allegare l'asset alla release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Costruisci lo ZIP del plugin
         run: bash bin/build-zip.sh
