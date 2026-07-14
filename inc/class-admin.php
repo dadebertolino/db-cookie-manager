@@ -1303,6 +1303,8 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 				</div>
 			</div>
 
+			<?php self::render_scan_diff_card(); ?>
+
 			<div class="db-ui-card">
 				<div class="db-ui-card-header"><h3><?php esc_html_e( 'Avvia scansione', 'db-cookie-manager' ); ?></h3></div>
 				<div class="db-ui-card-body">
@@ -1366,6 +1368,68 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 			}
 
 			self::close_wrap();
+		}
+
+		private static function render_scan_diff_card() {
+			if ( ! class_exists( 'DBCM_Scanner' ) || ! method_exists( 'DBCM_Scanner', 'get_scan_diff' ) ) {
+				return;
+			}
+			$diff = DBCM_Scanner::get_scan_diff();
+			if ( empty( $diff['has_previous'] ) ) {
+				return;
+			}
+			$added   = isset( $diff['added'] ) ? $diff['added'] : array();
+			$removed = isset( $diff['removed'] ) ? $diff['removed'] : array();
+
+			echo '<div class="db-ui-card">';
+			echo '<div class="db-ui-card-header"><h3>' . esc_html__( 'Modifiche dall\'ultima scansione', 'db-cookie-manager' ) . '</h3></div>';
+			echo '<div class="db-ui-card-body">';
+
+			if ( empty( $added ) && empty( $removed ) ) {
+				echo '<div class="db-ui-alert db-ui-alert-success" style="margin:0"><span class="db-ui-alert-icon" aria-hidden="true">&#10003;</span><span>' . esc_html__( 'Nessuna modifica: gli stessi cookie della scansione precedente.', 'db-cookie-manager' ) . '</span></div>';
+				echo '</div></div>';
+				return;
+			}
+
+			echo '<p style="margin:0 0 12px;font-size:13px;color:#646970">';
+			printf(
+				/* translators: 1: numero cookie nuovi, 2: numero cookie rimossi */
+				esc_html__( '%1$d nuovi, %2$d rimossi rispetto alla scansione precedente.', 'db-cookie-manager' ),
+				count( $added ),
+				count( $removed )
+			);
+			echo '</p>';
+
+			if ( ! empty( $added ) ) {
+				echo '<h4 style="margin:8px 0 6px;color:#b32d2e">' . esc_html__( 'Cookie nuovi', 'db-cookie-manager' ) . '</h4>';
+				self::render_scan_diff_list( $added, 'added' );
+			}
+			if ( ! empty( $removed ) ) {
+				echo '<h4 style="margin:14px 0 6px;color:#207a30">' . esc_html__( 'Cookie rimossi', 'db-cookie-manager' ) . '</h4>';
+				self::render_scan_diff_list( $removed, 'removed' );
+			}
+
+			echo '</div></div>';
+		}
+
+		private static function render_scan_diff_list( $items, $kind ) {
+			$border = ( 'added' === $kind ) ? '#b32d2e' : '#207a30';
+			echo '<ul style="margin:0;padding:0;list-style:none">';
+			foreach ( $items as $item ) {
+				$name     = isset( $item['name'] ) ? (string) $item['name'] : '';
+				$category = isset( $item['category'] ) ? (string) $item['category'] : '';
+				$provider = isset( $item['provider'] ) ? (string) $item['provider'] : '';
+				echo '<li style="padding:6px 10px;margin:4px 0;border-left:3px solid ' . esc_attr( $border ) . ';background:#f6f7f7">';
+				echo '<code>' . esc_html( $name ) . '</code>';
+				if ( '' !== $category ) {
+					echo ' <span class="db-ui-badge" style="background:' . esc_attr( DBCM_Cookie_Database::get_category_color( $category ) ) . ';color:#fff">' . esc_html( DBCM_Cookie_Database::get_category_label( $category ) ) . '</span>';
+				}
+				if ( '' !== $provider ) {
+					echo ' <span style="color:#646970;font-size:12px">&mdash; ' . esc_html( $provider ) . '</span>';
+				}
+				echo '</li>';
+			}
+			echo '</ul>';
 		}
 
 		/**

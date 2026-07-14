@@ -173,4 +173,70 @@ class ScannerIntegrationTest extends WP_UnitTestCase {
 			'Un cookie noto non deve cadere nel fallback "non identificato".'
 		);
 	}
+
+	/* ---- Report differenziale (§5) ---- */
+
+	/**
+	 * Alla prima scansione (nessuno storico) il diff segnala has_previous=false
+	 * e non produce added/removed.
+	 */
+	public function test_scan_diff_no_previous(): void {
+		delete_option( DBCM_Scanner::PREVIOUS_SCAN_OPTION );
+		$this->insert_cookie( '_ga', '.esempio.it', 'statistics' );
+
+		$diff = DBCM_Scanner::get_scan_diff();
+		$this->assertFalse( $diff['has_previous'] );
+		$this->assertEmpty( $diff['added'] );
+		$this->assertEmpty( $diff['removed'] );
+	}
+
+	/**
+	 * Con uno snapshot precedente, il diff calcola correttamente cookie
+	 * aggiunti e rimossi.
+	 */
+	public function test_scan_diff_added_and_removed(): void {
+		// Snapshot precedente: aveva _ga e _fbp.
+		update_option( DBCM_Scanner::PREVIOUS_SCAN_OPTION, array(
+			'date'  => '2026-01-01 00:00:00',
+			'items' => array(
+				array( 'name' => '_ga',  'category' => 'statistics', 'provider' => 'Google' ),
+				array( 'name' => '_fbp', 'category' => 'marketing',  'provider' => 'Meta' ),
+			),
+		), false );
+
+		// Scansione corrente: _ga resta, _fbp rimosso, _clck nuovo.
+		$this->insert_cookie( '_ga', '.esempio.it', 'statistics' );
+		$this->insert_cookie( '_clck', '.esempio.it', 'statistics' );
+
+		$diff = DBCM_Scanner::get_scan_diff();
+		$this->assertTrue( $diff['has_previous'] );
+
+		$added_names   = array_column( $diff['added'], 'name' );
+		$removed_names = array_column( $diff['removed'], 'name' );
+
+		$this->assertContains( '_clck', $added_names, '_clck è nuovo.' );
+		$this->assertNotContains( '_ga', $added_names, '_ga non è nuovo (c\'era già).' );
+		$this->assertContains( '_fbp', $removed_names, '_fbp è stato rimosso.' );
+	}
+
+	/**
+	 * Un cookie che cambia categoria conta come rimosso (vecchia categoria) +
+	 * aggiunto (nuova categoria): è un cambiamento reale da evidenziare.
+	 */
+	public function test_scan_diff_category_change(): void {
+		update_option( DBCM_Scanner::PREVIOUS_SCAN_OPTION, array(
+			'date'  => '2026-01-01 00:00:00',
+			'items' => array(
+				array( 'name' => '_x', 'category' => 'marketing', 'provider' => '' ),
+			),
+		), false );
+
+		$this->insert_cookie( '_x', '.esempio.it', 'functional' );
+
+		$diff = DBCM_Scanner::get_scan_diff();
+		$added_cats   = array_column( $diff['added'], 'category' );
+		$removed_cats = array_column( $diff['removed'], 'category' );
+		$this->assertContains( 'functional', $added_cats );
+		$this->assertContains( 'marketing', $removed_cats );
+	}
 }

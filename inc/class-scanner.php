@@ -238,6 +238,15 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 		public static function run_scan_prepare() {
 			global $wpdb;
 			$table = self::table_name();
+
+			// Prima di azzerare la tabella, salviamo uno snapshot leggero dei
+			// cookie correnti (nome + categoria + provider). Serve al report
+			// differenziale: confrontare la prossima scansione con questa
+			// permette di evidenziare cookie NUOVI o RIMOSSI nel tempo — utile
+			// per l'accountability (GDPR Art. 5(2)) e per accorgersi se un
+			// aggiornamento del sito ha introdotto tracker inattesi.
+			self::snapshot_current_scan();
+
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			$wpdb->query( "TRUNCATE TABLE {$table}" );
 
@@ -969,6 +978,114 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 			        ORDER BY FIELD(category, 'functional', 'preferences', 'statistics', 'statistics-anonymous', 'marketing'),
 			                 cookie_name ASC";
 			return $wpdb->get_results( $sql );
+		}
+
+		/* =====================================================================
+		 * REPORT DIFFERENZIALE (§5)
+		 * ==================================================================== */
+
+		const PREVIOUS_SCAN_OPTION = 'dbcm_scan_previous';
+
+		/**
+		 * Salva uno snapshot leggero della scansione corrente prima che venga
+		 * azzerata. Memorizza solo i campi utili al diff (nome, categoria,
+		 * provider) più la data, in una singola option — nessuna nuova tabella.
+		 *
+		 * Non fa nulla se non c'è ancora una scansione (prima esecuzione).
+		 *
+		 * @return void
+		 */
+		private static function snapshot_current_scan() {
+			$current = self::get_results();
+			if ( empty( $current ) ) {
+				return; // Niente da salvare (prima scansione in assoluto).
+			}
+
+			$items = array();
+			foreach ( $current as $row ) {
+				$items[] = array(
+					'name'     => isset( $row->cookie_name ) ? (string) $row->cookie_name : '',
+					'category' => isset( $row->category ) ? (string) $row->category : '',
+					'provider' => isset( $row->provider ) ? (string) $row->provider : '',
+				);
+			}
+
+			update_option(
+				self::PREVIOUS_SCAN_OPTION,
+				array(
+					'date'  => get_option( 'dbcm_last_scan', '' ),
+					'items' => $items,
+				),
+				false
+			);
+		}
+
+		/**
+		 * Confronta la scansione CORRENTE (tabella) con lo snapshot PRECEDENTE
+		 * (option). L'identità di un cookie è la coppia nome+categoria: un
+		 * cookie che cambia categoria conta come rimosso dalla vecchia e
+		 * aggiunto alla nuova (è un cambiamento reale che l'admin deve vedere).
+		 *
+		 * @return array{
+		 *   has_previous:bool, previous_date:string,
+		 *   added:array, removed:array, unchanged:int
+		 * }
+		 */
+		public static function get_scan_diff() {
+			$previous = get_option( self::PREVIOUS_SCAN_OPTION, array() );
+			$has_previous = is_array( $previous ) && ! empty( $previous['items'] );
+
+			$current_rows = self::get_results();
+			$current = array();
+			foreach ( $current_rows as $row ) {
+				$key = ( isset( $row->cookie_name ) ? $row->cookie_name : '' ) . '|' . ( isset( $row->category ) ? $row->category : '' );
+				$current[ $key ] = array(
+					'name'     => isset( $row->cookie_name ) ? (string) $row->cookie_name : '',
+					'category' => isset( $row->category ) ? (string) $row->category : '',
+					'provider' => isset( $row->provider ) ? (string) $row->provider : '',
+				);
+			}
+
+			if ( ! $has_previous ) {
+				return array(
+					'has_previous'  => false,
+					'previous_date' => '',
+					'added'         => array(),
+					'removed'       => array(),
+					'unchanged'     => count( $current ),
+				);
+			}
+
+			$prev = array();
+			foreach ( $previous['items'] as $item ) {
+				$key = ( isset( $item['name'] ) ? $item['name'] : '' ) . '|' . ( isset( $item['category'] ) ? $item['category'] : '' );
+				$prev[ $key ] = $item;
+			}
+
+			$added     = array();
+			$removed   = array();
+			$unchanged = 0;
+
+			foreach ( $current as $key => $item ) {
+				if ( isset( $prev[ $key ] ) ) {
+					$unchanged++;
+				} else {
+					$added[] = $item;
+				}
+			}
+			foreach ( $prev as $key => $item ) {
+				if ( ! isset( $current[ $key ] ) ) {
+					$removed[] = $item;
+				}
+			}
+
+			return array(
+				'has_previous'  => true,
+				'previous_date' => isset( $previous['date'] ) ? (string) $previous['date'] : '',
+				'added'         => $added,
+				'removed'       => $removed,
+				'unchanged'     => $unchanged,
+			);
 		}
 
 		/**
