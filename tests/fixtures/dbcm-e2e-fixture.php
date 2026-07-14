@@ -37,7 +37,7 @@ add_filter( 'query_vars', function ( $vars ) {
  * rimuoverlo al load. Iniettata via option così reactive_cleanup_list()
  * la include senza toccare le firme statiche.
  */
-/*add_filter( 'option_dbcm_custom_signatures', function ( $value ) {
+add_filter( 'option_dbcm_custom_signatures', function ( $value ) {
 	$value = is_array( $value ) ? $value : array();
 	$value['e2e-mypix'] = array(
 		'service'          => 'E2E Pixel',
@@ -50,7 +50,7 @@ add_filter( 'query_vars', function ( $vars ) {
 	);
 	return $value;
 } );
- */
+
 
 /**
  * Flush delle rewrite una sola volta (all'attivazione del mu-plugin non c'è
