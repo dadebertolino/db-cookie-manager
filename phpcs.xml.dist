@@ -114,11 +114,26 @@
 		<exclude-pattern>*/class-consent-log.php</exclude-pattern>
 	</rule>
 
-	<!-- "50% valid code": docblock che descrive la detection dello User-Agent
-	     e contiene stringhe tipo "Chrome" tra virgolette, scambiato per codice
-	     commentato. Falso positivo. -->
+	<!-- "50% valid code": docblock che descrive la detection User-Agent e
+	     contiene stringhe tipo "Chrome" tra virgolette, scambiato per codice
+	     commentato. Falso positivo. Stesso caso in class-admin.php (commenti
+	     inline dopo valori numerici, es. posizione menu "81 // ..."). -->
 	<rule ref="Squiz.PHP.CommentedOutCode">
 		<exclude-pattern>*/class-consent-log.php</exclude-pattern>
+		<exclude-pattern>*/class-admin.php</exclude-pattern>
+	</rule>
+
+	<!-- NonceVerification in class-admin.php: VERIFICATO MANUALMENTE (rev. 3.3.0).
+	     Gli handler che SALVANO dati — handle_save() e handle_create_policy_page()
+	     — verificano il nonce con wp_verify_nonce() prima di processare, e i form
+	     emettono wp_nonce_field(). Le righe segnalate sono invece letture di
+	     parametri di sola visualizzazione ($_GET['dbcm_msg'] per i flash) e
+	     chiamate di rendering, che non processano form. Falsi positivi: lo sniff
+	     vede $_GET/$_POST fuori da un nonce nello stesso scope senza distinguere
+	     lettura innocua da azione. NON riattivare senza verificare che TUTTI gli
+	     handler di salvataggio mantengano il controllo nonce. -->
+	<rule ref="WordPress.Security.NonceVerification">
+		<exclude-pattern>*/class-admin.php</exclude-pattern>
 	</rule>
 
 	<config name="testVersion" value="7.4-"/>
