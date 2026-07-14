@@ -49,4 +49,18 @@ test.describe( 'Blocco con consenso negato', () => {
 		// Non deve essere sostituito da placeholder né disabilitato.
 	} );
 
+	test( '§4 — i Google Fonts remoti sono rimossi dall\'HTML', async ( { page } ) => {
+		// Con localize_google_fonts attivo (impostato dalla fixture), i <link>
+		// verso fonts.googleapis.com/gstatic.com non devono comparire nell'HTML
+		// servito: il browser non contatta Google, l'IP dell'utente non è
+		// trasmesso.
+		const response = await page.goto( '/?dbcm_e2e=1', { waitUntil: 'domcontentloaded' } );
+		const html = await response.text();
+
+		expect( html ).not.toContain( 'fonts.googleapis.com' );
+		expect( html ).not.toContain( 'fonts.gstatic.com' );
+		// Il link con id noto non deve esistere nel DOM.
+		expect( await page.locator( '#fixture-gfont' ).count() ).toBe( 0 );
+	} );
+
 } );

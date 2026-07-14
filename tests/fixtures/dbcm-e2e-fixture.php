@@ -61,6 +61,14 @@ add_action( 'init', function () {
 	if ( class_exists( 'DBCM_Signatures' ) && method_exists( 'DBCM_Signatures', 'flush_cache' ) ) {
 		DBCM_Signatures::flush_cache();
 	}
+
+	// Attiva la localizzazione Google Fonts per l'e2e (verifica che i <link>
+	// verso fonts.googleapis.com vengano rimossi dall'HTML della pagina test).
+	add_filter( 'option_dbcm_settings', function ( $value ) {
+		$value = is_array( $value ) ? $value : array();
+		$value['localize_google_fonts'] = true;
+		return $value;
+	} );
 }, 1 );
 
 /**
@@ -94,6 +102,10 @@ add_action( 'template_redirect', function () {
 	// GA4 fittizio (measurement ID finto): il blocker deve neutralizzarlo
 	// quando manca il consenso 'statistics'. Nessun dato reale trasmesso.
 	echo '<script async src="https://www.googletagmanager.com/gtag/js?id=G-TEST0000000"></script>' . "\n";
+	// Google Fonts remoto: con localize_google_fonts attivo, questo <link>
+	// deve essere rimosso dall'HTML servito (nessuna richiesta a Google).
+	echo '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>' . "\n";
+	echo '<link id="fixture-gfont" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto&display=swap">' . "\n";
 	echo "<script>\nwindow.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-TEST0000000');\n</script>\n";
 	echo "</head><body>\n";
 

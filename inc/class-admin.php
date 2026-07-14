@@ -464,6 +464,7 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 					'respect_gpc'    => 'bool',
 					'geo_targeting'  => 'bool',
 					'gcm_enabled'    => 'bool',
+					'localize_google_fonts' => 'bool',
 				),
 			);
 		}
@@ -2085,6 +2086,27 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 					<div class="db-ui-alert db-ui-alert-info" style="margin-top:14px">
 						<span class="db-ui-alert-icon" aria-hidden="true">ℹ️</span>
 						<span><?php esc_html_e( 'Se già gestisci Consent Mode tramite Google Tag Manager, lascia questa opzione disattivata per evitare doppie inizializzazioni.', 'db-cookie-manager' ); ?></span>
+					</div>
+				</div>
+			</div>
+
+			<div class="db-ui-card">
+				<div class="db-ui-card-header"><h3><?php esc_html_e( 'Google Fonts', 'db-cookie-manager' ); ?></h3></div>
+				<div class="db-ui-card-body">
+					<p style="margin:0 0 14px;font-size:13px;color:var(--db-text-muted)">
+						<?php esc_html_e( 'Quando una pagina carica un font da fonts.googleapis.com, il browser dell\'utente contatta i server di Google trasmettendo il suo indirizzo IP — prima ancora del banner cookie. Attivando questa opzione, i riferimenti remoti a Google Fonts vengono rimossi dall\'HTML: il sito ripiega sui font di sistema e nessun dato viene inviato a Google.', 'db-cookie-manager' ); ?>
+					</p>
+					<?php
+					self::field_checkbox(
+						'localize_google_fonts',
+						$s['localize_google_fonts'],
+						__( 'Rimuovi i Google Fonts remoti', 'db-cookie-manager' ),
+						__( 'Rimuove i tag <link> verso fonts.googleapis.com e fonts.gstatic.com e gli @import correlati. Se il tuo tema dipende molto da un font Google specifico, valuta prima l\'aspetto del sito: senza il font remoto verrà usato il fallback CSS (di solito font di sistema).', 'db-cookie-manager' )
+					);
+					?>
+					<div class="db-ui-alert db-ui-alert-info" style="margin-top:14px">
+						<span class="db-ui-alert-icon" aria-hidden="true">ℹ️</span>
+						<span><?php esc_html_e( 'Questa opzione non fa self-hosting dei font (download e riscrittura locale): li rimuove soltanto. Per mantenere l\'aspetto identico self-hostando i font, usa un plugin dedicato o carica i font localmente nel tema.', 'db-cookie-manager' ); ?></span>
 					</div>
 				</div>
 			</div>

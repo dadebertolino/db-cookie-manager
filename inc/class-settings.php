@@ -162,6 +162,15 @@ if ( ! class_exists( 'DBCM_Settings' ) ) {
 				 * esistenti (es. via GTM). Quando ON, il default è 'denied' su
 				 * tutti i segnali (privacy by default, Art. 25). */
 				'gcm_enabled'            => false,
+
+				/* ---- Localizzazione Google Fonts (opt-in) ----
+				 * OFF di default. Quando ON, i <link> verso fonts.googleapis.com
+				 * vengono rimossi dall'HTML: il browser non contatta più i server
+				 * Google al caricamento della pagina, quindi l'IP dell'utente non
+				 * viene trasmesso a Google (nessuna base giuridica richiesta —
+				 * la trasmissione avverrebbe prima di ogni consenso). Il sito
+				 * ripiega sui font di sistema definiti nel fallback CSS. */
+				'localize_google_fonts'  => false,
 			);
 		}
 

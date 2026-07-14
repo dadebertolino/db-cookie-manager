@@ -54,14 +54,23 @@ if ( ! class_exists( 'DBCM_Blocker' ) ) {
 			if ( ! DBCM_Settings::get( 'banner_enabled', true ) ) {
 				return;
 			}
-			if ( ! DBCM_Settings::get( 'auto_block', true ) ) {
+
+			$auto_block   = (bool) DBCM_Settings::get( 'auto_block', true );
+			$localize_font = (bool) DBCM_Settings::get( 'localize_google_fonts', false );
+
+			// Nessuna delle due funzioni attive → non agganciamo nulla.
+			if ( ! $auto_block && ! $localize_font ) {
 				return;
 			}
 
-			// Meccanismo 1: filtro su script_loader_tag (script enqueued).
-			add_filter( 'script_loader_tag', array( __CLASS__, 'filter_script_tag' ), 100, 3 );
+			// Il filtro script_loader_tag serve solo al blocco preventivo.
+			if ( $auto_block ) {
+				add_filter( 'script_loader_tag', array( __CLASS__, 'filter_script_tag' ), 100, 3 );
+			}
 
-			// Meccanismo 2: output buffering (script inline + iframe).
+			// L'output buffering copre sia il blocco script/iframe (auto_block)
+			// sia la rimozione dei Google Fonts remoti (localize_google_fonts).
+			// Basta che almeno una delle due sia attiva.
 			add_action( 'template_redirect', array( __CLASS__, 'start_buffer' ), 1 );
 		}
 
@@ -379,8 +388,57 @@ if ( ! class_exists( 'DBCM_Blocker' ) ) {
 			if ( '' === $html || null === $html ) {
 				return $html;
 			}
-			$html = self::block_inline_scripts( $html );
-			$html = self::block_iframes( $html );
+			// Blocco preventivo script/iframe: solo se auto_block è attivo.
+			if ( DBCM_Settings::get( 'auto_block', true ) ) {
+				$html = self::block_inline_scripts( $html );
+				$html = self::block_iframes( $html );
+			}
+			// Localizzazione Google Fonts: rimuove i <link> remoti se attiva.
+			if ( DBCM_Settings::get( 'localize_google_fonts', false ) ) {
+				$html = self::strip_google_fonts( $html );
+			}
+			return $html;
+		}
+
+		/**
+		 * Rimuove dall'HTML i riferimenti remoti a Google Fonts, così il browser
+		 * non contatta i server Google al caricamento della pagina (nessuna
+		 * trasmissione dell'IP dell'utente a Google — che avverrebbe prima di
+		 * qualsiasi consenso). Rimuove:
+		 *  - <link rel="stylesheet" href="...fonts.googleapis.com...">
+		 *  - <link rel="preconnect"/"dns-prefetch" verso fonts.googleapis.com /
+		 *    fonts.gstatic.com (evita anche l'handshake anticipato).
+		 *  - @import di fonts.googleapis.com dentro <style>.
+		 *
+		 * Il sito ripiega sui font di sistema del fallback CSS. Non fa
+		 * self-hosting (download+riscrittura): quella è una funzione separata,
+		 * più invasiva, fuori dallo scopo di questa opzione.
+		 *
+		 * @param string $html
+		 * @return string
+		 */
+		private static function strip_google_fonts( $html ) {
+			// 1. <link ...fonts.googleapis.com...> (stylesheet dei font).
+			$html = preg_replace(
+				'#<link\b[^>]*\bhref\s*=\s*["\'][^"\']*fonts\.googleapis\.com[^"\']*["\'][^>]*/?>#i',
+				'',
+				$html
+			);
+
+			// 2. <link rel="preconnect"/"dns-prefetch" verso i domini font Google.
+			$html = preg_replace(
+				'#<link\b[^>]*\bhref\s*=\s*["\'][^"\']*fonts\.gstatic\.com[^"\']*["\'][^>]*/?>#i',
+				'',
+				$html
+			);
+
+			// 3. @import url(...fonts.googleapis.com...) dentro i blocchi <style>.
+			$html = preg_replace(
+				'#@import\s+(?:url\()?["\']?[^"\')]*fonts\.googleapis\.com[^"\')]*["\']?\)?\s*;?#i',
+				'',
+				$html
+			);
+
 			return $html;
 		}
 
