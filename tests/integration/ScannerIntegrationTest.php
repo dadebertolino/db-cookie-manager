@@ -47,16 +47,20 @@ class ScannerIntegrationTest extends WP_UnitTestCase {
 		global $wpdb;
 		$table = DBCM_Scanner::table_name();
 
-		// Nota: "SHOW TABLES LIKE '{$table}'" è inaffidabile qui — l'underscore
-		// è un wildcard LIKE e il comportamento sotto la transazione della test
-		// suite varia. Verifichiamo invece l'appartenenza esatta alla lista
-		// delle tabelle.
-		$tables = $wpdb->get_col( 'SHOW TABLES', 0 );
-		$this->assertContains(
-			$table,
-			$tables,
-			'La tabella dei cookie deve esistere dopo create_table().'
-		);
+		// Non usiamo SHOW TABLES (né LIKE): sotto la transazione della
+		// WordPress test suite i metadati delle tabelle create nel setUp non
+		// sono elencati in modo affidabile, anche se la tabella È interrogabile
+		// (lo dimostrano gli altri test che vi fanno INSERT/SELECT). Verifichiamo
+		// quindi che una query sulla tabella riesca: se non esistesse, get_var
+		// tornerebbe null e $wpdb->last_error sarebbe valorizzato.
+		$wpdb->suppress_errors( true );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$result    = $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" );
+		$has_error = ! empty( $wpdb->last_error );
+		$wpdb->suppress_errors( false );
+
+		$this->assertFalse( $has_error, "La tabella {$table} deve essere interrogabile (nessun errore SQL)." );
+		$this->assertNotNull( $result, 'Una COUNT(*) sulla tabella esistente deve restituire un valore.' );
 	}
 
 	public function test_table_has_expected_columns(): void {
