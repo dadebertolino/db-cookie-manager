@@ -538,10 +538,6 @@
      */
     function reactiveCleanup(consent) {
         var list = C.reactiveCleanup;
-        // DIAGNOSTIC (temporaneo): rimuovere dopo che l'e2e è verde.
-        if (window.console && console.warn) {
-            console.warn('[DBCM] reactiveCleanup list length=' + (list ? list.length : 'undefined') + ' cookies=' + document.cookie);
-        }
         if (!list || !list.length) return;
         var present = currentCookieNames();
         list.forEach(function (entry) {

@@ -51,7 +51,6 @@ add_filter( 'option_dbcm_custom_signatures', function ( $value ) {
 	return $value;
 } );
 
-
 /**
  * Flush delle rewrite una sola volta (all'attivazione del mu-plugin non c'è
  * hook di attivazione, quindi usiamo un flag in option).
@@ -94,6 +93,39 @@ add_action( 'template_redirect', function () {
 
 	echo '<h2>Contatti</h2>' . "\n";
 	echo '<a id="fixture-whatsapp" href="https://wa.me/393331234567">Scrivici su WhatsApp</a>' . "\n";
+
+	echo '<div id="dbcm-banner-root"></div>' . "\n";
+
+	// La pagina fixture serve HTML grezzo con exit e NON passa da wp_head/
+	// wp_footer, quindi DBCM_Banner::enqueue_assets() non viene eseguito e
+	// banner.js non sarebbe presente. Per testare la cancellazione reattiva
+	// (che è logica di banner.js) emettiamo qui manualmente la config e lo
+	// script, riusando la lista reale dal backend.
+	$reactive = class_exists( 'DBCM_Signatures' ) ? DBCM_Signatures::reactive_cleanup_list() : array();
+	$cfg      = array(
+		'ajaxUrl'         => admin_url( 'admin-ajax.php' ),
+		'nonce'           => wp_create_nonce( 'dbcm_consent_nonce' ),
+		'cookieName'      => defined( 'DBCM_Settings::COOKIE_NAME' ) ? DBCM_Settings::COOKIE_NAME : 'dbcm_consent',
+		'reactiveCleanup' => $reactive,
+		'categories'      => array( 'functional', 'preferences', 'statistics', 'statistics-anonymous', 'marketing' ),
+		'categoriesOptional' => array( 'preferences', 'statistics', 'statistics-anonymous', 'marketing' ),
+		'defaults'        => array(
+			'functional'           => true,
+			'preferences'          => false,
+			'statistics'           => false,
+			'statistics-anonymous' => false,
+			'marketing'            => false,
+		),
+		'translations'    => array(),
+		'activeLangs'     => array( 'it' ),
+		'defaultLang'     => 'it',
+		'autoOpen'        => false,
+		'showReopenBtn'   => false,
+		'respectGpc'      => false,
+		'respectDnt'      => false,
+	);
+	echo '<script>window.dbcmBanner=' . wp_json_encode( $cfg ) . ';</script>' . "\n";
+	echo '<script src="' . esc_url( DBCM_URL . 'assets/js/banner.js' ) . '?ver=' . rawurlencode( DBCM_VERSION ) . '"></script>' . "\n";
 
 	echo "</body></html>";
 	exit;
