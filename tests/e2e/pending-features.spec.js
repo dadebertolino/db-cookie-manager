@@ -58,7 +58,7 @@ test.describe( 'Cancellazione reattiva (§ aggiunta manuale) — DA IMPLEMENTARE
 		await context.addCookies( [ {
 			name: '_mypix',
 			value: '1',
-			url: process.env.WP_BASE_URL || 'http://localhost:8889',
+			url: process.env.WP_BASE_URL || 'http://localhost:8888',
 		} ] );
 
 		await page.goto( '/dbcm-test/' );

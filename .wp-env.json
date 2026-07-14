@@ -2,8 +2,7 @@
 	"core": "WordPress/WordPress",
 	"phpVersion": "8.1",
 	"plugins": [
-		".",
-		"https://downloads.wordpress.org/plugin/woocommerce.latest-stable.zip"
+		"."
 	],
 	"mappings": {
 		"wp-content/mu-plugins/dbcm-e2e-fixture.php": "./tests/fixtures/dbcm-e2e-fixture.php"
@@ -12,10 +11,5 @@
 		"WP_DEBUG": true,
 		"WP_DEBUG_LOG": true,
 		"SCRIPT_DEBUG": true
-	},
-	"env": {
-		"tests": {
-			"port": 8889
-		}
 	}
 }

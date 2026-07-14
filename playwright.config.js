@@ -4,9 +4,10 @@ const { defineConfig, devices } = require( '@playwright/test' );
 /**
  * Config Playwright per gli E2E di DB Cookie Manager.
  *
- * baseURL punta all'istanza "tests" di wp-env (porta 8889 in .wp-env.json).
- * I test girano solo su Chromium in CI: il blocco/consenso non è
- * browser-specifico e Chromium tiene i tempi bassi.
+ * baseURL punta all'ambiente "development" di wp-env (porta 8888), che è quello
+ * su cui opera di default `wp-env run cli` (il setup installa lì WooCommerce e
+ * il prodotto). Development e tests sono due WordPress separati: testare sullo
+ * stesso ambiente configurato dal setup evita il mismatch prodotto-non-trovato.
  */
 module.exports = defineConfig( {
 	testDir: './tests/e2e',
@@ -17,7 +18,7 @@ module.exports = defineConfig( {
 	reporter: process.env.CI ? [ [ 'list' ], [ 'html', { open: 'never' } ] ] : 'list',
 
 	use: {
-		baseURL: process.env.WP_BASE_URL || 'http://localhost:8889',
+		baseURL: process.env.WP_BASE_URL || 'http://localhost:8888',
 		trace: 'on-first-retry',
 		screenshot: 'only-on-failure',
 	},
