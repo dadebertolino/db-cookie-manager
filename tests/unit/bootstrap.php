@@ -216,10 +216,109 @@ function dbcm_test_call_private( $class, $method, array $args = array() ) {
 	return $ref->invokeArgs( null, $args );
 }
 
+/* -----------------------------------------------------------------------------
+ * Stub per testare DBCM_Policy_Generator.
+ *
+ * Il generator produce HTML da: i risultati raggruppati dello scanner e le
+ * etichette/descrizioni del cookie database. Rendiamo entrambi controllabili
+ * via variabili globali, e stubbiamo le funzioni di escaping/output WP.
+ * -------------------------------------------------------------------------- */
+
+$GLOBALS['__dbcm_grouped_results'] = array();
+
+if ( ! function_exists( 'esc_html' ) ) {
+	function esc_html( $t ) {
+		return htmlspecialchars( (string) $t, ENT_QUOTES, 'UTF-8' );
+	}
+}
+if ( ! function_exists( 'esc_html__' ) ) {
+	function esc_html__( $t, $d = 'default' ) {
+		return htmlspecialchars( (string) $t, ENT_QUOTES, 'UTF-8' );
+	}
+}
+if ( ! function_exists( 'esc_url' ) ) {
+	function esc_url( $u ) {
+		return htmlspecialchars( (string) $u, ENT_QUOTES, 'UTF-8' );
+	}
+}
+if ( ! function_exists( 'esc_attr' ) ) {
+	function esc_attr( $t ) {
+		return htmlspecialchars( (string) $t, ENT_QUOTES, 'UTF-8' );
+	}
+}
+if ( ! function_exists( 'get_bloginfo' ) ) {
+	function get_bloginfo( $key = 'name' ) {
+		return 'Sito Di Test';
+	}
+}
+if ( ! function_exists( 'date_i18n' ) ) {
+	function date_i18n( $format, $ts = null ) {
+		return gmdate( $format ?: 'Y-m-d', $ts ?? time() );
+	}
+}
+
+/**
+ * Imposta i risultati scansione raggruppati che DBCM_Scanner::get_results_grouped
+ * restituirà nei test. Formato: array<categoria, array<oggetto-cookie>>.
+ *
+ * @param array $grouped
+ */
+function dbcm_test_set_grouped_results( $grouped ) {
+	$GLOBALS['__dbcm_grouped_results'] = $grouped;
+}
+
+/**
+ * Crea un oggetto cookie come lo produce lo scanner (stdClass con le proprietà
+ * usate dal policy generator).
+ *
+ * @param string $name
+ * @param string $provider
+ * @param string $description
+ * @param string $duration
+ * @return stdClass
+ */
+function dbcm_test_cookie_row( $name, $provider = '', $description = '', $duration = '' ) {
+	$o                  = new stdClass();
+	$o->cookie_name     = $name;
+	$o->provider        = $provider;
+	$o->description     = $description;
+	$o->cookie_duration = $duration;
+	return $o;
+}
+
+// Stub di DBCM_Scanner (solo il metodo usato dal generator).
+if ( ! class_exists( 'DBCM_Scanner' ) ) {
+	class DBCM_Scanner {
+		public static function get_results_grouped() {
+			return $GLOBALS['__dbcm_grouped_results'];
+		}
+	}
+}
+
+// Stub di DBCM_Cookie_Database (etichette/descrizioni categoria).
+if ( ! class_exists( 'DBCM_Cookie_Database' ) ) {
+	class DBCM_Cookie_Database {
+		public static function get_category_label( $category ) {
+			$labels = array(
+				'functional'           => 'Tecnici (necessari)',
+				'preferences'          => 'Preferenze',
+				'statistics'           => 'Statistici',
+				'statistics-anonymous' => 'Statistici anonimi',
+				'marketing'            => 'Marketing',
+			);
+			return $labels[ $category ] ?? $category;
+		}
+		public static function get_category_description( $category ) {
+			return 'Descrizione categoria ' . $category;
+		}
+	}
+}
+
 // Carica i sorgenti sotto test.
 require_once DBCM_TEST_ROOT . '/inc/data/signatures.php';
 require_once DBCM_TEST_ROOT . '/inc/class-signatures.php';
 require_once DBCM_TEST_ROOT . '/inc/class-consent-api.php';
+require_once DBCM_TEST_ROOT . '/inc/class-policy-generator.php';
 
 // Autoload Composer per PHPUnit.
 require_once DBCM_TEST_ROOT . '/vendor/autoload.php';
