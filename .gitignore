@@ -10,3 +10,8 @@ package-lock.json
 FIX-*.txt
 TEST-*.txt
 HANDOFF-*.md
+
+# Appunti di sviluppo
+FIX-*.txt
+TEST-*.txt
+INSTALL*.txt
