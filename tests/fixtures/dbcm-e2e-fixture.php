@@ -62,13 +62,17 @@ add_action( 'init', function () {
 		DBCM_Signatures::flush_cache();
 	}
 
-	// Attiva la localizzazione Google Fonts per l'e2e (verifica che i <link>
-	// verso fonts.googleapis.com vengano rimossi dall'HTML della pagina test).
-	add_filter( 'option_dbcm_settings', function ( $value ) {
-		$value = is_array( $value ) ? $value : array();
-		$value['localize_google_fonts'] = true;
-		return $value;
-	} );
+	// Attiva la localizzazione Google Fonts per l'e2e scrivendo l'option reale
+	// (il filtro option_dbcm_settings non basta: DBCM_Blocker::init() legge il
+	// setting a 'template_redirect' via DBCM_Settings::all(), e vogliamo che il
+	// valore sia persistente nel DB, non solo filtrato). Preserviamo gli altri
+	// valori salvati.
+	$settings = get_option( 'dbcm_settings', array() );
+	if ( ! is_array( $settings ) ) {
+		$settings = array();
+	}
+	$settings['localize_google_fonts'] = true;
+	update_option( 'dbcm_settings', $settings );
 }, 1 );
 
 /**
