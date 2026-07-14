@@ -112,9 +112,98 @@ if ( ! class_exists( 'DBCM_Settings' ) ) {
 	require_once DBCM_TEST_ROOT . '/inc/class-settings.php';
 }
 
+/* -----------------------------------------------------------------------------
+ * Stub aggiuntivi per testare DBCM_Consent_API.
+ *
+ * La WP Consent API (wp_has_consent/wp_set_consent) è OPZIONALE: il plugin
+ * funziona sia con sia senza. Per testare entrambi i rami la rendiamo
+ * attivabile a runtime via un flag globale, invece di definirla sempre.
+ * -------------------------------------------------------------------------- */
+
+$GLOBALS['__dbcm_wp_consent_api']   = false;      // WP Consent API installata?
+$GLOBALS['__dbcm_wp_consent_store'] = array();    // stato consensi (se attiva)
+
+if ( ! function_exists( 'wp_unslash' ) ) {
+	function wp_unslash( $value ) {
+		return is_string( $value ) ? stripslashes( $value ) : $value;
+	}
+}
+if ( ! function_exists( 'is_admin' ) ) {
+	function is_admin() {
+		return ! empty( $GLOBALS['__dbcm_is_admin'] );
+	}
+}
+if ( ! function_exists( 'do_action' ) ) {
+	function do_action( $hook ) {
+		// no-op negli unit test.
+	}
+}
+
+/**
+ * Attiva/disattiva la finta WP Consent API per un test.
+ *
+ * @param bool $enabled
+ */
+function dbcm_test_set_consent_api( $enabled ) {
+	$GLOBALS['__dbcm_wp_consent_api']   = (bool) $enabled;
+	$GLOBALS['__dbcm_wp_consent_store'] = array();
+
+	if ( $enabled ) {
+		if ( ! function_exists( 'wp_has_consent' ) ) {
+			function wp_has_consent( $category ) {
+				return isset( $GLOBALS['__dbcm_wp_consent_store'][ $category ] )
+					&& 'allow' === $GLOBALS['__dbcm_wp_consent_store'][ $category ];
+			}
+		}
+		if ( ! function_exists( 'wp_set_consent' ) ) {
+			function wp_set_consent( $category, $value ) {
+				$GLOBALS['__dbcm_wp_consent_store'][ $category ] = $value;
+			}
+		}
+	}
+}
+
+/**
+ * Imposta il cookie di consenso simulato ($_COOKIE) con schema corretto.
+ * Passare null per rimuoverlo.
+ *
+ * @param array|string|null $categories Mappa categoria=>bool, JSON grezzo, o null.
+ * @param int|null          $schema     Versione schema (default: quella corrente).
+ */
+function dbcm_test_set_consent_cookie( $categories, $schema = null ) {
+	$name = DBCM_Settings::COOKIE_NAME;
+	if ( null === $categories ) {
+		unset( $_COOKIE[ $name ] );
+		return;
+	}
+	if ( is_string( $categories ) ) {
+		$_COOKIE[ $name ] = $categories; // payload grezzo (per test malformati).
+		return;
+	}
+	$payload      = $categories;
+	$payload['v'] = ( null === $schema ) ? DBCM_Settings::COOKIE_SCHEMA_VERSION : $schema;
+	$_COOKIE[ $name ] = wp_json_encode( $payload );
+}
+
+if ( ! function_exists( 'wp_json_encode' ) ) {
+	function wp_json_encode( $data ) {
+		return json_encode( $data );
+	}
+}
+
+/**
+ * Reset completo per DBCM_Consent_API fra i test.
+ */
+function dbcm_test_reset_consent() {
+	$GLOBALS['__dbcm_is_admin'] = false;
+	dbcm_test_set_consent_api( false );
+	unset( $_COOKIE[ DBCM_Settings::COOKIE_NAME ] );
+}
+
 // Carica i sorgenti sotto test.
 require_once DBCM_TEST_ROOT . '/inc/data/signatures.php';
 require_once DBCM_TEST_ROOT . '/inc/class-signatures.php';
+require_once DBCM_TEST_ROOT . '/inc/class-consent-api.php';
 
 // Autoload Composer per PHPUnit.
 require_once DBCM_TEST_ROOT . '/vendor/autoload.php';
