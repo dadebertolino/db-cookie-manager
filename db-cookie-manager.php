@@ -3,7 +3,7 @@
  * Plugin Name: DB Cookie Manager
  * Plugin URI:  https://www.davidebertolino.it/progetti/db-cookie-manager
  * Description: Gestione completa dei cookie per WordPress: scanner automatico, banner GDPR multilingua con blocco preventivo, integrazione WP Consent API, generatore Cookie Policy e registro consensi.
- * Version:     3.2.0
+ * Version:     3.3.0
  * Author:      Davide Bertolino
  * Author URI:  https://www.davidebertolino.it
  * License:     GPL v2 or later
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Costanti
  * ========================================================================== */
 
-define( 'DBCM_VERSION', '3.2.0' );
+define( 'DBCM_VERSION', '3.3.0' );
 define( 'DBCM_FILE', __FILE__ );
 define( 'DBCM_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DBCM_URL', plugin_dir_url( __FILE__ ) );
@@ -89,6 +89,10 @@ if ( ! class_exists( 'DBCM_Plugin' ) ) {
 			require_once DBCM_DIR . 'inc/class-consent-api.php';
 			require_once DBCM_DIR . 'inc/class-banner.php';
 
+			// v3.3.0 — Database firme locale (sorgente unica per blocker e scanner).
+			require_once DBCM_DIR . 'inc/data/signatures.php';
+			require_once DBCM_DIR . 'inc/class-signatures.php';
+
 			// Step 3 — Blocker preventivo.
 			require_once DBCM_DIR . 'inc/class-blocker.php';
 
@@ -147,6 +151,11 @@ if ( ! class_exists( 'DBCM_Plugin' ) ) {
 
 			// Banner frontend: enqueue assets, render markup.
 			DBCM_Banner::init();
+
+			// v3.3.0 — Database firme: aggancia le viste blocker/scanner ai
+			// filtri esistenti PRIMA che Blocker e Scanner girino. Additivo:
+			// se fallisse, il core continua con i suoi pattern hard-coded.
+			DBCM_Signatures::init();
 
 			// Blocker preventivo: neutralizza script e iframe di tracking
 			// finché l'utente non concede la categoria.

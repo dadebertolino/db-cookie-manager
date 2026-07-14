@@ -1,0 +1,36 @@
+DB Cookie Manager 3.3.0 — Drop-in Step 1: Database firme locale
+================================================================
+
+CONTENUTO
+  db-cookie-manager.php        (bootstrap aggiornato: v3.3.0, require + init firme)
+  inc/class-signatures.php     (NUOVO: punto di accesso unico al db firme)
+  inc/data/signatures.php      (NUOVO: database firme statico, 42 servizi)
+
+INSTALLAZIONE
+  Copiare i file rispettando la struttura delle cartelle sopra la
+  cartella del plugin (wp-content/plugins/db-cookie-manager/), sovrascrivendo
+  il solo db-cookie-manager.php esistente. I due file inc/ sono nuovi.
+
+COSA CAMBIA
+  - Le firme di blocker e scanner sono ora consolidate in un'unica fonte
+    (inc/data/signatures.php), agganciata al core via i filtri esistenti
+    dbcm_blocker_patterns e dbcm_scanner_html_detections. Strategia additiva:
+    il comportamento del core NON cambia, si aggiungono solo firme.
+  - Nuovi servizi coperti: PayPal (antifrode, non bloccato), WooCommerce e
+    WordPress core (cookie tecnici), WhatsApp/Telegram/Messenger click-to-chat
+    (rilevati ma mai bloccati), Stripe, embed completi (YouTube, Maps, Vimeo,
+    Instagram, Spotify, SoundCloud, X).
+  - Predisposizione per le firme personalizzate per-sito (option
+    dbcm_custom_signatures) — l'interfaccia admin arriva nel prossimo step.
+
+NON ANCORA ATTIVO (prossimi step)
+  - UI admin per l'aggiunta manuale cookie/servizi.
+  - Cancellazione reattiva lato client (la lista è già esposta da
+    DBCM_Signatures::reactive_cleanup_list(), manca l'aggancio in banner.js).
+  - Placeholder click-to-load, GCM v2, localizzazione Google Fonts.
+
+VALIDAZIONE
+  Tutti i file passano php -l. Test funzionale: 42 servizi, viste
+  blocker/scanner corrette, classificazione cookie con wildcard, firme custom
+  con degradazione sicura delle regex malformate, cancellazione reattiva che
+  esclude i cookie tecnici.

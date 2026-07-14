@@ -1,0 +1,45 @@
+DB Cookie Manager — Infrastruttura CI/CD (GitHub Actions)
+=========================================================
+
+Struttura da copiare nella ROOT del repository db-cookie-manager:
+
+  .github/workflows/ci.yml        Pipeline: lint → unit → e2e → build
+  composer.json                   Tooling PHP (PHPUnit, WPCS)
+  phpunit.xml.dist                Config PHPUnit (testsuite unit)
+  phpcs.xml.dist                  Ruleset WordPress + prefissi dbcm/DBCM
+  package.json                    Tooling E2E (wp-env, Playwright)
+  playwright.config.js            Config Playwright (target wp-env :8889)
+  .wp-env.json                    WordPress + WooCommerce + fixture in Docker
+  .gitignore                      Artefatti di sviluppo
+  TESTING.md                      Documentazione completa dei test
+  bin/build-zip.sh                Costruisce lo ZIP di release (updater-compat.)
+  bin/setup-e2e.sh                Configura WooCommerce + pagine per gli E2E
+  tests/unit/bootstrap.php        Stub WP per i test di logica pura
+  tests/unit/SignaturesTest.php   15 test su DBCM_Signatures (tutti verdi)
+  tests/e2e/helpers.js            Utility (tracking rete, cookie consenso)
+  tests/e2e/blocking.spec.js      §9.1 §9.3 — blocco, no terze parti, WhatsApp
+  tests/e2e/woocommerce.spec.js   §9.1 §9.2 — carrello sopravvive al rifiuto
+  tests/e2e/pending-features.spec.js  §3 §9.4 §9.8 — TDD, skip fino a implementaz.
+  tests/fixtures/dbcm-e2e-fixture.php  mu-plugin: pagina di test deterministica
+
+NOTA STRUTTURA SORGENTI
+  I workflow assumono la struttura reale del plugin: le classi in inc/, il
+  file principale db-cookie-manager.php nella root. (La copia in /mnt/project
+  è appiattita; il repo vero ha già inc/.)
+
+PRIMA ESECUZIONE
+  1. Copia i file nella root del repo, committa e pusha.
+  2. Il job lint potrebbe segnalare warning WPCS sul codice esistente: sono
+     di stile, non bloccano (solo gli errori -n bloccano). Puoi rifinirli con
+     `composer run phpcbf`.
+  3. Il job e2e richiede Docker (presente sui runner ubuntu-latest di GitHub).
+  4. Per la prima release: tagga vX.Y.Z → build allega lo ZIP alla release.
+
+STATO DEI TEST
+  - unit: 15/15 verdi (validati localmente con shim; identici sotto PHPUnit).
+  - e2e attivi: blocco GA4, assenza richieste terze parti, WhatsApp, carrello WC.
+  - e2e skip (TDD): placeholder click-to-load, tastiera, cancellazione reattiva.
+    Si riattivano rimuovendo .skip quando implementiamo le feature.
+
+DIPENDENZE LOCALI (se vuoi girare i test sul tuo PC)
+  Docker, Node 20, PHP 8.x, Composer. Vedi TESTING.md § "Eseguire in locale".

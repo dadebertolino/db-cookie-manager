@@ -1,0 +1,17 @@
+{
+	"name": "db-cookie-manager-e2e",
+	"private": true,
+	"description": "Ambiente di test E2E per DB Cookie Manager (wp-env + Playwright).",
+	"scripts": {
+		"env:start": "wp-env start",
+		"env:stop": "wp-env stop",
+		"env:setup": "bash bin/setup-e2e.sh",
+		"env:cli": "wp-env run cli wp",
+		"test:e2e": "playwright test",
+		"test:e2e:headed": "playwright test --headed"
+	},
+	"devDependencies": {
+		"@playwright/test": "^1.45.0",
+		"@wordpress/env": "^10.0.0"
+	}
+}

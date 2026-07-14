@@ -1,0 +1,9 @@
+/vendor/
+/node_modules/
+/dist/
+/playwright-report/
+/test-results/
+composer.lock
+package-lock.json
+.wp-env-*
+*.log
