@@ -50,7 +50,7 @@ test.describe( 'Placeholder click-to-load (§3, §9.4) — DA IMPLEMENTARE', () 
 
 test.describe( 'Cancellazione reattiva (§ aggiunta manuale) — DA IMPLEMENTARE', () => {
 
-	test.skip( 'un cookie in lista cleanup viene rimosso senza consenso', async ( { page, context } ) => {
+	test( 'un cookie in lista cleanup viene rimosso senza consenso', async ( { page, context } ) => {
 		// Atteso, una volta agganciato banner.js: un cookie marcato per la
 		// cancellazione reattiva viene eliminato al load se manca il consenso
 		// della sua categoria.

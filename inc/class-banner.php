@@ -236,6 +236,12 @@ if ( ! class_exists( 'DBCM_Banner' ) ) {
 				'respectGpc'        => (bool) $s['respect_gpc'],
 				'respectDnt'        => (bool) $s['respect_dnt'],
 
+				/* ---- Cancellazione reattiva ----
+				 * Lista { name, category } di cookie da rimuovere lato client
+				 * quando manca il consenso della categoria (Art. 7(3), 17, 5(1)(e)).
+				 * Esclude i tecnici per costruzione. name può contenere '*'. */
+				'reactiveCleanup'   => DBCM_Signatures::reactive_cleanup_list(),
+
 				/* ---- Render decision ----
 				 * Se false, il banner JS sa di non auto-mostrarsi (ma lascia
 				 * comunque il pulsante "Riapri" disponibile). */

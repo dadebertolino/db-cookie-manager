@@ -374,6 +374,7 @@
         syncWithServer(written, type);
         activateBlockedScripts(written);
         restoreBlockedIframes(written);
+        reactiveCleanup(written); // Revoca: rimuove i cookie delle categorie non concesse.
         dispatchConsentEvent(written, type);
         close();
     }
@@ -463,6 +464,95 @@
             if (ph.parentNode) {
                 ph.parentNode.replaceChild(iframe, ph);
             }
+        });
+    }
+
+    /* =========================================================================
+     * CANCELLAZIONE REATTIVA — rete di sicurezza sul "già presente"
+     *
+     * Il blocker PHP impedisce a NUOVI script di scrivere, ma non tocca cookie
+     * preesistenti (scritti prima del plugin, da tag inline sfuggiti, da un
+     * consenso poi revocato, o da third-party non intercettati). Qui, a ogni
+     * load e a ogni revoca, se manca il consenso per la categoria di un cookie
+     * noto lo rimuoviamo. GDPR Art. 7(3) (revoca effettiva), Art. 17 (cancel-
+     * lazione), Art. 5(1)(e) (limitazione conservazione).
+     *
+     * Limite tecnico: JS cancella solo cookie NON-HttpOnly leggibili nello
+     * stesso dominio. Gli HttpOnly di terze parti restano coperti dal blocco
+     * a monte, non da qui.
+     * ========================================================================= */
+
+    /**
+     * Converte un pattern firma ('_ga', '_ga_*') in RegExp ancorata sul nome.
+     * '*' → '.*'; il resto è escapato letteralmente.
+     */
+    function cookiePatternToRegExp(pattern) {
+        var escaped = String(pattern).replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+        escaped = escaped.replace(/\*/g, '.*');
+        return new RegExp('^' + escaped + '$');
+    }
+
+    /**
+     * Elimina un cookie per nome esatto provando le combinazioni path/domain
+     * più comuni: un solo expires nel passato NON basta se il cookie è stato
+     * scritto con domain o path specifici.
+     */
+    function deleteCookieByName(name) {
+        var past = 'Thu, 01 Jan 1970 00:00:00 GMT';
+        var host = location.hostname;
+        var paths = ['/', location.pathname];
+        // Domini: nudo, host corrente, .host, e progressivamente i parent
+        // (.example.com per sottodomini). null = nessun attributo domain.
+        var domains = [null, host, '.' + host];
+        var parts = host.split('.');
+        for (var i = 1; i < parts.length - 1; i++) {
+            domains.push('.' + parts.slice(i).join('.'));
+        }
+        paths.forEach(function (path) {
+            domains.forEach(function (domain) {
+                var c = name + '=;expires=' + past + ';path=' + path;
+                if (domain) c += ';domain=' + domain;
+                document.cookie = c + ';SameSite=Lax';
+            });
+        });
+    }
+
+    /**
+     * Legge i nomi cookie attualmente presenti in document.cookie.
+     */
+    function currentCookieNames() {
+        if (!document.cookie) return [];
+        return document.cookie.split(';').map(function (pair) {
+            return pair.split('=')[0].trim();
+        }).filter(Boolean);
+    }
+
+    /**
+     * Rimuove i cookie della lista reactiveCleanup per cui manca il consenso.
+     * Supporta wildcard: matcha i nomi reali presenti nel browser.
+     */
+    function reactiveCleanup(consent) {
+        var list = C.reactiveCleanup;
+        if (!list || !list.length) return;
+        var present = currentCookieNames();
+        list.forEach(function (entry) {
+            if (!entry || !entry.name || !entry.category) return;
+            // functional è sempre concesso: non si cancella mai.
+            if (entry.category === 'functional') return;
+            if (consent && consent[entry.category]) return; // consenso presente → tieni.
+
+            if (entry.name.indexOf('*') === -1) {
+                if (present.indexOf(entry.name) !== -1) {
+                    deleteCookieByName(entry.name);
+                }
+                return;
+            }
+            var re = cookiePatternToRegExp(entry.name);
+            present.forEach(function (realName) {
+                if (re.test(realName)) {
+                    deleteCookieByName(realName);
+                }
+            });
         });
     }
 
@@ -587,6 +677,7 @@
         if (existing) {
             activateBlockedScripts(existing);
             restoreBlockedIframes(existing);
+            reactiveCleanup(existing); // Pulisce i cookie delle categorie non concesse.
             // Già ha un cookie → non mostriamo il banner; il signal DNT/GPC
             // non override le scelte dell'utente già espresse.
             if (C.showReopenBtn) {
@@ -594,6 +685,11 @@
             }
             return;
         }
+
+        // Nessun consenso ancora espresso → rete di sicurezza: qualsiasi cookie
+        // di tracking già presente (categorie opzionali) va rimosso finché
+        // l'utente non concede esplicitamente. functional resta intatto.
+        reactiveCleanup(null);
 
         // Check DNT/GPC: se attivo e nessun cookie esistente, scrivi
         // automaticamente "rifiuta tutto", non mostrare il banner, ma
