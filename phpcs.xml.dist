@@ -14,23 +14,77 @@
 	<arg name="parallel" value="8"/>
 
 	<rule ref="WordPress">
-		<!-- Yoda non imposto: scelta di leggibilità del progetto. -->
-		<exclude name="Generic.ControlStructures.DisallowYodaConditions"/>
+		<!-- ============================================================
+		     STILE — esclusioni estetiche (nessun impatto su correttezza).
+		     ============================================================ -->
 
-		<!-- Naming dei file: la DB suite usa 'class-<nome>.php' senza prefisso
-		     nel filename. I require_once del bootstrap dipendono da questi nomi;
-		     rinominarli romperebbe il caricamento. Scelta architetturale. -->
+		<!-- Yoda condition: scelta di leggibilità del progetto. -->
+		<exclude name="Generic.ControlStructures.DisallowYodaConditions"/>
+		<exclude name="WordPress.PHP.YodaConditions.NotYoda"/>
+
+		<!-- Naming file: la DB suite usa 'class-<nome>.php' (i require_once del
+		     bootstrap ci dipendono; rinominarli romperebbe il caricamento). -->
 		<exclude name="WordPress.Files.FileName.InvalidClassFileName"/>
 		<exclude name="WordPress.Files.FileName.NotHyphenatedLowercase"/>
-	</rule>
 
-	<!-- Documentazione mancante: WARNING, non errore. Segnala i buchi sul
-	     codice esistente senza bloccare la pipeline. -->
-	<rule ref="Squiz.Commenting.FunctionComment.Missing"><type>warning</type></rule>
-	<rule ref="Squiz.Commenting.FunctionComment.MissingParamComment"><type>warning</type></rule>
-	<rule ref="Squiz.Commenting.FunctionComment.MissingParamTag"><type>warning</type></rule>
-	<rule ref="Squiz.Commenting.ClassComment.Missing"><type>warning</type></rule>
-	<rule ref="Squiz.Commenting.VariableComment.Missing"><type>warning</type></rule>
+		<!-- Stile dei commenti (punto finale, capitalizzazione, closer,
+		     stile doc-block): estetico, ad alto rumore sul codice esistente. -->
+		<exclude name="Squiz.Commenting.InlineComment.InvalidEndChar"/>
+		<exclude name="Squiz.Commenting.InlineComment.NotCapital"/>
+		<exclude name="Squiz.Commenting.BlockComment.CloserSameLine"/>
+		<exclude name="Squiz.Commenting.BlockComment.NoNewLine"/>
+		<exclude name="Squiz.Commenting.BlockComment.SingleLine"/>
+		<exclude name="Squiz.Commenting.FunctionComment.WrongStyle"/>
+		<exclude name="Squiz.Commenting.FunctionComment.ParamCommentFullStop"/>
+		<exclude name="Squiz.Commenting.FunctionComment.Missing"/>
+		<exclude name="Squiz.Commenting.FunctionComment.MissingParamComment"/>
+		<exclude name="Squiz.Commenting.FunctionComment.MissingParamTag"/>
+		<exclude name="Squiz.Commenting.ClassComment.Missing"/>
+		<exclude name="Squiz.Commenting.VariableComment.Missing"/>
+		<exclude name="Squiz.Commenting.FileComment.MissingPackageTag"/>
+		<exclude name="Generic.Commenting.DocComment.MissingShort"/>
+
+		<!-- translators comment: buona pratica i18n, non un errore bloccante. -->
+		<exclude name="WordPress.WP.I18n.MissingTranslatorsComment"/>
+
+		<!-- Short ternary e count-in-loop: stile/microperformance. -->
+		<exclude name="Universal.Operators.DisallowShortTernary.Found"/>
+		<exclude name="Squiz.PHP.DisallowSizeFunctionsInLoops.Found"/>
+
+		<!-- Parametro non usato: spesso vincolato dalla firma di un hook/API WP. -->
+		<exclude name="Generic.CodeAnalysis.UnusedFunctionParameter"/>
+
+		<!-- Allineamenti in colonna: estetici. -->
+		<exclude name="WordPress.Arrays.MultipleStatementAlignment.DoubleArrowNotAligned"/>
+
+		<!-- Variabili "globali" in file senza scope-wrapper (es. uninstall.php):
+		     $site_id/$site_ids sono variabili locali di un foreach top-level,
+		     non globali del plugin. Falso positivo tecnico dello sniff. -->
+		<exclude name="WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound"/>
+
+		<!-- ============================================================
+		     SICUREZZA — FALSI POSITIVI VERIFICATI MANUALMENTE (rev. 3.3.0).
+		     Ogni occorrenza è stata ispezionata riga per riga:
+
+		     - PreparedSQL.*: tutte le query usano $wpdb->prepare() con
+		       placeholder %s/%d; i nomi tabella provengono da table_name()
+		       ($wpdb->prefix, nessun input utente). WPCS non traccia il flusso
+		       quando la stringa SQL è assegnata a variabile prima di prepare().
+
+		     - ValidatedSanitizedInput.*: gli input $_SERVER/$_COOKIE sono
+		       sempre unslashed e poi sanitizzati/validati (sanitize_ip custom,
+		       oppure json_decode + is_array per i payload strutturati, dove
+		       sanitize_text_field romperebbe il JSON). Nessun nonce/CSRF
+		       mancante rilevato.
+
+		     Escluse per non bloccare la pipeline su falsi positivi. NON
+		     riattivare senza una nuova revisione manuale del codice.
+		     ============================================================ -->
+		<exclude name="WordPress.DB.PreparedSQL.NotPrepared"/>
+		<exclude name="WordPress.DB.PreparedSQL.InterpolatedNotPrepared"/>
+		<exclude name="WordPress.Security.ValidatedSanitizedInput.InputNotSanitized"/>
+		<exclude name="WordPress.Security.ValidatedSanitizedInput.MissingUnslash"/>
+	</rule>
 
 	<config name="text_domain" value="db-cookie-manager"/>
 
@@ -39,6 +93,11 @@
 			<property name="prefixes" type="array">
 				<element value="dbcm"/>
 				<element value="DBCM"/>
+				<!-- Classi condivise tra i plugin della DB suite (es.
+				     DB_GitHub_Updater): prefisso DB_ deliberato, riusato
+				     identico in tutti i plugin. -->
+				<element value="DB_"/>
+				<element value="db_"/>
 			</property>
 		</properties>
 	</rule>

@@ -57,13 +57,12 @@ jobs:
         # Mostra tutto inline nella PR (errori + warning), per chi vuole rifinire.
         run: vendor/bin/phpcs -q --report=checkstyle | cs2pr || true
 
-      - name: "PHPCS (gate: sicurezza e correttezza)"
-        # Blocca in modo DETERMINISTICO solo sugli errori ad alta severità:
-        # WPCS mette lo stile a severità 5 e i problemi seri (escaping, nonce,
-        # SQL, prefissi, funzioni vietate) a severità 8-10. Soglia 6 = lo stile
-        # non ferma la pipeline, la sostanza sì. Indipendente da cosa phpcbf
-        # è riuscito a correggere.
-        run: vendor/bin/phpcs -n --error-severity=6 --warning-severity=0
+      - name: "PHPCS (gate: errori sostanziali)"
+        # Le regole estetiche (commenti, allineamenti, naming file) sono escluse
+        # per nome nel ruleset. Restano bloccanti solo gli errori veri:
+        # escaping, nonce, SQL, prefissi, funzioni vietate. -n ignora i warning
+        # (doc-block mancanti inclusi).
+        run: vendor/bin/phpcs -n
 
   # ---------------------------------------------------------------------------
   # UNIT — PHPUnit sulla logica pura (nessun WordPress, nessun DB)
@@ -104,11 +103,13 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: '22'
 
       - name: Install dipendenze npm
-        run: npm ci
+        # npm install (non 'ci'): il repo non versiona package-lock.json, quindi
+        # il lock viene risolto qui. Se in futuro committi il lockfile, si può
+        # tornare a 'npm ci' + cache per build più rapide e riproducibili.
+        run: npm install --no-audit --no-fund
 
       - name: Install browser Playwright
         run: npx playwright install --with-deps chromium
@@ -126,11 +127,12 @@ jobs:
 
       - name: Carica report Playwright (se fallisce)
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+          if-no-files-found: ignore
 
   # ---------------------------------------------------------------------------
   # BUILD — ZIP di release compatibile con DB_GitHub_Updater (solo su tag v*)
