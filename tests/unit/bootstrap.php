@@ -318,6 +318,7 @@ if ( ! class_exists( 'DBCM_Cookie_Database' ) ) {
 require_once DBCM_TEST_ROOT . '/inc/data/signatures.php';
 require_once DBCM_TEST_ROOT . '/inc/class-signatures.php';
 require_once DBCM_TEST_ROOT . '/inc/class-consent-api.php';
+require_once DBCM_TEST_ROOT . '/inc/class-consent-signals.php';
 require_once DBCM_TEST_ROOT . '/inc/class-policy-generator.php';
 
 // Autoload Composer per PHPUnit.
