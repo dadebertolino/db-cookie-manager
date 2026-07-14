@@ -213,4 +213,82 @@
         });
     });
 
+    /* =========================================================================
+     * Firme personalizzate — righe cookie dinamiche + validazione regex
+     * ========================================================================= */
+
+    // Aggiunge una riga cookie vuota.
+    document.addEventListener('click', function (ev) {
+        var btn = ev.target;
+        if (!btn.closest || !btn.closest('#dbcm-add-cookie')) return;
+        ev.preventDefault();
+        var container = document.getElementById('dbcm-cookie-rows');
+        if (!container) return;
+        var row = document.createElement('div');
+        row.className = 'dbcm-cookie-row';
+        row.style.display = 'flex';
+        row.style.gap = '8px';
+        row.style.margin = '6px 0';
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.name = 'sig_cookies[]';
+        input.placeholder = '_es_cookie';
+        input.style.flex = '1';
+        var remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'db-ui-btn db-ui-btn-sm dbcm-remove-cookie';
+        remove.setAttribute('aria-label', t('remove') || 'Rimuovi');
+        remove.innerHTML = '&times;';
+        row.appendChild(input);
+        row.appendChild(remove);
+        container.appendChild(row);
+        input.focus();
+    });
+
+    // Rimuove una riga cookie (ne lascia sempre almeno una).
+    document.addEventListener('click', function (ev) {
+        var btn = ev.target;
+        if (!btn.closest || !btn.closest('.dbcm-remove-cookie')) return;
+        ev.preventDefault();
+        var container = document.getElementById('dbcm-cookie-rows');
+        if (!container) return;
+        var rows = container.querySelectorAll('.dbcm-cookie-row');
+        var row = btn.closest('.dbcm-cookie-row');
+        if (rows.length > 1) {
+            row.parentNode.removeChild(row);
+        } else {
+            // Ultima riga: svuota invece di rimuovere.
+            var inp = row.querySelector('input');
+            if (inp) inp.value = '';
+        }
+    });
+
+    // Validazione regex client-side: se "è regex" è attivo e il pattern non
+    // compila, mostra l'avviso (il backend degrada comunque a substring).
+    (function () {
+        var regexToggle = document.getElementById('dbcm-sig_block_is_regex');
+        var sourceInput = document.getElementById('dbcm-sig_block_source');
+        var warning = document.getElementById('dbcm-regex-warning');
+        if (!regexToggle || !sourceInput || !warning) return;
+
+        function validate() {
+            if (!regexToggle.checked || sourceInput.value === '') {
+                warning.style.display = 'none';
+                return;
+            }
+            var ok = true;
+            try {
+                // eslint-disable-next-line no-new
+                new RegExp(sourceInput.value);
+            } catch (e) {
+                ok = false;
+            }
+            warning.style.display = ok ? 'none' : 'flex';
+        }
+
+        regexToggle.addEventListener('change', validate);
+        sourceInput.addEventListener('input', validate);
+        validate();
+    })();
+
 })();
