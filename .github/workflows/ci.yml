@@ -117,13 +117,28 @@ jobs:
       - name: Avvia wp-env
         # wp-env legge .wp-env.json: monta il plugin, WooCommerce e il
         # mu-plugin di fixture. Docker è preinstallato sui runner ubuntu.
-        run: npx wp-env start
+        # --debug espone i log di avvio se qualcosa va storto.
+        run: npx wp-env start --debug
+
+      - name: Diagnostica wp-env
+        # Conferma che WordPress risponda prima di procedere. Se l'avvio è
+        # fallito silenziosamente, qui lo vediamo subito con un messaggio chiaro.
+        run: |
+          npx wp-env run cli wp core version || {
+            echo "::error::wp-env non risponde. Log dei container:"
+            npx wp-env logs --watch=false || true
+            exit 1
+          }
 
       - name: Configura ambiente di test (WooCommerce + pagine fixture)
         run: npm run env:setup
 
       - name: Playwright E2E
         run: npx playwright test
+
+      - name: Log wp-env in caso di fallimento
+        if: ${{ failure() }}
+        run: npx wp-env logs --watch=false || true
 
       - name: Carica report Playwright (se fallisce)
         if: ${{ failure() }}

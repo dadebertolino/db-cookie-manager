@@ -90,11 +90,34 @@
 		<exclude-pattern>*/class-updater.php</exclude-pattern>
 	</rule>
 
-	<!-- Query dirette e schema change legittimi: uninstall.php (cancellazione
-	     tabelle/opzioni) e class-consent-log.php (INSERT/COUNT/SELECT su tabella
-	     di log che cambia a ogni consenso — il caching non è applicabile). -->
+	<!-- Query dirette e schema change legittimi su tabelle PROPRIE del plugin:
+	     uninstall.php (cancellazione), class-consent-log.php e class-scanner.php
+	     (CRUD su tabelle di log/risultati che cambiano di continuo — il caching
+	     non è applicabile). -->
 	<rule ref="WordPress.DB.DirectDatabaseQuery">
 		<exclude-pattern>*/uninstall.php</exclude-pattern>
+		<exclude-pattern>*/class-consent-log.php</exclude-pattern>
+		<exclude-pattern>*/class-scanner.php</exclude-pattern>
+	</rule>
+
+	<!-- Export CSV in streaming verso php://output (fopen/fputcsv/fclose +
+	     exit): è il modo corretto di generare un download HTTP. WP_Filesystem
+	     serve a scrivere file su disco, non ad emettere una risposta: qui non
+	     si applica. Falso positivo su class-consent-log.php. -->
+	<rule ref="WordPress.WP.AlternativeFunctions.file_system_operations_fwrite">
+		<exclude-pattern>*/class-consent-log.php</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.WP.AlternativeFunctions.file_system_operations_fclose">
+		<exclude-pattern>*/class-consent-log.php</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.WP.AlternativeFunctions.file_system_operations_fopen">
+		<exclude-pattern>*/class-consent-log.php</exclude-pattern>
+	</rule>
+
+	<!-- "50% valid code": docblock che descrive la detection dello User-Agent
+	     e contiene stringhe tipo "Chrome" tra virgolette, scambiato per codice
+	     commentato. Falso positivo. -->
+	<rule ref="Squiz.PHP.CommentedOutCode">
 		<exclude-pattern>*/class-consent-log.php</exclude-pattern>
 	</rule>
 
