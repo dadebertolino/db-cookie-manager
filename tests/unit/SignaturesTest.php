@@ -210,4 +210,63 @@ final class SignaturesTest extends TestCase {
 		$this->assertFalse( DBCM_Signatures::cookie_name_matches( '_ga_*', '_gid' ) );
 		$this->assertFalse( DBCM_Signatures::cookie_name_matches( '', 'anything' ) );
 	}
+
+	/* ---- Round-trip UI aggiunta manuale (Step: UI firme) ---- */
+
+	/**
+	 * I campi prodotti dal form admin (handle_save_signatures) sopravvivono a
+	 * save_custom -> get_custom_normalized con i valori attesi.
+	 */
+	public function test_manual_signature_roundtrip(): void {
+		$row = array(
+			'service'          => 'Il Mio Pixel',
+			'provider'         => 'Esempio S.r.l.',
+			'category'         => 'marketing',
+			'requires_consent' => true,
+			'block_source'     => 'esempio-cdn.com/pixel.js',
+			'block_is_regex'   => false,
+			'reactive_cleanup' => true,
+			'cookies'          => array( array( 'name' => '_mypix' ), array( 'name' => '_mypix_sess' ) ),
+		);
+		DBCM_Signatures::save_custom( array( $row ) );
+
+		$norm = DBCM_Signatures::get_custom_normalized();
+		$this->assertCount( 1, $norm );
+		$sig = array_values( $norm )[0];
+
+		$this->assertSame( 'Il Mio Pixel', $sig['service'] );
+		$this->assertSame( 'marketing', $sig['category'] );
+		$this->assertTrue( $sig['requires_consent'] );
+		$this->assertTrue( $sig['reactive_cleanup'] );
+		$this->assertContains( 'esempio-cdn.com/pixel.js', $sig['script_patterns'] );
+		$names = array_column( $sig['cookies'], 'name' );
+		$this->assertContains( '_mypix', $names );
+		$this->assertContains( '_mypix_sess', $names );
+	}
+
+	/**
+	 * La forma di import { "signatures": [...] } passa per save_custom e viene
+	 * sanificata come l'aggiunta manuale (nessun campo grezzo persiste).
+	 */
+	public function test_import_shape_is_sanitized(): void {
+		$imported = array(
+			array(
+				'service'          => 'Servizio Importato',
+				'category'         => 'statistics',
+				'requires_consent' => true,
+				'reactive_cleanup' => true,
+				'cookies'          => array( array( 'name' => '_imp' ) ),
+				// Campo estraneo che NON deve sopravvivere alla normalizzazione.
+				'evil'             => '<script>alert(1)</script>',
+			),
+		);
+		DBCM_Signatures::save_custom( array_values( $imported ) );
+
+		$norm = DBCM_Signatures::get_custom_normalized();
+		$this->assertCount( 1, $norm );
+		$sig = array_values( $norm )[0];
+		$this->assertSame( 'Servizio Importato', $sig['service'] );
+		$this->assertSame( 'statistics', $sig['category'] );
+		$this->assertArrayNotHasKey( 'evil', $sig, 'I campi estranei non devono sopravvivere alla normalizzazione.' );
+	}
 }
