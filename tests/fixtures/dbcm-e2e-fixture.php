@@ -5,12 +5,11 @@
  *              DB Cookie Manager. Attivo SOLO in ambiente wp-env (mu-plugin).
  *              NON fa parte del pacchetto distribuito.
  *
- * Cosa fa:
- *  - Crea (una volta) una pagina "DBCM Test" con: embed YouTube, link WhatsApp
- *    (wa.me), iframe Google Maps. Slug fisso 'dbcm-test' per i selettori E2E.
- *  - Inietta nel <head> del frontend uno snippet GA4 FITTIZIO (measurement ID
- *    finto): serve solo a far scattare il blocker/scanner, non invia dati reali.
- *  - Espone i cookie di consenso via una costante per i test.
+ * Strategia: invece di creare una pagina WP (il cui contenuto passa da
+ * the_content/wpautop/wp_kses, che RIMUOVONO gli iframe e alterano il markup),
+ * la fixture intercetta l'URL /dbcm-test/ e stampa HTML GREZZO. Così iframe,
+ * link e snippet GA4 arrivano al browser esattamente come scritti, e il blocker
+ * di DBCM opera sull'output buffer come farebbe su un tema reale.
  *
  * @package DBCM\Tests\Fixtures
  */
@@ -20,65 +19,60 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Contenuto HTML della pagina di test. Gli embed sono hardcoded nel content
- * così passano dall'output buffer del blocker (meccanismo 2), esattamente
- * come farebbero gli embed incollati a mano in un tema "fai da te".
- */
-function dbcm_fixture_page_content() {
-	return <<<HTML
-<h2>Video</h2>
-<iframe id="fixture-youtube" width="560" height="315"
-	src="https://www.youtube.com/embed/dQw4w9WgXcQ"
-	title="YouTube video" frameborder="0"
-	allow="accelerometer; autoplay; clipboard-write; encrypted-media"
-	allowfullscreen></iframe>
-
-<h2>Mappa</h2>
-<iframe id="fixture-maps" width="600" height="450"
-	src="https://www.google.com/maps/embed?pb=fake"
-	style="border:0;" loading="lazy"></iframe>
-
-<h2>Contatti</h2>
-<a id="fixture-whatsapp" href="https://wa.me/393331234567">Scrivici su WhatsApp</a>
-HTML;
-}
-
-/**
- * Crea la pagina di test all'avvio, se non esiste già.
+ * Registra la query var e la rewrite per /dbcm-test/.
  */
 add_action( 'init', function () {
-	if ( get_page_by_path( 'dbcm-test' ) ) {
-		return;
-	}
-	wp_insert_post( array(
-		'post_title'   => 'DBCM Test',
-		'post_name'    => 'dbcm-test',
-		'post_status'  => 'publish',
-		'post_type'    => 'page',
-		'post_content' => dbcm_fixture_page_content(),
-	) );
+	add_rewrite_rule( '^dbcm-test/?$', 'index.php?dbcm_e2e=1', 'top' );
+} );
+
+add_filter( 'query_vars', function ( $vars ) {
+	$vars[] = 'dbcm_e2e';
+	return $vars;
 } );
 
 /**
- * Inietta uno snippet GA4 FITTIZIO nel <head> del frontend.
- *
- * Measurement ID finto (G-TEST0000000): il blocker deve neutralizzarlo quando
- * manca il consenso 'statistics', e il test verifica che NON parta alcuna
- * richiesta verso googletagmanager.com. Nessun dato reale viene trasmesso.
+ * Flush delle rewrite una sola volta (all'attivazione del mu-plugin non c'è
+ * hook di attivazione, quindi usiamo un flag in option).
  */
-add_action( 'wp_head', function () {
-	// Solo sulla pagina di test, per non inquinare il resto del sito.
-	if ( ! is_page( 'dbcm-test' ) ) {
+add_action( 'init', function () {
+	if ( 'done' !== get_option( 'dbcm_e2e_rewrite_flushed' ) ) {
+		add_rewrite_rule( '^dbcm-test/?$', 'index.php?dbcm_e2e=1', 'top' );
+		flush_rewrite_rules( false );
+		update_option( 'dbcm_e2e_rewrite_flushed', 'done' );
+	}
+}, 99 );
+
+/**
+ * Quando la query var è presente, stampa la pagina di test grezza e termina.
+ * Passa comunque dall'output buffer del blocker DBCM (che si aggancia su
+ * template_redirect priorità 1, prima di questo che gira più tardi).
+ */
+add_action( 'template_redirect', function () {
+	if ( '1' !== (string) get_query_var( 'dbcm_e2e' ) ) {
 		return;
 	}
-	?>
-<!-- DBCM fixture: GA4 fittizio -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-TEST0000000"></script>
-<script>
-	window.dataLayer = window.dataLayer || [];
-	function gtag(){dataLayer.push(arguments);}
-	gtag('js', new Date());
-	gtag('config', 'G-TEST0000000');
-</script>
-	<?php
-}, 1 );
+
+	// Header minimo; il blocker DBCM ha già avviato ob_start() a priorità 1.
+	status_header( 200 );
+	nocache_headers();
+
+	echo "<!DOCTYPE html>\n<html><head>\n";
+	echo '<meta charset="utf-8"><title>DBCM E2E</title>' . "\n";
+	// GA4 fittizio (measurement ID finto): il blocker deve neutralizzarlo
+	// quando manca il consenso 'statistics'. Nessun dato reale trasmesso.
+	echo '<script async src="https://www.googletagmanager.com/gtag/js?id=G-TEST0000000"></script>' . "\n";
+	echo "<script>\nwindow.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-TEST0000000');\n</script>\n";
+	echo "</head><body>\n";
+
+	echo '<h2>Video</h2>' . "\n";
+	echo '<iframe id="fixture-youtube" width="560" height="315" src="https://www.youtube.com/embed/dQw4w9WgXcQ" title="YouTube" frameborder="0" allowfullscreen></iframe>' . "\n";
+
+	echo '<h2>Mappa</h2>' . "\n";
+	echo '<iframe id="fixture-maps" width="600" height="450" src="https://www.google.com/maps/embed?pb=fake" style="border:0;" loading="lazy"></iframe>' . "\n";
+
+	echo '<h2>Contatti</h2>' . "\n";
+	echo '<a id="fixture-whatsapp" href="https://wa.me/393331234567">Scrivici su WhatsApp</a>' . "\n";
+
+	echo "</body></html>";
+	exit;
+}, 20 );

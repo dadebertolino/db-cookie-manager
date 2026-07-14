@@ -18,7 +18,9 @@ test.describe( 'Blocco con consenso negato', () => {
 	test( '§9.1 — nessuna richiesta verso terze parti', async ( { page } ) => {
 		const tracker = trackThirdParty( page );
 
-		await page.goto( '/dbcm-test/', { waitUntil: 'networkidle' } );
+		// Usa la query var diretta (?dbcm_e2e=1): non dipende dalle rewrite
+		// rule pretty, quindi è deterministica anche se il flush non è avvenuto.
+		await page.goto( '/?dbcm_e2e=1', { waitUntil: 'networkidle' } );
 
 		// Il blocker deve aver neutralizzato GA4 e gli embed: zero hit.
 		expect(
@@ -28,7 +30,7 @@ test.describe( 'Blocco con consenso negato', () => {
 	} );
 
 	test( '§9.1 — lo script GA4 è neutralizzato (type text/plain)', async ( { page } ) => {
-		await page.goto( '/dbcm-test/' );
+		await page.goto( '/?dbcm_e2e=1', { waitUntil: 'domcontentloaded' } );
 
 		// Lo snippet GA4 fittizio deve essere stato riscritto a text/plain
 		// con i data-attribute del blocker.
@@ -39,7 +41,7 @@ test.describe( 'Blocco con consenso negato', () => {
 	} );
 
 	test( '§9.3 — il link WhatsApp è presente e cliccabile senza consenso', async ( { page } ) => {
-		await page.goto( '/dbcm-test/' );
+		await page.goto( '/?dbcm_e2e=1', { waitUntil: 'domcontentloaded' } );
 
 		const wa = page.locator( '#fixture-whatsapp' );
 		await expect( wa ).toBeVisible();
