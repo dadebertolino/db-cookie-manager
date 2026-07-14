@@ -505,7 +505,8 @@ if ( ! class_exists( 'DBCM_Signatures' ) ) {
 
 		/**
 		 * Verifica che una stringa sia una regex PHP valida (con delimitatori).
-		 * Sopprime il warning: una regex rotta non deve fatalizzare.
+		 * Non fatalizza su regex rotta: preg_match() restituisce false (non 0)
+		 * quando il pattern è malformato, e noi lo trattiamo come "non valida".
 		 *
 		 * @param string $pattern
 		 * @return bool
@@ -514,11 +515,13 @@ if ( ! class_exists( 'DBCM_Signatures' ) ) {
 			if ( ! is_string( $pattern ) || '' === $pattern ) {
 				return false;
 			}
-			// set_error_handler evita che un warning finisca nell'output.
-			set_error_handler( function () { return true; } );
-			$valid = false !== @preg_match( $pattern, '' );
-			restore_error_handler();
-			return $valid;
+			// Un pattern malformato fa emettere un warning a preg_match e ne
+			// fa restituire false. Sopprimiamo il solo warning con @ (qui è
+			// idiomatico: stiamo deliberatamente testando la validità del
+			// pattern) e distinguiamo l'errore dal risultato via strict compare.
+			// phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged -- validazione deliberata del pattern.
+			$result = @preg_match( $pattern, '' );
+			return false !== $result;
 		}
 
 		/* =====================================================================

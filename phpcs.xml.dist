@@ -90,11 +90,12 @@
 		<exclude-pattern>*/class-updater.php</exclude-pattern>
 	</rule>
 
-	<!-- uninstall.php: le query dirette e i DROP TABLE sono NECESSARI e
-	     corretti in fase di disinstallazione (cancellazione tabelle/opzioni;
-	     il caching non ha senso qui). Esente dalle regole DB per questo file. -->
+	<!-- Query dirette e schema change legittimi: uninstall.php (cancellazione
+	     tabelle/opzioni) e class-consent-log.php (INSERT/COUNT/SELECT su tabella
+	     di log che cambia a ogni consenso — il caching non è applicabile). -->
 	<rule ref="WordPress.DB.DirectDatabaseQuery">
 		<exclude-pattern>*/uninstall.php</exclude-pattern>
+		<exclude-pattern>*/class-consent-log.php</exclude-pattern>
 	</rule>
 
 	<config name="testVersion" value="7.4-"/>
