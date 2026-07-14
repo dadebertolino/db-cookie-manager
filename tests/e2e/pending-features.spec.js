@@ -51,8 +51,10 @@ test.describe( 'Placeholder click-to-load (§3, §9.4) — DA IMPLEMENTARE', () 
 test.describe( 'Cancellazione reattiva (§ aggiunta manuale) — DA IMPLEMENTARE', () => {
 
 	test( 'un cookie in lista cleanup viene rimosso senza consenso', async ( { page, context } ) => {
-		page.on( 'console', ( msg ) => console.log( '[BROWSER]', msg.type(), msg.text() ) );
-		page.on( 'pageerror', ( err ) => console.log( '[PAGEERROR]', err.message ) );
+		// Un cookie marcato per la cancellazione reattiva viene eliminato al
+		// load se manca il consenso della sua categoria. La pagina fixture
+		// /dbcm-test/ carica banner.js con la config reactiveCleanup, che
+		// include _mypix (firma custom scritta dalla fixture).
 		await context.clearCookies();
 		await context.addCookies( [ {
 			name: '_mypix',
@@ -61,14 +63,6 @@ test.describe( 'Cancellazione reattiva (§ aggiunta manuale) — DA IMPLEMENTARE
 		} ] );
 		await page.goto( '/dbcm-test/' );
 		await page.waitForTimeout( 800 );
-		const diag = await page.evaluate( () => ( {
-			hasBanner: typeof window.dbcmBanner !== 'undefined',
-			reactiveCleanup: window.dbcmBanner ? window.dbcmBanner.reactiveCleanup : 'NO_CONFIG',
-			cookieName: window.dbcmBanner ? window.dbcmBanner.cookieName : 'NO',
-			cookie: document.cookie,
-			scriptTag: !! document.querySelector( 'script[src*="banner.js"]' ),
-		} ) );
-		console.log( '[DIAG]', JSON.stringify( diag ) );
 		const cookies = await context.cookies();
 		expect( cookies.find( ( c ) => c.name === '_mypix' ) ).toBeUndefined();
 	} );

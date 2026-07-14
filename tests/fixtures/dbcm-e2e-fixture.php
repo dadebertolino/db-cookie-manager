@@ -34,22 +34,34 @@ add_filter( 'query_vars', function ( $vars ) {
  * Firma custom deterministica per il test di cancellazione reattiva:
  * il cookie '_mypix' è marcato requires_consent + reactive_cleanup in
  * categoria 'marketing'. Senza consenso 'marketing', banner.js deve
- * rimuoverlo al load. Iniettata via option così reactive_cleanup_list()
- * la include senza toccare le firme statiche.
+ * rimuoverlo al load.
+ *
+ * NB: NON usiamo il filtro 'option_dbcm_custom_signatures' perché
+ * DBCM_Signatures::all() ha un cache statico che può popolarsi (durante il
+ * boot di blocker/scanner) PRIMA che la pagina fixture giri, cristallizzando
+ * la lista senza la nostra firma. Scriviamo invece l'option reale nel DB a
+ * 'init' prio 1 e invalidiamo il cache, così qualunque lettura successiva la
+ * include.
  */
-add_filter( 'option_dbcm_custom_signatures', function ( $value ) {
-	$value = is_array( $value ) ? $value : array();
-	$value['e2e-mypix'] = array(
-		'service'          => 'E2E Pixel',
-		'category'         => 'marketing',
-		'requires_consent' => true,
-		'reactive_cleanup' => true,
-		'cookies'          => array(
-			array( 'name' => '_mypix' ),
+add_action( 'init', function () {
+	$sigs = array(
+		'e2e-mypix' => array(
+			'service'          => 'E2E Pixel',
+			'category'         => 'marketing',
+			'requires_consent' => true,
+			'reactive_cleanup' => true,
+			'cookies'          => array(
+				array( 'name' => '_mypix' ),
+			),
 		),
 	);
-	return $value;
-} );
+	update_option( 'dbcm_custom_signatures', $sigs );
+
+	// Invalida il cache statico se esposto, così la lista viene ricalcolata.
+	if ( class_exists( 'DBCM_Signatures' ) && method_exists( 'DBCM_Signatures', 'flush_cache' ) ) {
+		DBCM_Signatures::flush_cache();
+	}
+}, 1 );
 
 /**
  * Flush delle rewrite una sola volta (all'attivazione del mu-plugin non c'è
