@@ -7,3 +7,6 @@ composer.lock
 package-lock.json
 .wp-env-*
 *.log
+FIX-*.txt
+TEST-*.txt
+HANDOFF-*.md
