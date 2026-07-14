@@ -369,12 +369,49 @@
     outline-offset: 2px;
 }
 
+/* Bottone primario "Carica <servizio>": click-to-load granulare. */
+.dbcm-iframe-placeholder__load {
+    min-height: 44px;
+    padding: 10px 20px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    border: 1px solid #2271b1;
+    background: #2271b1;
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+    font-family: inherit;
+}
+.dbcm-iframe-placeholder__load:hover {
+    background: #135e96;
+    border-color: #135e96;
+}
+.dbcm-iframe-placeholder__load:focus-visible {
+    outline: 3px solid #2271b1;
+    outline-offset: 2px;
+}
+/* Quando c'è il bottone di caricamento, l'azione preferenze è secondaria. */
+.dbcm-iframe-placeholder__load + .dbcm-iframe-placeholder__btn {
+    background: transparent;
+    color: #2271b1;
+    font-size: 13px;
+    min-height: 36px;
+}
+.dbcm-iframe-placeholder__load + .dbcm-iframe-placeholder__btn:hover {
+    background: rgba(34, 113, 177, .08);
+    border-color: #135e96;
+}
+
 @media (prefers-reduced-motion: reduce) {
     .dbcm-iframe-placeholder__btn { transition: none; }
+    .dbcm-iframe-placeholder__load { transition: none; }
 }
 @media (forced-colors: active) {
     .dbcm-iframe-placeholder { border: 1px dashed CanvasText; }
     .dbcm-iframe-placeholder__btn { border: 1px solid CanvasText; }
+    .dbcm-iframe-placeholder__load { border: 1px solid CanvasText; }
 }
 
 /* =========================================================================

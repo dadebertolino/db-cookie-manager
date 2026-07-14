@@ -535,17 +535,46 @@ if ( ! class_exists( 'DBCM_Blocker' ) ) {
 				$category
 			);
 
-			// Markup. data-dbcm-src e data-dbcm-attrs conservano i dati
-			// originali per future estensioni (es. "carica solo questo
-			// iframe senza accettare la categoria intera"). Per ora il
-			// click apre il modal preferenze via window.DBCM.openPreferences().
+			// Markup accessibile con click-to-load. Conserviamo src e attributi
+			// originali in data-* così il click può ricostruire l'iframe reale
+			// senza scrivere un consenso persistente per l'intera categoria
+			// (consenso granulare/puntuale: l'utente carica SOLO questo embed).
+			// Il link "Modifica preferenze" resta come via per il consenso di
+			// categoria a chi lo desidera.
+			$aria_label = sprintf(
+				/* translators: %s: nome servizio (es. YouTube) */
+				__( 'Contenuto esterno bloccato: %s. Attiva per caricarlo.', 'db-cookie-manager' ),
+				$service
+			);
+
+			$load_label = apply_filters(
+				'dbcm_blocker_placeholder_load_label',
+				sprintf(
+					/* translators: %s: nome servizio (es. YouTube) */
+					__( 'Carica %s', 'db-cookie-manager' ),
+					$service
+				),
+				$service,
+				$category,
+				$src
+			);
+
 			$out  = '<div class="dbcm-iframe-placeholder"';
+			$out .= ' role="region"';
+			$out .= ' aria-label="' . esc_attr( $aria_label ) . '"';
 			$out .= ' style="width:' . esc_attr( $width ) . ';max-width:100%;height:' . esc_attr( $height ) . ';"';
 			$out .= ' data-dbcm-category="' . esc_attr( $category ) . '"';
 			$out .= ' data-dbcm-src="' . esc_attr( $src ) . '"';
+			$out .= ' data-dbcm-attrs="' . esc_attr( $attrs ) . '"';
 			$out .= '>';
 			$out .= '<div class="dbcm-iframe-placeholder__inner">';
 			$out .= '<p class="dbcm-iframe-placeholder__text">' . esc_html( $text ) . '</p>';
+			// Bottone primario: carica SOLO questo embed (click-to-load granulare).
+			$out .= '<button type="button" class="dbcm-iframe-placeholder__load"';
+			$out .= ' data-dbcm-load="1">';
+			$out .= esc_html( $load_label );
+			$out .= '</button>';
+			// Azione secondaria: apre le preferenze per il consenso di categoria.
 			$out .= '<button type="button" class="dbcm-iframe-placeholder__btn"';
 			$out .= ' onclick="if(window.DBCM&amp;&amp;window.DBCM.openPreferences){window.DBCM.openPreferences();}">';
 			$out .= esc_html( $btn_label );
