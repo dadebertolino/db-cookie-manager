@@ -463,6 +463,7 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 					'respect_dnt'    => 'bool',
 					'respect_gpc'    => 'bool',
 					'geo_targeting'  => 'bool',
+					'gcm_enabled'    => 'bool',
 				),
 			);
 		}
@@ -2063,6 +2064,27 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 							'Il geo-targeting riduce il banner per visitatori extra-UE ma non li esclude del tutto: il blocco preventivo degli script tracking continua a funzionare per coerenza tecnica. Per disattivare completamente il banner per alcune regioni, considera di disabilitarlo via codice tramite il filtro dbcm_should_render_banner.',
 							'db-cookie-manager'
 						); ?></span>
+					</div>
+				</div>
+			</div>
+
+			<div class="db-ui-card">
+				<div class="db-ui-card-header"><h3><?php esc_html_e( 'Google Consent Mode v2', 'db-cookie-manager' ); ?></h3></div>
+				<div class="db-ui-card-body">
+					<p style="margin:0 0 14px;font-size:13px;color:var(--db-text-muted)">
+						<?php esc_html_e( 'Google Consent Mode v2 comunica lo stato del consenso ai tag Google (GA4, Google Ads). Attivalo solo se usi tag Google: il plugin inietterà il comando di default con tutti i segnali negati (privacy by default) e invierà l\'aggiornamento quando l\'utente concede il consenso.', 'db-cookie-manager' ); ?>
+					</p>
+					<?php
+					self::field_checkbox(
+						'gcm_enabled',
+						$s['gcm_enabled'],
+						__( 'Attiva Google Consent Mode v2', 'db-cookie-manager' ),
+						__( 'Mappa predefinita: Statistiche → analytics_storage; Marketing → ad_storage, ad_user_data, ad_personalization. Personalizzabile dagli sviluppatori via filtro dbcm_gcm_mapping.', 'db-cookie-manager' )
+					);
+					?>
+					<div class="db-ui-alert db-ui-alert-info" style="margin-top:14px">
+						<span class="db-ui-alert-icon" aria-hidden="true">ℹ️</span>
+						<span><?php esc_html_e( 'Se già gestisci Consent Mode tramite Google Tag Manager, lascia questa opzione disattivata per evitare doppie inizializzazioni.', 'db-cookie-manager' ); ?></span>
 					</div>
 				</div>
 			</div>

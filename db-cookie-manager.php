@@ -89,6 +89,10 @@ if ( ! class_exists( 'DBCM_Plugin' ) ) {
 			require_once DBCM_DIR . 'inc/class-consent-api.php';
 			require_once DBCM_DIR . 'inc/class-banner.php';
 
+			// v3.3.0 — Google Consent Mode v2 (opt-in). Inietta lo snippet
+			// default 'denied' nel <head> e il mapping categoria→segnale.
+			require_once DBCM_DIR . 'inc/class-consent-signals.php';
+
 			// v3.3.0 — Database firme locale (sorgente unica per blocker e scanner).
 			require_once DBCM_DIR . 'inc/data/signatures.php';
 			require_once DBCM_DIR . 'inc/class-signatures.php';
@@ -151,6 +155,9 @@ if ( ! class_exists( 'DBCM_Plugin' ) ) {
 
 			// Banner frontend: enqueue assets, render markup.
 			DBCM_Banner::init();
+
+			// GCM v2: inerte se gcm_enabled = false (default).
+			DBCM_Consent_Signals::init();
 
 			// v3.3.0 — Database firme: aggancia le viste blocker/scanner ai
 			// filtri esistenti PRIMA che Blocker e Scanner girino. Additivo:

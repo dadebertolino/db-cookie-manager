@@ -242,6 +242,14 @@ if ( ! class_exists( 'DBCM_Banner' ) ) {
 				 * Esclude i tecnici per costruzione. name può contenere '*'. */
 				'reactiveCleanup'   => DBCM_Signatures::reactive_cleanup_list(),
 
+				/* ---- Google Consent Mode v2 ----
+				 * Se attivo, banner.js invia gtag('consent','update',...) al
+				 * commit, traducendo le categorie concesse nei segnali GCM
+				 * secondo il mapping. Inerte se gcmEnabled = false. */
+				'gcmEnabled'        => DBCM_Consent_Signals::is_enabled(),
+				'gcmMapping'        => DBCM_Consent_Signals::is_enabled() ? DBCM_Consent_Signals::mapping() : array(),
+				'gcmSignals'        => DBCM_Consent_Signals::SIGNALS,
+
 				/* ---- Render decision ----
 				 * Se false, il banner JS sa di non auto-mostrarsi (ma lascia
 				 * comunque il pulsante "Riapri" disponibile). */

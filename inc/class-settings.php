@@ -154,6 +154,14 @@ if ( ! class_exists( 'DBCM_Settings' ) ) {
 
 				/* ---- Geo-targeting (priorità 4 — verrà implementato negli step successivi) ---- */
 				'geo_targeting'          => false,          // false = banner sempre, true = solo UE
+
+				/* ---- Google Consent Mode v2 (opt-in) ----
+				 * OFF di default: GCM ha senso solo per chi usa tag Google
+				 * (GA4/Google Ads). Attivarlo per tutti inietterebbe gtag
+				 * inutilmente e potrebbe confliggere con implementazioni GCM
+				 * esistenti (es. via GTM). Quando ON, il default è 'denied' su
+				 * tutti i segnali (privacy by default, Art. 25). */
+				'gcm_enabled'            => false,
 			);
 		}
 

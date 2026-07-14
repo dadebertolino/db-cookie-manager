@@ -375,8 +375,47 @@
         activateBlockedScripts(written);
         restoreBlockedIframes(written);
         reactiveCleanup(written); // Revoca: rimuove i cookie delle categorie non concesse.
+        sendGcmUpdate(written);   // Google Consent Mode v2: update dei segnali.
         dispatchConsentEvent(written, type);
         close();
+    }
+
+    /**
+     * Google Consent Mode v2 — invia gtag('consent','update',{...}).
+     *
+     * Traduce le categorie concesse nei segnali GCM secondo il mapping fornito
+     * dal server. Una categoria concessa pone i suoi segnali a 'granted'; tutti
+     * gli altri restano 'denied' (il default 'denied' è già stato emesso nel
+     * <head> da DBCM_Consent_Signals). Inerte se GCM non è attivo.
+     */
+    function sendGcmUpdate(consent) {
+        if (!C.gcmEnabled || !consent) return;
+        var mapping = C.gcmMapping || {};
+        var signals = C.gcmSignals || [];
+        if (!signals.length) return;
+
+        // Parti da tutti i segnali negati.
+        var update = {};
+        signals.forEach(function (sig) {
+            update[sig] = 'denied';
+        });
+
+        // Per ogni categoria concessa, concedi i segnali mappati.
+        Object.keys(mapping).forEach(function (category) {
+            if (!consent[category]) return;
+            var sigs = mapping[category] || [];
+            sigs.forEach(function (sig) {
+                update[sig] = 'granted';
+            });
+        });
+
+        // Assicura la presenza di gtag (il default snippet lo definisce, ma
+        // se per qualche motivo non c'è, lo creiamo su dataLayer).
+        window.dataLayer = window.dataLayer || [];
+        if (typeof window.gtag !== 'function') {
+            window.gtag = function () { window.dataLayer.push(arguments); };
+        }
+        window.gtag('consent', 'update', update);
     }
 
     function openPreferences() {
@@ -448,61 +487,24 @@
             var category = ph.getAttribute('data-dbcm-category');
             var src      = ph.getAttribute('data-dbcm-src');
             if (!category || !src || !consent[category]) return;
-            replacePlaceholderWithIframe(ph);
+
+            var iframe = document.createElement('iframe');
+            iframe.setAttribute('src', src);
+            iframe.setAttribute('frameborder', '0');
+            iframe.setAttribute('allowfullscreen', '');
+            iframe.setAttribute('loading', 'lazy');
+
+            // Eredita le dimensioni del placeholder per evitare layout shift.
+            if (ph.style.width)  iframe.style.width  = ph.style.width;
+            if (ph.style.height) iframe.style.height = ph.style.height;
+            iframe.style.maxWidth = '100%';
+            iframe.style.border = '0';
+
+            if (ph.parentNode) {
+                ph.parentNode.replaceChild(iframe, ph);
+            }
         });
     }
-
-    /**
-     * Costruisce l'iframe reale a partire da un placeholder e lo sostituisce
-     * nel DOM. Riusato sia dal ripristino per consenso di categoria sia dal
-     * click-to-load puntuale. Emette l'evento 'dbcm:iframe-loaded'.
-     */
-    function replacePlaceholderWithIframe(ph) {
-        var src = ph.getAttribute('data-dbcm-src');
-        if (!src) return;
-
-        var iframe = document.createElement('iframe');
-        iframe.setAttribute('src', src);
-        iframe.setAttribute('frameborder', '0');
-        iframe.setAttribute('allowfullscreen', '');
-        iframe.setAttribute('loading', 'lazy');
-
-        // Eredita le dimensioni del placeholder per evitare layout shift.
-        if (ph.style.width)  iframe.style.width  = ph.style.width;
-        if (ph.style.height) iframe.style.height = ph.style.height;
-        iframe.style.maxWidth = '100%';
-        iframe.style.border = '0';
-
-        if (ph.parentNode) {
-            ph.parentNode.replaceChild(iframe, ph);
-        }
-
-        try {
-            document.dispatchEvent(new CustomEvent('dbcm:iframe-loaded', {
-                detail: {
-                    src: src,
-                    category: ph.getAttribute('data-dbcm-category') || ''
-                }
-            }));
-        } catch (e) { /* CustomEvent non supportato: ignora */ }
-    }
-
-    /**
-     * Click-to-load granulare: caricare un singolo embed NON scrive un consenso
-     * persistente per l'intera categoria (minimizzazione, consenso puntuale).
-     * L'utente vede questo contenuto senza abilitare il tracking ovunque.
-     */
-    document.addEventListener('click', function (ev) {
-        var btn = ev.target;
-        if (!btn.closest) return;
-        var loadBtn = btn.closest('.dbcm-iframe-placeholder__load');
-        if (!loadBtn) return;
-        ev.preventDefault();
-        var ph = loadBtn.closest('.dbcm-iframe-placeholder');
-        if (ph) {
-            replacePlaceholderWithIframe(ph);
-        }
-    });
 
     /* =========================================================================
      * CANCELLAZIONE REATTIVA — rete di sicurezza sul "già presente"
@@ -720,6 +722,7 @@
             activateBlockedScripts(existing);
             restoreBlockedIframes(existing);
             reactiveCleanup(existing); // Pulisce i cookie delle categorie non concesse.
+            sendGcmUpdate(existing);   // GCM: riallinea i segnali al consenso salvato.
             // Già ha un cookie → non mostriamo il banner; il signal DNT/GPC
             // non override le scelte dell'utente già espresse.
             if (C.showReopenBtn) {
