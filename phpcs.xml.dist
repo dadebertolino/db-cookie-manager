@@ -17,18 +17,14 @@
 		<!-- ============================================================
 		     STILE — esclusioni estetiche (nessun impatto su correttezza).
 		     ============================================================ -->
-
-		<!-- Yoda condition: scelta di leggibilità del progetto. -->
 		<exclude name="Generic.ControlStructures.DisallowYodaConditions"/>
 		<exclude name="WordPress.PHP.YodaConditions.NotYoda"/>
 
-		<!-- Naming file: la DB suite usa 'class-<nome>.php' (i require_once del
-		     bootstrap ci dipendono; rinominarli romperebbe il caricamento). -->
+		<!-- Naming file: la DB suite usa 'class-<nome>.php'. -->
 		<exclude name="WordPress.Files.FileName.InvalidClassFileName"/>
 		<exclude name="WordPress.Files.FileName.NotHyphenatedLowercase"/>
 
-		<!-- Stile dei commenti (punto finale, capitalizzazione, closer,
-		     stile doc-block): estetico, ad alto rumore sul codice esistente. -->
+		<!-- Stile commenti / doc-block. -->
 		<exclude name="Squiz.Commenting.InlineComment.InvalidEndChar"/>
 		<exclude name="Squiz.Commenting.InlineComment.NotCapital"/>
 		<exclude name="Squiz.Commenting.BlockComment.CloserSameLine"/>
@@ -43,42 +39,29 @@
 		<exclude name="Squiz.Commenting.VariableComment.Missing"/>
 		<exclude name="Squiz.Commenting.FileComment.MissingPackageTag"/>
 		<exclude name="Generic.Commenting.DocComment.MissingShort"/>
-
-		<!-- translators comment: buona pratica i18n, non un errore bloccante. -->
 		<exclude name="WordPress.WP.I18n.MissingTranslatorsComment"/>
-
-		<!-- Short ternary e count-in-loop: stile/microperformance. -->
 		<exclude name="Universal.Operators.DisallowShortTernary.Found"/>
 		<exclude name="Squiz.PHP.DisallowSizeFunctionsInLoops.Found"/>
-
-		<!-- Parametro non usato: spesso vincolato dalla firma di un hook/API WP. -->
 		<exclude name="Generic.CodeAnalysis.UnusedFunctionParameter"/>
-
-		<!-- Allineamenti in colonna: estetici. -->
 		<exclude name="WordPress.Arrays.MultipleStatementAlignment.DoubleArrowNotAligned"/>
 
-		<!-- Variabili "globali" in file senza scope-wrapper (es. uninstall.php):
-		     $site_id/$site_ids sono variabili locali di un foreach top-level,
-		     non globali del plugin. Falso positivo tecnico dello sniff. -->
+		<!-- Parola riservata come nome parametro (es. $new in replace_all):
+		     ammessa, non causa problemi con $this->$new. -->
+		<exclude name="Universal.NamingConventions.NoReservedKeywordParameterNames.newFound"/>
+
+		<!-- Variabili "globali" in file top-level senza wrapper (uninstall.php). -->
 		<exclude name="WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedVariableFound"/>
+
+		<!-- Prefissi: DB_GitHub_Updater è una classe CONDIVISA tra i plugin
+		     della DB suite (stesso file identico in ognuno). Il prefisso 'DB_'
+		     è < 4 caratteri, quindi WPCS lo rifiuta, ma rinominarla romperebbe
+		     la condivisione. Lo sniff è escluso SOLO per il file dell'updater. -->
 
 		<!-- ============================================================
 		     SICUREZZA — FALSI POSITIVI VERIFICATI MANUALMENTE (rev. 3.3.0).
-		     Ogni occorrenza è stata ispezionata riga per riga:
-
-		     - PreparedSQL.*: tutte le query usano $wpdb->prepare() con
-		       placeholder %s/%d; i nomi tabella provengono da table_name()
-		       ($wpdb->prefix, nessun input utente). WPCS non traccia il flusso
-		       quando la stringa SQL è assegnata a variabile prima di prepare().
-
-		     - ValidatedSanitizedInput.*: gli input $_SERVER/$_COOKIE sono
-		       sempre unslashed e poi sanitizzati/validati (sanitize_ip custom,
-		       oppure json_decode + is_array per i payload strutturati, dove
-		       sanitize_text_field romperebbe il JSON). Nessun nonce/CSRF
-		       mancante rilevato.
-
-		     Escluse per non bloccare la pipeline su falsi positivi. NON
-		     riattivare senza una nuova revisione manuale del codice.
+		     SQL sempre via $wpdb->prepare() con placeholder; nomi tabella
+		     interni. Input $_SERVER/$_COOKIE sempre unslashed + validati.
+		     Nessun problema nonce/CSRF. NON riattivare senza nuova revisione.
 		     ============================================================ -->
 		<exclude name="WordPress.DB.PreparedSQL.NotPrepared"/>
 		<exclude name="WordPress.DB.PreparedSQL.InterpolatedNotPrepared"/>
@@ -88,18 +71,30 @@
 
 	<config name="text_domain" value="db-cookie-manager"/>
 
+	<!-- Prefissi validi (>= 4 char) del plugin. -->
 	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
 		<properties>
 			<property name="prefixes" type="array">
 				<element value="dbcm"/>
 				<element value="DBCM"/>
-				<!-- Classi condivise tra i plugin della DB suite (es.
-				     DB_GitHub_Updater): prefisso DB_ deliberato, riusato
-				     identico in tutti i plugin. -->
-				<element value="DB_"/>
-				<element value="db_"/>
 			</property>
 		</properties>
+	</rule>
+
+	<!-- L'updater condiviso 'DB_GitHub_Updater' (prefisso DB_ deliberato,
+	     riusato in tutta la suite): esente dal controllo prefissi. -->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals.ShortPrefixPassed">
+		<exclude-pattern>*/class-updater.php</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedClassFound">
+		<exclude-pattern>*/class-updater.php</exclude-pattern>
+	</rule>
+
+	<!-- uninstall.php: le query dirette e i DROP TABLE sono NECESSARI e
+	     corretti in fase di disinstallazione (cancellazione tabelle/opzioni;
+	     il caching non ha senso qui). Esente dalle regole DB per questo file. -->
+	<rule ref="WordPress.DB.DirectDatabaseQuery">
+		<exclude-pattern>*/uninstall.php</exclude-pattern>
 	</rule>
 
 	<config name="testVersion" value="7.4-"/>
