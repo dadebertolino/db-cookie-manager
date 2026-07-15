@@ -266,6 +266,11 @@ Cookie scritti dal plugin:
 
 ### Changelog
 
+
+
+#### 3.4.1 — Aggiornamento Cookie policy  _(2026)_
+- Nuova colonna "Trasferimento" che indica i cookie con trasferimento dati extra-UE (USA), con nota sulle garanzie del Capo V GDPR (Clausole Contrattuali Standard / Data Privacy Framework). Rilevamento automatico dei provider USA noti.
+
 #### 3.4.0 — Consent Mode v2, Google Fonts locali e report scanner _(2026)_
 
 Tre nuove funzionalità orientate alla conformità, tutte **opt-in** e disattivate di default.
