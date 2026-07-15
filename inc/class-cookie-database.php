@@ -677,6 +677,56 @@ if ( ! class_exists( 'DBCM_Cookie_Database' ) ) {
 		}
 
 		/**
+		 * Restituisce l'informazione sul trasferimento dati per un fornitore.
+		 *
+		 * Molti servizi comuni (Google, Meta, Microsoft, ecc.) trasferiscono
+		 * dati personali verso gli Stati Uniti o altri paesi terzi. Una cookie
+		 * policy conforme (Linee Guida Garante 2021, GDPR Capo V) deve indicarlo,
+		 * insieme alle garanzie applicabili. Questo metodo riconosce i fornitori
+		 * noti con trasferimento extra-UE tramite corrispondenza sul nome; per
+		 * gli altri (o le firme custom) restituisce una stringa vuota, così la
+		 * colonna resta neutra invece di dare un'informazione potenzialmente
+		 * errata.
+		 *
+		 * @param string $provider Nome del fornitore (es. "Google Analytics").
+		 * @return array{ location:string, country:string } location è '' se
+		 *               non noto, altrimenti un'etichetta breve (es. "USA").
+		 */
+		public static function get_transfer_info( $provider ) {
+			$provider = (string) $provider;
+			if ( '' === $provider ) {
+				return array(
+					'location' => '',
+					'country'  => '',
+				);
+			}
+
+			// Fornitori noti con trasferimento verso gli USA. La chiave è una
+			// sottostringa cercata (case-insensitive) nel nome del fornitore.
+			$us_providers = array(
+				'google', 'youtube', 'meta', 'facebook', 'instagram', 'microsoft',
+				'clarity', 'linkedin', 'tiktok', 'pinterest', 'hotjar', 'hubspot',
+				'cloudflare', 'stripe', 'mixpanel', 'heap', 'amplitude', 'mailchimp',
+				'convertkit', 'intercom', 'drift', 'x / twitter', 'twitter',
+			);
+
+			$needle = strtolower( $provider );
+			foreach ( $us_providers as $key ) {
+				if ( false !== strpos( $needle, $key ) ) {
+					return array(
+						'location' => __( 'USA (extra-UE)', 'db-cookie-manager' ),
+						'country'  => 'US',
+					);
+				}
+			}
+
+			return array(
+				'location' => '',
+				'country'  => '',
+			);
+		}
+
+		/**
 		 * Descrizione breve per categoria, usata nella cookie policy.
 		 *
 		 * @param string $category

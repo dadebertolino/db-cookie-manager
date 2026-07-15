@@ -165,4 +165,44 @@ final class PolicyGeneratorTest extends TestCase {
 		$this->assertStringNotContainsString( '<img src=x onerror=alert(2)>', $html );
 	}
 
+	/* =====================================================================
+	 * TRASFERIMENTO EXTRA-UE (colonna + nota)
+	 * ================================================================== */
+
+	/**
+	 * La tabella cookie ha una colonna "Trasferimento".
+	 */
+	public function test_policy_has_transfer_column(): void {
+		dbcm_test_set_grouped_results( array(
+			'statistics' => array( dbcm_test_cookie_row( '_ga', 'Google Analytics', 'Analytics', '2 anni' ) ),
+		) );
+		$html = DBCM_Policy_Generator::generate();
+		$this->assertStringContainsString( 'Trasferimento', $html, 'La colonna Trasferimento deve esserci.' );
+	}
+
+	/**
+	 * Un provider USA (Google) è marcato con trasferimento extra-UE e la nota
+	 * sulle garanzie del Capo V compare.
+	 */
+	public function test_us_provider_flagged_extra_eu(): void {
+		dbcm_test_set_grouped_results( array(
+			'statistics' => array( dbcm_test_cookie_row( '_ga', 'Google Analytics', 'Analytics', '2 anni' ) ),
+		) );
+		$html = DBCM_Policy_Generator::generate();
+		$this->assertStringContainsString( 'USA', $html, 'Google deve risultare trasferimento USA.' );
+		$this->assertStringContainsString( 'Capo V', $html, 'La nota sulle garanzie deve comparire.' );
+	}
+
+	/**
+	 * Un provider UE non attiva la nota extra-UE.
+	 */
+	public function test_eu_provider_no_extra_eu_note(): void {
+		dbcm_test_set_grouped_results( array(
+			'functional' => array( dbcm_test_cookie_row( 'dbcm_consent', 'DB Cookie Manager', 'Consenso', '365 giorni' ) ),
+		) );
+		$html = DBCM_Policy_Generator::generate();
+		$this->assertStringContainsString( 'UE/SEE', $html, 'Un provider UE deve risultare UE/SEE.' );
+		$this->assertStringNotContainsString( 'Capo V', $html, 'Senza provider extra-UE, niente nota trasferimento.' );
+	}
+
 }

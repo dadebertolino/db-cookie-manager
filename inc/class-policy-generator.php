@@ -189,17 +189,36 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 			$html .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Fornitore', 'db-cookie-manager' ) . '</th>';
 			$html .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Finalità', 'db-cookie-manager' ) . '</th>';
 			$html .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Durata', 'db-cookie-manager' ) . '</th>';
+			$html .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Trasferimento', 'db-cookie-manager' ) . '</th>';
 			$html .= '</tr></thead>';
 			$html .= '<tbody>';
+			$has_extra_eu = false;
 			foreach ( $cookies as $cookie ) {
+				$provider = isset( $cookie->provider ) ? $cookie->provider : '';
+				$transfer = method_exists( 'DBCM_Cookie_Database', 'get_transfer_info' )
+					? DBCM_Cookie_Database::get_transfer_info( $provider )
+					: array( 'location' => '', 'country' => '' );
+				$transfer_label = '' !== $transfer['location'] ? $transfer['location'] : esc_html__( 'UE/SEE', 'db-cookie-manager' );
+				if ( '' !== $transfer['location'] ) {
+					$has_extra_eu = true;
+				}
 				$html .= '<tr>';
 				$html .= '<td style="border:1px solid #ddd;padding:8px"><code>' . esc_html( $cookie->cookie_name ) . '</code></td>';
 				$html .= '<td style="border:1px solid #ddd;padding:8px">' . esc_html( $cookie->provider ) . '</td>';
 				$html .= '<td style="border:1px solid #ddd;padding:8px">' . esc_html( $cookie->description ) . '</td>';
 				$html .= '<td style="border:1px solid #ddd;padding:8px">' . esc_html( $cookie->cookie_duration ) . '</td>';
+				$html .= '<td style="border:1px solid #ddd;padding:8px">' . esc_html( $transfer_label ) . '</td>';
 				$html .= '</tr>';
 			}
 			$html .= '</tbody></table>';
+
+			// Se almeno un cookie della categoria trasferisce dati fuori dall'UE,
+			// aggiungiamo la nota sulle garanzie (GDPR Capo V, artt. 44-49).
+			if ( $has_extra_eu ) {
+				$html .= '<p style="font-size:0.9em;color:#555;margin-top:-1em;margin-bottom:1.5em">';
+				$html .= esc_html__( 'Alcuni dei servizi elencati trasferiscono dati personali verso gli Stati Uniti o altri paesi terzi. Tali trasferimenti avvengono sulla base delle garanzie previste dal Capo V del GDPR (in particolare le Clausole Contrattuali Standard della Commissione Europea e, ove applicabile, il Data Privacy Framework UE-USA). Per i dettagli si rimanda alle informative dei rispettivi fornitori.', 'db-cookie-manager' );
+				$html .= '</p>';
+			}
 
 			return $html;
 		}
@@ -221,12 +240,14 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 			$html .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Fornitore', 'db-cookie-manager' ) . '</th>';
 			$html .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Finalità', 'db-cookie-manager' ) . '</th>';
 			$html .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Durata', 'db-cookie-manager' ) . '</th>';
+			$html .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Trasferimento', 'db-cookie-manager' ) . '</th>';
 			$html .= '</tr></thead>';
 			$html .= '<tbody><tr>';
 			$html .= '<td style="border:1px solid #ddd;padding:8px"><code>dbcm_consent</code></td>';
 			$html .= '<td style="border:1px solid #ddd;padding:8px">DB Cookie Manager</td>';
 			$html .= '<td style="border:1px solid #ddd;padding:8px">' . esc_html__( 'Memorizza la scelta dell\'utente sui cookie (accetta / rifiuta / personalizza).', 'db-cookie-manager' ) . '</td>';
 			$html .= '<td style="border:1px solid #ddd;padding:8px">365 ' . esc_html__( 'giorni', 'db-cookie-manager' ) . '</td>';
+			$html .= '<td style="border:1px solid #ddd;padding:8px">' . esc_html__( 'UE/SEE', 'db-cookie-manager' ) . '</td>';
 			$html .= '</tr></tbody></table>';
 
 			return $html;

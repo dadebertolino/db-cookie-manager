@@ -311,6 +311,16 @@ if ( ! class_exists( 'DBCM_Cookie_Database' ) ) {
 		public static function get_category_description( $category ) {
 			return 'Descrizione categoria ' . $category;
 		}
+		public static function get_transfer_info( $provider ) {
+			$provider = strtolower( (string) $provider );
+			$us = array( 'google', 'youtube', 'meta', 'facebook', 'instagram', 'microsoft', 'clarity', 'linkedin', 'tiktok', 'pinterest', 'hotjar', 'hubspot', 'cloudflare', 'stripe', 'mixpanel', 'heap', 'amplitude', 'mailchimp', 'convertkit', 'intercom', 'drift', 'twitter' );
+			foreach ( $us as $k ) {
+				if ( false !== strpos( $provider, $k ) ) {
+					return array( 'location' => 'USA (extra-UE)', 'country' => 'US' );
+				}
+			}
+			return array( 'location' => '', 'country' => '' );
+		}
 	}
 }
 
