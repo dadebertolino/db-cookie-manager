@@ -202,9 +202,18 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 				if ( '' !== $transfer['location'] ) {
 					$has_extra_eu = true;
 				}
+				// Trasparenza Art. 13(1)(e)-(f): se il fornitore è noto alle
+				// firme, il nome linka la sua informativa privacy.
+				$privacy_url = method_exists( 'DBCM_Signatures', 'privacy_url_for_provider' )
+					? DBCM_Signatures::privacy_url_for_provider( $provider )
+					: '';
+				$provider_cell = '' !== $privacy_url
+					? '<a href="' . esc_url( $privacy_url ) . '" target="_blank" rel="noopener">' . esc_html( $cookie->provider ) . '</a>'
+					: esc_html( $cookie->provider );
+
 				$html .= '<tr>';
 				$html .= '<td style="border:1px solid #ddd;padding:8px"><code>' . esc_html( $cookie->cookie_name ) . '</code></td>';
-				$html .= '<td style="border:1px solid #ddd;padding:8px">' . esc_html( $cookie->provider ) . '</td>';
+				$html .= '<td style="border:1px solid #ddd;padding:8px">' . $provider_cell . '</td>';
 				$html .= '<td style="border:1px solid #ddd;padding:8px">' . esc_html( $cookie->description ) . '</td>';
 				$html .= '<td style="border:1px solid #ddd;padding:8px">' . esc_html( $cookie->cookie_duration ) . '</td>';
 				$html .= '<td style="border:1px solid #ddd;padding:8px">' . esc_html( $transfer_label ) . '</td>';

@@ -269,4 +269,99 @@ final class SignaturesTest extends TestCase {
 		$this->assertSame( 'statistics', $sig['category'] );
 		$this->assertArrayNotHasKey( 'evil', $sig, 'I campi estranei non devono sopravvivere alla normalizzazione.' );
 	}
+
+	/* =====================================================================
+	 * privacy_url_for_provider — link informative fornitori (Art. 13)
+	 * ================================================================== */
+
+	/**
+	 * Match esatto sul provider di una firma statica.
+	 */
+	public function test_privacy_url_exact_match(): void {
+		$url = DBCM_Signatures::privacy_url_for_provider( 'Google Ireland Ltd.' );
+		$this->assertSame( 'https://policies.google.com/privacy', $url );
+	}
+
+	/**
+	 * Match per containment: lo scanner-da-header può salvare un provider
+	 * abbreviato ("Hotjar" vs "Hotjar Ltd." nelle firme).
+	 */
+	public function test_privacy_url_containment_match(): void {
+		$url = DBCM_Signatures::privacy_url_for_provider( 'Hotjar' );
+		$this->assertSame( 'https://www.hotjar.com/legal/policies/privacy/', $url );
+	}
+
+	/**
+	 * I provider del cookie-database (scanner-da-header) usano nomenclature
+	 * diverse dalle firme: il lookup deve allinearle (stessa classe di
+	 * disallineamento del bug store_notice).
+	 */
+	public function test_privacy_url_scanner_header_providers(): void {
+		$cases = array(
+			'Google Analytics'      => 'https://policies.google.com/privacy',
+			'Google DoubleClick'    => 'https://policies.google.com/privacy',
+			'Meta / Facebook'       => 'https://www.facebook.com/privacy/policy/',
+			'Microsoft Advertising' => 'https://privacy.microsoft.com/privacystatement',
+			'X (Twitter)'           => 'https://x.com/privacy',
+			'Matomo'                => 'https://matomo.org/privacy-policy/',
+		);
+		foreach ( $cases as $provider => $expected ) {
+			$this->assertSame( $expected, DBCM_Signatures::privacy_url_for_provider( $provider ), "Provider scanner '{$provider}' deve linkare l'informativa corretta." );
+		}
+	}
+
+	/**
+	 * Falsi positivi noti: i provider self-hosted NON devono agganciare
+	 * informative di terzi per containment parziale ("WordPress" NON è
+	 * "Jetpack / WordPress.com Stats") e il brand token rispetta i confini
+	 * di parola ("Metadata" NON è "Meta").
+	 */
+	public function test_privacy_url_no_false_positives(): void {
+		$this->assertSame( '', DBCM_Signatures::privacy_url_for_provider( 'WordPress' ), 'WordPress self-hosted non deve linkare Automattic.' );
+		$this->assertSame( '', DBCM_Signatures::privacy_url_for_provider( 'WooCommerce' ) );
+		$this->assertSame( '', DBCM_Signatures::privacy_url_for_provider( 'DB Cookie Manager' ) );
+		$this->assertSame( '', DBCM_Signatures::privacy_url_for_provider( 'Metadata Corp' ), 'Il brand token "meta" deve rispettare i confini di parola.' );
+	}
+
+	/**
+	 * Provider ignoto o vuoto → stringa vuota (nessun link inventato).
+	 */
+	public function test_privacy_url_unknown_provider(): void {
+		$this->assertSame( '', DBCM_Signatures::privacy_url_for_provider( 'Fornitore Sconosciuto XYZ' ) );
+		$this->assertSame( '', DBCM_Signatures::privacy_url_for_provider( '' ) );
+	}
+
+	/**
+	 * Needle troppo corto (< 4 caratteri) non attiva il containment: evita
+	 * falsi positivi su stringhe generiche.
+	 */
+	public function test_privacy_url_short_needle_no_containment(): void {
+		$this->assertSame( '', DBCM_Signatures::privacy_url_for_provider( 'Goo' ) );
+	}
+
+	/**
+	 * Una firma custom con privacy_url contribuisce al lookup, e un URL
+	 * non http(s) viene azzerato da save_custom (esc_url_raw).
+	 */
+	public function test_privacy_url_from_custom_signature(): void {
+		DBCM_Signatures::save_custom(
+			array(
+				array(
+					'service'     => 'Pixel Custom',
+					'provider'    => 'Esempio S.r.l.',
+					'privacy_url' => 'https://esempio.com/privacy',
+					'cookies'     => array( '_expix' ),
+				),
+				array(
+					'service'     => 'Pixel Sporco',
+					'provider'    => 'Malintenzionato S.p.A.',
+					'privacy_url' => 'javascript:alert(1)',
+					'cookies'     => array( '_bad' ),
+				),
+			)
+		);
+
+		$this->assertSame( 'https://esempio.com/privacy', DBCM_Signatures::privacy_url_for_provider( 'Esempio S.r.l.' ) );
+		$this->assertSame( '', DBCM_Signatures::privacy_url_for_provider( 'Malintenzionato S.p.A.' ), 'URL non http(s) deve essere azzerato in salvataggio.' );
+	}
 }

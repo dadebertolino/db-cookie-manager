@@ -188,6 +188,7 @@ if ( ! class_exists( 'DBCM_Signatures' ) ) {
 				$out[ $slug ] = array(
 					'service'          => (string) $row['service'],
 					'provider'         => isset( $row['provider'] ) ? (string) $row['provider'] : '',
+					'privacy_url'      => isset( $row['privacy_url'] ) ? (string) $row['privacy_url'] : '',
 					'category'         => $category,
 					'requires_consent' => isset( $row['requires_consent'] ) ? (bool) $row['requires_consent'] : true,
 					'script_patterns'  => $script_patterns,
@@ -428,6 +429,87 @@ if ( ! class_exists( 'DBCM_Signatures' ) ) {
 		}
 
 		/* =====================================================================
+		 * VISTA POLICY — URL informative fornitori
+		 * ================================================================== */
+
+		/**
+		 * Restituisce l'URL dell'informativa privacy del fornitore indicato,
+		 * cercando tra tutte le firme (statiche + custom).
+		 *
+		 * Trasparenza GDPR Art. 13(1)(e)-(f): l'interessato va informato sui
+		 * destinatari dei dati; il link all'informativa del fornitore è il
+		 * mezzo pratico, e completa la colonna "Trasferimento" per i
+		 * trasferimenti extra-UE (Capo V).
+		 *
+		 * Matching ibrido, coerente con get_transfer_info(). I provider dello
+		 * scan arrivano da DUE sorgenti con nomenclature diverse: le firme
+		 * ("Google Ireland Ltd.") e il cookie-database dello scanner-da-header
+		 * ("Google Analytics", "Meta / Facebook"). Per allinearle:
+		 *
+		 *  1. confronto esatto (case-insensitive) sul 'provider' della firma;
+		 *  2. containment bidirezionale sul 'provider' della firma
+		 *     ("Hotjar" ⊂ "Hotjar Ltd.");
+		 *  3. prefisso sul 'service' della firma ("X (Twitter)" prefisso di
+		 *     "X (Twitter) Ads"). Solo prefisso, non containment: "WordPress"
+		 *     NON deve agganciare "Jetpack / WordPress.com Stats";
+		 *  4. brand token: la prima parola del provider della firma, a confine
+		 *     di parola nel needle ("google" in "google doubleclick", ma
+		 *     "meta" NON in "metadata").
+		 *
+		 * Ogni fallback richiede almeno 4 caratteri per evitare falsi positivi
+		 * su stringhe troppo generiche (es. "X Corp." → token "x" scartato).
+		 *
+		 * @param string $provider Nome del fornitore come salvato nello scan.
+		 * @return string URL dell'informativa, o '' se ignoto.
+		 */
+		public static function privacy_url_for_provider( $provider ) {
+			$needle = strtolower( trim( (string) $provider ) );
+			if ( '' === $needle ) {
+				return '';
+			}
+
+			$fallback = '';
+			foreach ( self::all() as $sig ) {
+				if ( empty( $sig['privacy_url'] ) ) {
+					continue;
+				}
+				$url          = (string) $sig['privacy_url'];
+				$sig_provider = isset( $sig['provider'] ) ? strtolower( trim( (string) $sig['provider'] ) ) : '';
+				$sig_service  = isset( $sig['service'] ) ? strtolower( trim( (string) $sig['service'] ) ) : '';
+
+				// 1. Esatto sul provider: vince subito.
+				if ( '' !== $sig_provider && $sig_provider === $needle ) {
+					return $url;
+				}
+				if ( '' !== $fallback || strlen( $needle ) < 4 ) {
+					continue;
+				}
+
+				// 2. Containment bidirezionale sul provider.
+				if ( strlen( $sig_provider ) >= 4
+					&& ( false !== strpos( $sig_provider, $needle ) || false !== strpos( $needle, $sig_provider ) ) ) {
+					$fallback = $url;
+					continue;
+				}
+
+				// 3. Prefisso sul service (in entrambe le direzioni).
+				if ( strlen( $sig_service ) >= 4
+					&& ( 0 === strpos( $sig_service, $needle ) || 0 === strpos( $needle, $sig_service ) ) ) {
+					$fallback = $url;
+					continue;
+				}
+
+				// 4. Brand token a confine di parola.
+				$brand = strtok( $sig_provider, ' ' );
+				if ( false !== $brand && strlen( $brand ) >= 4
+					&& preg_match( '/\b' . preg_quote( $brand, '/' ) . '\b/', $needle ) ) {
+					$fallback = $url;
+				}
+			}
+			return $fallback;
+		}
+
+		/* =====================================================================
 		 * HELPER
 		 * ================================================================== */
 
@@ -558,6 +640,7 @@ if ( ! class_exists( 'DBCM_Signatures' ) ) {
 					'slug'             => ! empty( $row['slug'] ) ? sanitize_key( $row['slug'] ) : '',
 					'service'          => sanitize_text_field( $row['service'] ),
 					'provider'         => isset( $row['provider'] ) ? sanitize_text_field( $row['provider'] ) : '',
+					'privacy_url'      => isset( $row['privacy_url'] ) ? esc_url_raw( (string) $row['privacy_url'] ) : '',
 					'category'         => isset( $row['category'] ) && DBCM_Settings::is_valid_category( $row['category'] )
 						? $row['category'] : 'marketing',
 					'requires_consent' => ! empty( $row['requires_consent'] ),

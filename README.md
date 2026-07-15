@@ -268,6 +268,11 @@ Cookie scritti dal plugin:
 
 
 
+#### 3.4.2 — Link alle informative dei fornitori _(2026)_
+- Nella tabella cookie della Cookie Policy, il nome del fornitore ora linka la sua informativa privacy quando il fornitore è noto al database firme (trasparenza GDPR Art. 13(1)(e)-(f): informazioni sui destinatari dei dati; completa la colonna "Trasferimento" per le garanzie del Capo V).
+- Il matching allinea le due nomenclature interne ("Google Ireland Ltd." nelle firme, "Google Analytics" nello scanner-da-header) con regole conservative: nessun link viene inventato per fornitori ignoti o self-hosted.
+- Le firme personalizzate supportano il nuovo campo **URL informativa privacy** (form admin, import/export JSON); gli URL non `http(s)` vengono scartati in salvataggio.
+
 #### 3.4.1 — Aggiornamento Cookie policy  _(2026)_
 - Nuova colonna "Trasferimento" che indica i cookie con trasferimento dati extra-UE (USA), con nota sulle garanzie del Capo V GDPR (Clausole Contrattuali Standard / Data Privacy Framework). Rilevamento automatico dei provider USA noti.
 
@@ -649,6 +654,14 @@ Cookies written by the plugin:
 ---
 
 ### Changelog
+
+#### 3.4.2 — Provider privacy policy links _(2026)_
+- In the Cookie Policy table, the provider name now links to its privacy policy whenever the provider is known to the signatures database (GDPR Art. 13(1)(e)-(f) transparency: information about data recipients; complements the "Transfer" column for Chapter V safeguards).
+- The lookup aligns the two internal naming schemes ("Google Ireland Ltd." in signatures, "Google Analytics" in the header scanner) with conservative rules: no link is ever invented for unknown or self-hosted providers.
+- Custom signatures support the new **Privacy policy URL** field (admin form, JSON import/export); non-`http(s)` URLs are discarded on save.
+
+#### 3.4.1 — Cookie policy update _(2026)_
+- New "Transfer" column flagging cookies with extra-EU (USA) data transfers, with a note on GDPR Chapter V safeguards (Standard Contractual Clauses / Data Privacy Framework). Known US providers are detected automatically.
 
 #### 3.4.0 — Consent Mode v2, local Google Fonts and scanner report _(2026)_
 

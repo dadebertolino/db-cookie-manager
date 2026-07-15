@@ -2430,8 +2430,9 @@ JS,
 			$row   = $edit ? $edit['row'] : array();
 			$index = $edit ? (int) $edit['index'] : -1;
 
-			$service   = isset( $row['service'] ) ? (string) $row['service'] : '';
-			$provider  = isset( $row['provider'] ) ? (string) $row['provider'] : '';
+			$service     = isset( $row['service'] ) ? (string) $row['service'] : '';
+			$provider    = isset( $row['provider'] ) ? (string) $row['provider'] : '';
+			$privacy_url = isset( $row['privacy_url'] ) ? (string) $row['privacy_url'] : '';
 			$category  = isset( $row['category'] ) ? (string) $row['category'] : 'marketing';
 			$requires  = isset( $row['requires_consent'] ) ? ! empty( $row['requires_consent'] ) : true;
 			$block_src = isset( $row['block_source'] ) ? (string) $row['block_source'] : '';
@@ -2478,6 +2479,13 @@ JS,
 					$provider,
 					__( 'Fornitore', 'db-cookie-manager' ),
 					__( 'Es. "Esempio S.r.l." o il dominio del fornitore. Opzionale, appare nella Cookie Policy.', 'db-cookie-manager' )
+				);
+
+				self::field_text(
+					'sig_privacy_url',
+					$privacy_url,
+					__( 'URL informativa privacy', 'db-cookie-manager' ),
+					__( 'Link all\'informativa privacy del fornitore (es. https://esempio.com/privacy). Opzionale: se presente, nella Cookie Policy il nome del fornitore diventa un link (trasparenza GDPR Art. 13).', 'db-cookie-manager' )
 				);
 
 				self::field_select(
@@ -2625,6 +2633,7 @@ JS,
 			$new_row = array(
 				'service'          => $service,
 				'provider'         => isset( $_POST['sig_provider'] ) ? sanitize_text_field( wp_unslash( $_POST['sig_provider'] ) ) : '',
+				'privacy_url'      => isset( $_POST['sig_privacy_url'] ) ? esc_url_raw( wp_unslash( $_POST['sig_privacy_url'] ) ) : '',
 				'category'         => isset( $_POST['sig_category'] ) ? sanitize_key( wp_unslash( $_POST['sig_category'] ) ) : 'marketing',
 				'requires_consent' => ! empty( $_POST['sig_requires_consent'] ),
 				'block_source'     => isset( $_POST['sig_block_source'] ) ? sanitize_text_field( wp_unslash( $_POST['sig_block_source'] ) ) : '',

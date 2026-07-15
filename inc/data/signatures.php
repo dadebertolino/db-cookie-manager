@@ -22,6 +22,10 @@
  *
  *   'service'          (string)  Nome leggibile del servizio (per policy/UI/placeholder).
  *   'provider'         (string)  Titolare/fornitore (per policy).
+ *   'privacy_url'      (string)  Opzionale. URL dell'informativa privacy del
+ *                                fornitore, linkata nella Cookie Policy
+ *                                (trasparenza GDPR Art. 13(1)(e)-(f)). Assente
+ *                                per i servizi self-hosted.
  *   'category'         (string)  Categoria WP Consent API:
  *                                functional | preferences | statistics |
  *                                statistics-anonymous | marketing.
@@ -190,6 +194,7 @@ function dbcm_signatures_data() {
 		'paypal' => array(
 			'service'          => 'PayPal',
 			'provider'         => 'PayPal (Europe) S.à r.l. et Cie, S.C.A.',
+			'privacy_url'      => 'https://www.paypal.com/it/legalhub/privacy-full',
 			'category'         => 'functional',
 			'requires_consent' => false,
 			'blockable'        => false, // Antifrode: bloccarlo rompe il checkout. Configurabile in admin.
@@ -257,6 +262,7 @@ function dbcm_signatures_data() {
 		'google-analytics' => array(
 			'service'          => 'Google Analytics 4',
 			'provider'         => 'Google Ireland Ltd.',
+			'privacy_url'      => 'https://policies.google.com/privacy',
 			'category'         => 'statistics',
 			'requires_consent' => true,
 			'script_patterns'  => array(
@@ -298,6 +304,7 @@ function dbcm_signatures_data() {
 		'google-tag-manager' => array(
 			'service'          => 'Google Tag Manager',
 			'provider'         => 'Google Ireland Ltd.',
+			'privacy_url'      => 'https://policies.google.com/privacy',
 			'category'         => 'statistics',
 			'requires_consent' => true,
 			'script_patterns'  => array(
@@ -312,6 +319,7 @@ function dbcm_signatures_data() {
 		'matomo' => array(
 			'service'          => 'Matomo',
 			'provider'         => __( 'Self-hosted / InnoCraft', 'db-cookie-manager' ),
+			'privacy_url'      => 'https://matomo.org/privacy-policy/',
 			'category'         => 'statistics',
 			'requires_consent' => true,
 			'script_patterns'  => array(
@@ -341,6 +349,7 @@ function dbcm_signatures_data() {
 		'hotjar' => array(
 			'service'          => 'Hotjar',
 			'provider'         => 'Hotjar Ltd.',
+			'privacy_url'      => 'https://www.hotjar.com/legal/policies/privacy/',
 			'category'         => 'statistics',
 			'requires_consent' => true,
 			'script_patterns'  => array(
@@ -362,6 +371,7 @@ function dbcm_signatures_data() {
 		'clarity' => array(
 			'service'          => 'Microsoft Clarity',
 			'provider'         => 'Microsoft Corporation',
+			'privacy_url'      => 'https://privacy.microsoft.com/privacystatement',
 			'category'         => 'statistics',
 			'requires_consent' => true,
 			'script_patterns'  => array(
@@ -388,6 +398,7 @@ function dbcm_signatures_data() {
 		'jetpack-stats' => array(
 			'service'          => 'Jetpack / WordPress.com Stats',
 			'provider'         => 'Automattic Inc.',
+			'privacy_url'      => 'https://automattic.com/privacy/',
 			'category'         => 'statistics',
 			'requires_consent' => true,
 			'script_patterns'  => array(
@@ -401,6 +412,7 @@ function dbcm_signatures_data() {
 		'mixpanel' => array(
 			'service'          => 'Mixpanel',
 			'provider'         => 'Mixpanel Inc.',
+			'privacy_url'      => 'https://mixpanel.com/legal/privacy-policy/',
 			'category'         => 'statistics',
 			'requires_consent' => true,
 			'script_patterns'  => array( 'cdn.mxpnl.com' ),
@@ -412,6 +424,7 @@ function dbcm_signatures_data() {
 		'heap' => array(
 			'service'          => 'Heap Analytics',
 			'provider'         => 'Heap Inc.',
+			'privacy_url'      => 'https://heap.io/privacy',
 			'category'         => 'statistics',
 			'requires_consent' => true,
 			'script_patterns'  => array( 'cdn.heapanalytics.com' ),
@@ -423,6 +436,7 @@ function dbcm_signatures_data() {
 		'amplitude' => array(
 			'service'          => 'Amplitude',
 			'provider'         => 'Amplitude Inc.',
+			'privacy_url'      => 'https://amplitude.com/privacy',
 			'category'         => 'statistics',
 			'requires_consent' => true,
 			'script_patterns'  => array( 'cdn.amplitude.com' ),
@@ -434,6 +448,7 @@ function dbcm_signatures_data() {
 		'fullstory' => array(
 			'service'          => 'FullStory',
 			'provider'         => 'FullStory Inc.',
+			'privacy_url'      => 'https://www.fullstory.com/legal/privacy-policy/',
 			'category'         => 'statistics',
 			'requires_consent' => true,
 			'script_patterns'  => array( 'fullstory.com/s/fs.js' ),
@@ -445,6 +460,7 @@ function dbcm_signatures_data() {
 		'cloudflare-insights' => array(
 			'service'          => 'Cloudflare Web Analytics',
 			'provider'         => 'Cloudflare Inc.',
+			'privacy_url'      => 'https://www.cloudflare.com/privacypolicy/',
 			'category'         => 'statistics',
 			'requires_consent' => true,
 			'script_patterns'  => array( 'static.cloudflareinsights.com' ),
@@ -456,6 +472,7 @@ function dbcm_signatures_data() {
 		'hubspot' => array(
 			'service'          => 'HubSpot',
 			'provider'         => 'HubSpot Inc.',
+			'privacy_url'      => 'https://legal.hubspot.com/privacy-policy',
 			'category'         => 'statistics',
 			'requires_consent' => true,
 			'script_patterns'  => array( 'js.hs-scripts.com', 'hs-analytics' ),
@@ -484,6 +501,7 @@ function dbcm_signatures_data() {
 		'plausible' => array(
 			'service'          => 'Plausible Analytics',
 			'provider'         => __( 'Plausible Insights OÜ / self-hosted', 'db-cookie-manager' ),
+			'privacy_url'      => 'https://plausible.io/privacy',
 			'category'         => 'statistics-anonymous',
 			'requires_consent' => false, // cookieless per design: nessun consenso richiesto.
 			'script_patterns'  => array(
@@ -500,6 +518,7 @@ function dbcm_signatures_data() {
 		'umami' => array(
 			'service'          => 'Umami',
 			'provider'         => __( 'Self-hosted / Umami Software', 'db-cookie-manager' ),
+			'privacy_url'      => 'https://umami.is/privacy',
 			'category'         => 'statistics-anonymous',
 			'requires_consent' => false,
 			'script_patterns'  => array( 'umami.is/script.js' ),
@@ -513,6 +532,7 @@ function dbcm_signatures_data() {
 		'fathom' => array(
 			'service'          => 'Fathom Analytics',
 			'provider'         => 'Conva Ventures Inc.',
+			'privacy_url'      => 'https://usefathom.com/privacy',
 			'category'         => 'statistics-anonymous',
 			'requires_consent' => false,
 			'script_patterns'  => array( 'cdn.usefathom.com' ),
@@ -526,6 +546,7 @@ function dbcm_signatures_data() {
 		'simple-analytics' => array(
 			'service'          => 'Simple Analytics',
 			'provider'         => 'Simple Analytics B.V.',
+			'privacy_url'      => 'https://www.simpleanalytics.com/privacy-policy',
 			'category'         => 'statistics-anonymous',
 			'requires_consent' => false,
 			'script_patterns'  => array( 'simpleanalytics.com/latest.js' ),
@@ -543,6 +564,7 @@ function dbcm_signatures_data() {
 		'meta-pixel' => array(
 			'service'          => 'Meta Pixel',
 			'provider'         => 'Meta Platforms Ireland Ltd.',
+			'privacy_url'      => 'https://www.facebook.com/privacy/policy/',
 			'category'         => 'marketing',
 			'requires_consent' => true,
 			'script_patterns'  => array(
@@ -570,6 +592,7 @@ function dbcm_signatures_data() {
 		'google-ads' => array(
 			'service'          => 'Google Ads',
 			'provider'         => 'Google Ireland Ltd.',
+			'privacy_url'      => 'https://policies.google.com/privacy',
 			'category'         => 'marketing',
 			'requires_consent' => true,
 			'script_patterns'  => array(
@@ -605,6 +628,7 @@ function dbcm_signatures_data() {
 		'tiktok-pixel' => array(
 			'service'          => 'TikTok Pixel',
 			'provider'         => 'TikTok Technology Ltd.',
+			'privacy_url'      => 'https://www.tiktok.com/legal/privacy-policy',
 			'category'         => 'marketing',
 			'requires_consent' => true,
 			'script_patterns'  => array( 'analytics.tiktok.com' ),
@@ -623,6 +647,7 @@ function dbcm_signatures_data() {
 		'linkedin-insight' => array(
 			'service'          => 'LinkedIn Insight Tag',
 			'provider'         => 'LinkedIn Ireland Unlimited Company',
+			'privacy_url'      => 'https://www.linkedin.com/legal/privacy-policy',
 			'category'         => 'marketing',
 			'requires_consent' => true,
 			'script_patterns'  => array(
@@ -651,6 +676,7 @@ function dbcm_signatures_data() {
 		'twitter-ads' => array(
 			'service'          => 'X (Twitter) Ads',
 			'provider'         => 'X Corp.',
+			'privacy_url'      => 'https://x.com/privacy',
 			'category'         => 'marketing',
 			'requires_consent' => true,
 			'script_patterns'  => array(
@@ -666,6 +692,7 @@ function dbcm_signatures_data() {
 		'pinterest-tag' => array(
 			'service'          => 'Pinterest Tag',
 			'provider'         => 'Pinterest Europe Ltd.',
+			'privacy_url'      => 'https://policy.pinterest.com/privacy-policy',
 			'category'         => 'marketing',
 			'requires_consent' => true,
 			'script_patterns'  => array( 'ct.pinterest.com', 'pintrk' ),
@@ -684,6 +711,7 @@ function dbcm_signatures_data() {
 		'reddit-pixel' => array(
 			'service'          => 'Reddit Pixel',
 			'provider'         => 'Reddit Inc.',
+			'privacy_url'      => 'https://www.reddit.com/policies/privacy-policy',
 			'category'         => 'marketing',
 			'requires_consent' => true,
 			'script_patterns'  => array( 'redditstatic.com/ads' ),
@@ -695,6 +723,7 @@ function dbcm_signatures_data() {
 		'amazon-ads' => array(
 			'service'          => 'Amazon Advertising',
 			'provider'         => 'Amazon Europe Core S.à r.l.',
+			'privacy_url'      => 'https://advertising.amazon.com/legal/privacy-notice',
 			'category'         => 'marketing',
 			'requires_consent' => true,
 			'script_patterns'  => array( 'amazon-adsystem.com' ),
@@ -706,6 +735,7 @@ function dbcm_signatures_data() {
 		'bing-uet' => array(
 			'service'          => 'Microsoft Advertising (UET)',
 			'provider'         => 'Microsoft Corporation',
+			'privacy_url'      => 'https://privacy.microsoft.com/privacystatement',
 			'category'         => 'marketing',
 			'requires_consent' => true,
 			'script_patterns'  => array( 'bat.bing.com' ),
@@ -736,6 +766,7 @@ function dbcm_signatures_data() {
 		'cloudflare-turnstile' => array(
 			'service'          => 'Cloudflare Turnstile',
 			'provider'         => 'Cloudflare Inc.',
+			'privacy_url'      => 'https://www.cloudflare.com/privacypolicy/',
 			'category'         => 'marketing',
 			'requires_consent' => true,
 			'script_patterns'  => array( 'challenges.cloudflare.com' ),
@@ -752,6 +783,7 @@ function dbcm_signatures_data() {
 		'youtube' => array(
 			'service'          => 'YouTube',
 			'provider'         => 'Google Ireland Ltd.',
+			'privacy_url'      => 'https://policies.google.com/privacy',
 			'category'         => 'marketing',
 			'requires_consent' => true,
 			'script_patterns'  => array(),
@@ -781,6 +813,7 @@ function dbcm_signatures_data() {
 		'vimeo' => array(
 			'service'          => 'Vimeo',
 			'provider'         => 'Vimeo Inc.',
+			'privacy_url'      => 'https://vimeo.com/privacy',
 			'category'         => 'functional',
 			'requires_consent' => true,
 			'script_patterns'  => array(),
@@ -799,6 +832,7 @@ function dbcm_signatures_data() {
 		'google-maps' => array(
 			'service'          => 'Google Maps',
 			'provider'         => 'Google Ireland Ltd.',
+			'privacy_url'      => 'https://policies.google.com/privacy',
 			'category'         => 'functional',
 			'requires_consent' => true,
 			'script_patterns'  => array( 'maps.googleapis.com' ),
@@ -814,6 +848,7 @@ function dbcm_signatures_data() {
 		'instagram' => array(
 			'service'          => 'Instagram',
 			'provider'         => 'Meta Platforms Ireland Ltd.',
+			'privacy_url'      => 'https://www.facebook.com/privacy/policy/',
 			'category'         => 'marketing',
 			'requires_consent' => true,
 			'script_patterns'  => array( 'cdninstagram.com' ),
@@ -830,6 +865,7 @@ function dbcm_signatures_data() {
 		'spotify' => array(
 			'service'          => 'Spotify',
 			'provider'         => 'Spotify AB',
+			'privacy_url'      => 'https://www.spotify.com/legal/privacy-policy/',
 			'category'         => 'marketing',
 			'requires_consent' => true,
 			'script_patterns'  => array(),
@@ -841,6 +877,7 @@ function dbcm_signatures_data() {
 		'soundcloud' => array(
 			'service'          => 'SoundCloud',
 			'provider'         => 'SoundCloud Ltd.',
+			'privacy_url'      => 'https://soundcloud.com/pages/privacy',
 			'category'         => 'marketing',
 			'requires_consent' => true,
 			'script_patterns'  => array(),
@@ -852,6 +889,7 @@ function dbcm_signatures_data() {
 		'twitter-embed' => array(
 			'service'          => 'X (Twitter) Embed',
 			'provider'         => 'X Corp.',
+			'privacy_url'      => 'https://x.com/privacy',
 			'category'         => 'marketing',
 			'requires_consent' => true,
 			'script_patterns'  => array( 'platform.twitter.com/widgets' ),
@@ -867,6 +905,7 @@ function dbcm_signatures_data() {
 		'stripe' => array(
 			'service'          => 'Stripe',
 			'provider'         => 'Stripe Payments Europe Ltd.',
+			'privacy_url'      => 'https://stripe.com/privacy',
 			'category'         => 'functional',
 			'requires_consent' => false,
 			'blockable'        => false, // Bloccarlo rompe il pagamento.
@@ -896,6 +935,7 @@ function dbcm_signatures_data() {
 		'google-fonts' => array(
 			'service'          => 'Google Fonts',
 			'provider'         => 'Google Ireland Ltd.',
+			'privacy_url'      => 'https://policies.google.com/privacy',
 			'category'         => 'functional',
 			'requires_consent' => true,
 			'blockable'        => false, // Bloccare i font rompe la grafica: si localizza.
@@ -915,6 +955,7 @@ function dbcm_signatures_data() {
 		'whatsapp-click' => array(
 			'service'          => 'WhatsApp (click-to-chat)',
 			'provider'         => 'Meta Platforms Ireland Ltd.',
+			'privacy_url'      => 'https://www.whatsapp.com/legal/privacy-policy-eea',
 			'category'         => 'functional',
 			'requires_consent' => false,
 			'report_only'      => true,
@@ -928,6 +969,7 @@ function dbcm_signatures_data() {
 		'telegram-click' => array(
 			'service'          => 'Telegram (click-to-chat)',
 			'provider'         => 'Telegram FZ-LLC',
+			'privacy_url'      => 'https://telegram.org/privacy',
 			'category'         => 'functional',
 			'requires_consent' => false,
 			'report_only'      => true,
@@ -941,6 +983,7 @@ function dbcm_signatures_data() {
 		'messenger-click' => array(
 			'service'          => 'Messenger (click-to-chat)',
 			'provider'         => 'Meta Platforms Ireland Ltd.',
+			'privacy_url'      => 'https://www.facebook.com/privacy/policy/',
 			'category'         => 'functional',
 			'requires_consent' => false,
 			'report_only'      => true,

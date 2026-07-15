@@ -212,7 +212,9 @@ function dbcm_test_reset_consent() {
  */
 function dbcm_test_call_private( $class, $method, array $args = array() ) {
 	$ref = new ReflectionMethod( $class, $method );
-	$ref->setAccessible( true );
+	if ( PHP_VERSION_ID < 80100 ) {
+		$ref->setAccessible( true );
+	}
 	return $ref->invokeArgs( null, $args );
 }
 
@@ -239,6 +241,16 @@ if ( ! function_exists( 'esc_html__' ) ) {
 if ( ! function_exists( 'esc_url' ) ) {
 	function esc_url( $u ) {
 		return htmlspecialchars( (string) $u, ENT_QUOTES, 'UTF-8' );
+	}
+}
+if ( ! function_exists( 'esc_url_raw' ) ) {
+	function esc_url_raw( $u ) {
+		$u = trim( (string) $u );
+		// Stub minimale: accetta solo http/https, come il comportamento WP di default.
+		if ( '' === $u || ! preg_match( '#^https?://#i', $u ) ) {
+			return '';
+		}
+		return $u;
 	}
 }
 if ( ! function_exists( 'esc_attr' ) ) {

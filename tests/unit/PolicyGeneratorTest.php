@@ -14,6 +14,9 @@ use PHPUnit\Framework\TestCase;
 final class PolicyGeneratorTest extends TestCase {
 
 	protected function setUp(): void {
+		// Il generatore ora consulta anche le firme (link informative
+		// fornitori): resettiamo option e cache per isolare i test.
+		dbcm_test_reset();
 		dbcm_test_set_grouped_results( array() );
 	}
 
@@ -203,6 +206,35 @@ final class PolicyGeneratorTest extends TestCase {
 		$html = DBCM_Policy_Generator::generate();
 		$this->assertStringContainsString( 'UE/SEE', $html, 'Un provider UE deve risultare UE/SEE.' );
 		$this->assertStringNotContainsString( 'Capo V', $html, 'Senza provider extra-UE, niente nota trasferimento.' );
+	}
+
+	/* =====================================================================
+	 * Link informative fornitori (trasparenza Art. 13(1)(e)-(f))
+	 * ================================================================== */
+
+	/**
+	 * Se il fornitore è noto alle firme, il suo nome nella tabella cookie
+	 * linka l'informativa privacy (target _blank + rel noopener).
+	 */
+	public function test_known_provider_is_linked(): void {
+		dbcm_test_set_grouped_results( array(
+			'statistics' => array( dbcm_test_cookie_row( '_ga', 'Google Analytics', 'Analytics', '2 anni' ) ),
+		) );
+		$html = DBCM_Policy_Generator::generate();
+		$this->assertStringContainsString( '<a href="https://policies.google.com/privacy"', $html, 'Il fornitore noto deve linkare la sua informativa.' );
+		$this->assertStringContainsString( 'rel="noopener">Google Analytics</a>', $html, 'Il testo del link è il nome del fornitore.' );
+	}
+
+	/**
+	 * Un fornitore ignoto (o self-hosted) resta testo semplice: nessun link
+	 * inventato.
+	 */
+	public function test_unknown_provider_is_plain_text(): void {
+		dbcm_test_set_grouped_results( array(
+			'functional' => array( dbcm_test_cookie_row( 'dbcm_consent', 'DB Cookie Manager', 'Consenso', '365 giorni' ) ),
+		) );
+		$html = DBCM_Policy_Generator::generate();
+		$this->assertStringNotContainsString( 'rel="noopener">DB Cookie Manager</a>', $html, 'Un fornitore senza informativa nota non deve essere linkato.' );
 	}
 
 }
