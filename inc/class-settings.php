@@ -163,6 +163,20 @@ if ( ! class_exists( 'DBCM_Settings' ) ) {
 				 * tutti i segnali (privacy by default, Art. 25). */
 				'gcm_enabled'            => false,
 
+				/* ---- Microsoft UET Consent Mode (opt-in) ----
+				 * OFF di default, come GCM: serve solo a chi usa tag UET
+				 * (Microsoft Advertising / Bing Ads). Quando ON, il default
+				 * è ad_storage 'denied' emesso prima del tag (privacy by
+				 * default, Art. 25; enforcement Microsoft in EEA/UK/CH). */
+				'uet_enabled'            => false,
+
+				/* ---- Microsoft Clarity ConsentV2 (opt-in) ----
+				 * OFF di default: serve solo a chi usa Clarity. Quando ON,
+				 * ad_Storage e analytics_Storage partono 'denied'; l'update
+				 * segue le categorie statistics/marketing (enforcement
+				 * Microsoft dal 31/10/2025 in EEA/UK/CH). */
+				'clarity_enabled'        => false,
+
 				/* ---- Localizzazione Google Fonts (opt-in) ----
 				 * OFF di default. Quando ON, i <link> verso fonts.googleapis.com
 				 * vengono rimossi dall'HTML: il browser non contatta più i server

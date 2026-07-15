@@ -376,6 +376,8 @@
         restoreBlockedIframes(written);
         reactiveCleanup(written); // Revoca: rimuove i cookie delle categorie non concesse.
         sendGcmUpdate(written);   // Google Consent Mode v2: update dei segnali.
+        sendUetUpdate(written);   // Microsoft UET: update ad_storage.
+        sendClarityUpdate(written); // Microsoft Clarity: update ConsentV2.
         dispatchConsentEvent(written, type);
         close();
     }
@@ -390,24 +392,8 @@
      */
     function sendGcmUpdate(consent) {
         if (!C.gcmEnabled || !consent) return;
-        var mapping = C.gcmMapping || {};
-        var signals = C.gcmSignals || [];
-        if (!signals.length) return;
-
-        // Parti da tutti i segnali negati.
-        var update = {};
-        signals.forEach(function (sig) {
-            update[sig] = 'denied';
-        });
-
-        // Per ogni categoria concessa, concedi i segnali mappati.
-        Object.keys(mapping).forEach(function (category) {
-            if (!consent[category]) return;
-            var sigs = mapping[category] || [];
-            sigs.forEach(function (sig) {
-                update[sig] = 'granted';
-            });
-        });
+        var update = buildSignalUpdate(consent, C.gcmMapping, C.gcmSignals);
+        if (!update) return;
 
         // Assicura la presenza di gtag (il default snippet lo definisce, ma
         // se per qualche motivo non c'è, lo creiamo su dataLayer).
@@ -416,6 +402,67 @@
             window.gtag = function () { window.dataLayer.push(arguments); };
         }
         window.gtag('consent', 'update', update);
+    }
+
+    /**
+     * Traduzione comune consenso → payload segnali: parte da tutti i segnali
+     * 'denied' e concede quelli mappati alle categorie con consenso. Ritorna
+     * null se non ci sono segnali (provider inerte).
+     */
+    function buildSignalUpdate(consent, mapping, signals) {
+        mapping = mapping || {};
+        signals = signals || [];
+        if (!signals.length) return null;
+
+        var update = {};
+        signals.forEach(function (sig) {
+            update[sig] = 'denied';
+        });
+
+        Object.keys(mapping).forEach(function (category) {
+            if (!consent[category]) return;
+            var sigs = mapping[category] || [];
+            sigs.forEach(function (sig) {
+                update[sig] = 'granted';
+            });
+        });
+
+        return update;
+    }
+
+    /**
+     * Microsoft UET Consent Mode — window.uetq.push('consent','update',{...}).
+     *
+     * Unico segnale ad_storage (default 'denied' emesso nel <head> da
+     * DBCM_Consent_Signals). Alla revoca l'update torna 'denied' (Art. 7(3)).
+     * Inerte se UET non è attivo.
+     */
+    function sendUetUpdate(consent) {
+        if (!C.uetEnabled || !consent) return;
+        var update = buildSignalUpdate(consent, C.uetMapping, C.uetSignals);
+        if (!update) return;
+
+        window.uetq = window.uetq || [];
+        window.uetq.push('consent', 'update', update);
+    }
+
+    /**
+     * Microsoft Clarity ConsentV2 — window.clarity('consentv2',{...}).
+     *
+     * Chiavi camelCase (ad_Storage, analytics_Storage) come da API ufficiale.
+     * Alla revoca il denied fa eliminare a Clarity i propri cookie e la
+     * sessione riparte in no-consent mode. Inerte se Clarity non è attivo.
+     */
+    function sendClarityUpdate(consent) {
+        if (!C.clarityEnabled || !consent) return;
+        var update = buildSignalUpdate(consent, C.clarityMapping, C.claritySignals);
+        if (!update) return;
+
+        // Stub della coda ufficiale, se il default snippet non c'è già.
+        window.clarity = window.clarity || function () {
+            (window.clarity.q = window.clarity.q || []).push(arguments);
+        };
+        window.clarity('consentv2', update);
     }
 
     function openPreferences() {
@@ -760,6 +807,8 @@
             restoreBlockedIframes(existing);
             reactiveCleanup(existing); // Pulisce i cookie delle categorie non concesse.
             sendGcmUpdate(existing);   // GCM: riallinea i segnali al consenso salvato.
+            sendUetUpdate(existing);   // UET: idem.
+            sendClarityUpdate(existing); // Clarity: idem.
             // Già ha un cookie → non mostriamo il banner; il signal DNT/GPC
             // non override le scelte dell'utente già espresse.
             if (C.showReopenBtn) {

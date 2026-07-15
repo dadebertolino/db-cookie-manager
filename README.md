@@ -268,6 +268,23 @@ Cookie scritti dal plugin:
 
 
 
+#### 3.4.3 — Segnali di consenso Microsoft (UET + Clarity) _(2026)_
+
+Due nuovi segnali di consenso, entrambi **opt-in** e disattivati di default, sul modello di Google Consent Mode v2. Microsoft richiede un segnale di consenso esplicito per i visitatori da SEE, Regno Unito e Svizzera (per Clarity dal 31/10/2025).
+
+**Microsoft UET Consent Mode:**
+- Nuova opzione (Avanzate → *Segnali di consenso Microsoft*) per i tag UET (Microsoft Advertising / Bing Ads).
+- Inietta nel `<head>`, prima del tag UET, `window.uetq.push('consent','default',{ad_storage:'denied'})` — privacy by default, GDPR Art. 25.
+- Al consenso (categoria Marketing), `banner.js` invia l'update `granted`; alla revoca torna `denied` (Art. 7(3): revocare è facile quanto consentire). Mapping personalizzabile via filtro **`dbcm_uet_mapping`**.
+
+**Microsoft Clarity ConsentV2:**
+- Segnale `consentv2` con `ad_Storage` e `analytics_Storage` negati di default; l'update segue le categorie Marketing e Statistiche.
+- Scelta conservativa: la categoria *Statistiche anonime* **non** è mappata — le registrazioni di sessione di Clarity non sono assimilabili a statistica anonima. Estendibile via filtro **`dbcm_clarity_mapping`**.
+- Alla revoca Clarity riceve il denied, elimina i propri cookie e prosegue in modalità senza consenso — coerente con la cancellazione reattiva del plugin.
+
+**Ambito dichiarato (scope non-TCF):**
+- DBCM **non implementa** il framework IAB TCF v2.2: servire annunci personalizzati in SEE/UK con AdSense/Ad Manager/AdMob richiede una CMP certificata da Google e registrata IAB, con ricertificazione annuale — insostenibile per un plugin indipendente. Chi usa AdSense può affiancare la CMP di Google; DBCM copre tutti gli altri scenari di consenso (analytics, marketing, embed, segnali Google e Microsoft).
+
 #### 3.4.2 — Link alle informative dei fornitori _(2026)_
 - Nella tabella cookie della Cookie Policy, il nome del fornitore ora linka la sua informativa privacy quando il fornitore è noto al database firme (trasparenza GDPR Art. 13(1)(e)-(f): informazioni sui destinatari dei dati; completa la colonna "Trasferimento" per le garanzie del Capo V).
 - Il matching allinea le due nomenclature interne ("Google Ireland Ltd." nelle firme, "Google Analytics" nello scanner-da-header) con regole conservative: nessun link viene inventato per fornitori ignoti o self-hosted.
@@ -654,6 +671,23 @@ Cookies written by the plugin:
 ---
 
 ### Changelog
+
+#### 3.4.3 — Microsoft consent signals (UET + Clarity) _(2026)_
+
+Two new consent signals, both **opt-in** and disabled by default, mirroring Google Consent Mode v2. Microsoft enforces explicit consent signals for visitors from the EEA, UK and Switzerland (for Clarity since 31 Oct 2025).
+
+**Microsoft UET Consent Mode:**
+- New option (Advanced → *Microsoft consent signals*) for UET tags (Microsoft Advertising / Bing Ads).
+- Injects `window.uetq.push('consent','default',{ad_storage:'denied'})` in `<head>` before the UET tag — privacy by default, GDPR Art. 25.
+- On consent (Marketing category), `banner.js` sends the `granted` update; on withdrawal it returns to `denied` (Art. 7(3): withdrawing must be as easy as consenting). Mapping customisable via the **`dbcm_uet_mapping`** filter.
+
+**Microsoft Clarity ConsentV2:**
+- `consentv2` signal with `ad_Storage` and `analytics_Storage` denied by default; the update follows the Marketing and Statistics categories.
+- Conservative choice: the *Anonymous statistics* category is **not** mapped — Clarity session recordings are not anonymous statistics. Extendable via the **`dbcm_clarity_mapping`** filter.
+- On withdrawal Clarity receives the denied signal, deletes its own cookies and continues in no-consent mode — consistent with the plugin's reactive cleanup.
+
+**Declared scope (non-TCF):**
+- DBCM does **not** implement the IAB TCF v2.2 framework: serving personalised ads in the EEA/UK with AdSense/Ad Manager/AdMob requires a Google-certified, IAB-registered CMP with yearly re-certification — unsustainable for an independent plugin. AdSense users can run Google's own CMP alongside DBCM; DBCM covers every other consent scenario (analytics, marketing, embeds, Google and Microsoft signals).
 
 #### 3.4.2 — Provider privacy policy links _(2026)_
 - In the Cookie Policy table, the provider name now links to its privacy policy whenever the provider is known to the signatures database (GDPR Art. 13(1)(e)-(f) transparency: information about data recipients; complements the "Transfer" column for Chapter V safeguards).

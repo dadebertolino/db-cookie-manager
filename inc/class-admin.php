@@ -464,6 +464,8 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 					'respect_gpc'    => 'bool',
 					'geo_targeting'  => 'bool',
 					'gcm_enabled'    => 'bool',
+					'uet_enabled'    => 'bool',
+					'clarity_enabled' => 'bool',
 					'localize_google_fonts' => 'bool',
 				),
 			);
@@ -2150,6 +2152,33 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 					<div class="db-ui-alert db-ui-alert-info" style="margin-top:14px">
 						<span class="db-ui-alert-icon" aria-hidden="true">ℹ️</span>
 						<span><?php esc_html_e( 'Se già gestisci Consent Mode tramite Google Tag Manager, lascia questa opzione disattivata per evitare doppie inizializzazioni.', 'db-cookie-manager' ); ?></span>
+					</div>
+				</div>
+			</div>
+
+			<div class="db-ui-card">
+				<div class="db-ui-card-header"><h3><?php esc_html_e( 'Segnali di consenso Microsoft', 'db-cookie-manager' ); ?></h3></div>
+				<div class="db-ui-card-body">
+					<p style="margin:0 0 14px;font-size:13px;color:var(--db-text-muted)">
+						<?php esc_html_e( 'Come Google, anche Microsoft richiede un segnale di consenso esplicito per i visitatori da SEE, Regno Unito e Svizzera: UET Consent Mode per i tag pubblicitari (Microsoft Advertising / Bing Ads) e ConsentV2 per Clarity. Attiva solo i segnali dei servizi che usi: il plugin emette il default negato prima del caricamento dei tag e invia l\'aggiornamento quando l\'utente sceglie.', 'db-cookie-manager' ); ?>
+					</p>
+					<?php
+					self::field_checkbox(
+						'uet_enabled',
+						$s['uet_enabled'],
+						__( 'Attiva Microsoft UET Consent Mode', 'db-cookie-manager' ),
+						__( 'Segnale ad_storage legato alla categoria Marketing. Personalizzabile dagli sviluppatori via filtro dbcm_uet_mapping.', 'db-cookie-manager' )
+					);
+					self::field_checkbox(
+						'clarity_enabled',
+						$s['clarity_enabled'],
+						__( 'Attiva Microsoft Clarity ConsentV2', 'db-cookie-manager' ),
+						__( 'analytics_Storage → Statistiche, ad_Storage → Marketing. La categoria "Statistiche anonime" non è mappata: le registrazioni di sessione di Clarity non sono statistica anonima. Personalizzabile via filtro dbcm_clarity_mapping.', 'db-cookie-manager' )
+					);
+					?>
+					<div class="db-ui-alert db-ui-alert-info" style="margin-top:14px">
+						<span class="db-ui-alert-icon" aria-hidden="true">ℹ️</span>
+						<span><?php esc_html_e( 'Alla revoca del consenso Clarity riceve il segnale negato, elimina i propri cookie e prosegue in modalità senza consenso.', 'db-cookie-manager' ); ?></span>
 					</div>
 				</div>
 			</div>

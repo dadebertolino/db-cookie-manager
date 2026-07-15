@@ -249,6 +249,15 @@ if ( ! class_exists( 'DBCM_Banner' ) ) {
 				'gcmEnabled'        => DBCM_Consent_Signals::is_enabled(),
 				'gcmMapping'        => DBCM_Consent_Signals::is_enabled() ? DBCM_Consent_Signals::mapping() : array(),
 				'gcmSignals'        => DBCM_Consent_Signals::SIGNALS,
+				/* Microsoft UET Consent Mode e Clarity ConsentV2: stessi
+				 * meccanismi di GCM (default denied nel <head>, update da
+				 * banner.js secondo il mapping). Inerti se disattivati. */
+				'uetEnabled'        => DBCM_Consent_Signals::uet_enabled(),
+				'uetMapping'        => DBCM_Consent_Signals::uet_enabled() ? DBCM_Consent_Signals::uet_mapping() : array(),
+				'uetSignals'        => DBCM_Consent_Signals::UET_SIGNALS,
+				'clarityEnabled'    => DBCM_Consent_Signals::clarity_enabled(),
+				'clarityMapping'    => DBCM_Consent_Signals::clarity_enabled() ? DBCM_Consent_Signals::clarity_mapping() : array(),
+				'claritySignals'    => DBCM_Consent_Signals::CLARITY_SIGNALS,
 
 				/* ---- Render decision ----
 				 * Se false, il banner JS sa di non auto-mostrarsi (ma lascia
