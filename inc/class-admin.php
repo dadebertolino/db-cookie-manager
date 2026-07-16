@@ -78,6 +78,11 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 			add_action( 'admin_post_dbcm_import_signatures', array( __CLASS__, 'handle_import_signatures' ) );
 			add_action( 'admin_post_dbcm_export_signatures', array( __CLASS__, 'handle_export_signatures' ) );
 
+			// 3.5.0: bump della versione del consenso. Handler dedicato (non
+			// passa da handle_save): incremento server-side, mai un valore
+			// arbitrario dal form → non decrementabile né falsificabile.
+			add_action( 'admin_post_dbcm_bump_consent_version', array( __CLASS__, 'handle_bump_consent_version' ) );
+
 			// Notice di attivazione plugin (banner setup hint).
 			add_action( 'admin_notices', array( __CLASS__, 'render_flash_notices' ) );
 		}
@@ -289,6 +294,49 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 		}
 
 		/**
+		 * Handler 'admin_post_dbcm_bump_consent_version'.
+		 *
+		 * Incrementa di 1 la versione del consenso. Da quel momento tutti i
+		 * cookie dbcm_consent con versione precedente vengono trattati come
+		 * assenza di consenso (client e server) e il banner viene ri-mostrato
+		 * (Art. 4(11): il consenso è specifico rispetto ai trattamenti
+		 * presentati al momento della scelta).
+		 *
+		 * L'incremento è sempre +1 calcolato server-side: il client non può
+		 * fornire un valore arbitrario (né decrementare per "resuscitare"
+		 * consensi vecchi).
+		 *
+		 * @since 3.5.0
+		 * @return void (esce con wp_safe_redirect + exit)
+		 */
+		public static function handle_bump_consent_version() {
+			if ( ! current_user_can( self::CAP ) ) {
+				wp_die(
+					esc_html__( 'Permessi insufficienti.', 'db-cookie-manager' ),
+					'',
+					array( 'response' => 403 )
+				);
+			}
+			$nonce = isset( $_REQUEST['_wpnonce'] )
+				? sanitize_text_field( wp_unslash( $_REQUEST['_wpnonce'] ) )
+				: '';
+			if ( ! wp_verify_nonce( $nonce, 'dbcm_bump_consent_version' ) ) {
+				wp_die(
+					esc_html__( 'Token di sicurezza scaduto. Ricarica la pagina e riprova.', 'db-cookie-manager' ),
+					'',
+					array( 'response' => 403 )
+				);
+			}
+
+			$redirect = wp_get_referer() ?: admin_url( 'admin.php?page=' . self::MENU_SLUG . '-banner' );
+
+			DBCM_Settings::update( 'consent_version', DBCM_Settings::consent_version() + 1 );
+
+			wp_safe_redirect( add_query_arg( 'dbcm_msg', 'consent_version_bumped', $redirect ) );
+			exit;
+		}
+
+		/**
 		 * Handler 'admin_post_dbcm_create_policy_page'.
 		 *
 		 * Crea o aggiorna la pagina WP della Cookie Policy:
@@ -432,7 +480,6 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 					'banner_languages'              => 'lang_array',
 					'banner_default_lang'           => 'select:it|en|fr|de|es|pt',
 					'consent_duration'              => 'int',
-					'reconsent_on_change'           => 'bool',
 					'default_preferences'           => 'bool',
 					'default_statistics'            => 'bool',
 					'default_statistics_anonymous'  => 'bool',
@@ -585,6 +632,7 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 				'sig_imported'    => array( 'success', __( 'Firme importate con successo.', 'db-cookie-manager' ) ),
 				'sig_error'       => array( 'error',   __( 'Dati della firma non validi. Controlla i campi e riprova.', 'db-cookie-manager' ) ),
 				'sig_import_error' => array( 'error',  __( 'Import fallito: JSON non valido o struttura non riconosciuta.', 'db-cookie-manager' ) ),
+				'consent_version_bumped' => array( 'success', __( 'Versione del consenso incrementata: tutti i visitatori vedranno di nuovo il banner alla prossima visita.', 'db-cookie-manager' ) ),
 			);
 
 			if ( ! isset( $messages[ $msg ] ) ) {
@@ -1185,14 +1233,41 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 						1,
 						730
 					);
+					?>
+				</div>
+			</div>
 
-					self::field_checkbox(
-						'reconsent_on_change',
-						$s['reconsent_on_change'],
-						__( 'Richiedi nuovo consenso quando cambia la cookie policy', 'db-cookie-manager' ),
-						__( 'Quando aggiorni la lista dei cookie tramite lo Scanner, gli utenti vedranno di nuovo il banner per riconfermare le preferenze.', 'db-cookie-manager' )
+			<div class="db-ui-card">
+				<div class="db-ui-card-header"><h3><?php esc_html_e( 'Versione del consenso', 'db-cookie-manager' ); ?></h3></div>
+				<div class="db-ui-card-body">
+					<p>
+						<?php
+						printf(
+							/* translators: %d: versione corrente del consenso */
+							esc_html__( 'Versione corrente: %d. Ogni scelta degli utenti viene salvata e registrata sotto questa versione.', 'db-cookie-manager' ),
+							(int) DBCM_Settings::consent_version()
+						);
+						?>
+					</p>
+					<p style="font-size:13px;color:var(--db-text-muted)">
+						<?php esc_html_e( 'Il GDPR richiede che il consenso sia specifico e informato rispetto ai trattamenti presentati al momento della scelta (Art. 4(11)). Se aggiungi un nuovo tracker o cambi in modo significativo i trattamenti, i consensi già raccolti non coprono le novità: incrementa la versione per richiedere una nuova scelta a tutti i visitatori. I consensi con versione precedente vengono trattati come assenza di consenso finché l\'utente non sceglie di nuovo.', 'db-cookie-manager' ); ?>
+					</p>
+					<div class="db-ui-alert db-ui-alert-warning">
+						<span class="db-ui-alert-icon" aria-hidden="true">⚠️</span>
+						<span><?php esc_html_e( 'Usa il bottone solo per cambiamenti significativi dei trattamenti: ri-presentare il banner senza motivo genera assuefazione al consenso (consent fatigue), anch\'essa una criticità per il Garante.', 'db-cookie-manager' ); ?></span>
+					</div>
+				</div>
+				<div class="db-ui-card-footer">
+					<?php
+					$bump_url = wp_nonce_url(
+						admin_url( 'admin-post.php?action=dbcm_bump_consent_version' ),
+						'dbcm_bump_consent_version'
 					);
 					?>
+					<a class="db-ui-btn db-ui-btn-danger" href="<?php echo esc_url( $bump_url ); ?>"
+						onclick="return confirm('<?php echo esc_js( __( 'Tutti i visitatori vedranno di nuovo il banner e dovranno esprimere una nuova scelta. I consensi esistenti verranno trattati come assenti fino ad allora. Procedere?', 'db-cookie-manager' ) ); ?>');">
+						<?php esc_html_e( 'Richiedi nuovo consenso a tutti gli utenti', 'db-cookie-manager' ); ?>
+					</a>
 				</div>
 			</div>
 
@@ -1939,6 +2014,7 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 									<th><?php esc_html_e( 'Consenso', 'db-cookie-manager' ); ?></th>
 									<th><?php esc_html_e( 'Browser', 'db-cookie-manager' ); ?></th>
 									<th><?php esc_html_e( 'IP (hash)', 'db-cookie-manager' ); ?></th>
+									<th title="<?php esc_attr_e( 'Versione del consenso sotto cui la scelta è stata espressa', 'db-cookie-manager' ); ?>"><?php esc_html_e( 'Ver.', 'db-cookie-manager' ); ?></th>
 								</tr>
 							</thead>
 							<tbody>
@@ -1949,6 +2025,7 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 										<td><?php echo self::format_consent_data( $row->consent_data ); // phpcs:ignore WordPress.Security.EscapeOutput ?></td>
 										<td><?php echo esc_html( $row->ua_summary ?: '—' ); ?></td>
 										<td><code style="font-size:11px"><?php echo esc_html( $row->ip_hash ? substr( $row->ip_hash, 0, 12 ) . '…' : '—' ); ?></code></td>
+										<td><?php echo esc_html( ! empty( $row->consent_version ) ? (string) (int) $row->consent_version : '—' ); ?></td>
 									</tr>
 								<?php endforeach; ?>
 							</tbody>

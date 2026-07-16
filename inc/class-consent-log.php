@@ -34,7 +34,7 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 		 * Versione dello schema della tabella. Incrementare se cambiano le
 		 * colonne così che maybe_upgrade_schema() possa intervenire.
 		 */
-		const SCHEMA_VERSION = 2;
+		const SCHEMA_VERSION = 3;
 
 		/**
 		 * Nome dell'option che traccia la versione dello schema installata.
@@ -61,12 +61,21 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 		 *   consent_type  VARCHAR(20) — accept_all | reject_all | custom
 		 *   ua_summary    VARCHAR(64) — etichetta browser aggregata, oppure UA full troncato a 64
 		 *   policy_version BIGINT — ID snapshot Privacy Hub (3.2.0+, 0 se Hub assente)
+		 *   consent_version INT — versione del consenso DBCM (3.5.0+, 0 = riga pre-3.5)
 		 *   consent_date  TIMESTAMP — DEFAULT CURRENT_TIMESTAMP
 		 *
 		 * Schema 2 (3.2.0): aggiunta colonna `policy_version` per linkare il
 		 * consenso alla versione esatta della Privacy Policy in vigore al
 		 * momento. dbDelta è additivo: aggiunge la colonna alle installazioni
 		 * 3.1.x preservando i dati. Le righe pre-esistenti hanno policy_version=0.
+		 *
+		 * Schema 3 (3.5.0): aggiunta colonna `consent_version` — la versione
+		 * della configurazione dei trattamenti sotto cui la scelta è stata
+		 * espressa (valore probatorio, Art. 7(1): dimostrare il consenso
+		 * significa dimostrare A COSA). Complementare a policy_version:
+		 * quella è la versione del DOCUMENTO informativa (Privacy Hub),
+		 * questa la versione della CONFIGURAZIONE DBCM. Righe pre-esistenti
+		 * a 0 (= versione non tracciata).
 		 *
 		 * @return void
 		 */
@@ -82,12 +91,14 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 				consent_type VARCHAR(20) NOT NULL DEFAULT 'custom',
 				ua_summary VARCHAR(64) NOT NULL DEFAULT '',
 				policy_version BIGINT(20) UNSIGNED NOT NULL DEFAULT 0,
+				consent_version INT(10) UNSIGNED NOT NULL DEFAULT 0,
 				consent_date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 				PRIMARY KEY  (id),
 				KEY consent_date (consent_date),
 				KEY consent_type (consent_type),
 				KEY ip_hash (ip_hash),
-				KEY policy_version (policy_version)
+				KEY policy_version (policy_version),
+				KEY consent_version (consent_version)
 			) {$charset};";
 
 			require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -205,9 +216,10 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 					'consent_text'   => self::format_consent_data_for_display( $r->consent_data, $r->consent_type ),
 					'policy_version' => (int) $r->policy_version,
 					'extra'          => array(
-						'ip_hash_full' => $r->ip_hash,
-						'ua_summary'   => $r->ua_summary,
-						'consent_data' => $r->consent_data,
+						'ip_hash_full'    => $r->ip_hash,
+						'ua_summary'      => $r->ua_summary,
+						'consent_data'    => $r->consent_data,
+						'consent_version' => isset( $r->consent_version ) ? (int) $r->consent_version : 0,
 					),
 				);
 			}
@@ -297,9 +309,11 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 			$table = self::table_name();
 
 			// Costruisce il payload JSON con le 5 chiavi standard + meta.
-			// Aggiungiamo lo schema version per future migrazioni.
+			// Aggiungiamo lo schema version per future migrazioni e la
+			// versione del consenso per righe auto-contenute.
 			$payload = array(
-				'v' => DBCM_Settings::COOKIE_SCHEMA_VERSION,
+				'v'  => DBCM_Settings::COOKIE_SCHEMA_VERSION,
+				'cv' => DBCM_Settings::consent_version(),
 			);
 			foreach ( DBCM_Settings::categories() as $cat ) {
 				$payload[ $cat ] = ! empty( $consent[ $cat ] );
@@ -320,18 +334,21 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 			}
 
 			$row = array(
-				'ip_hash'        => self::hash_ip( self::get_client_ip() ),
-				'consent_data'   => $consent_data,
-				'consent_type'   => self::sanitize_type( $type ),
-				'ua_summary'     => self::summarize_user_agent(),
-				'policy_version' => $policy_version,
+				'ip_hash'         => self::hash_ip( self::get_client_ip() ),
+				'consent_data'    => $consent_data,
+				'consent_type'    => self::sanitize_type( $type ),
+				'ua_summary'      => self::summarize_user_agent(),
+				'policy_version'  => $policy_version,
+				// 3.5.0: versione del consenso letta dal SETTING lato server,
+				// non dal payload client → non falsificabile (Art. 7(1)).
+				'consent_version' => DBCM_Settings::consent_version(),
 				// consent_date: lasciato a DEFAULT CURRENT_TIMESTAMP.
 			);
 
 			$result = $wpdb->insert(
 				$table,
 				$row,
-				array( '%s', '%s', '%s', '%s', '%d' )
+				array( '%s', '%s', '%s', '%s', '%d', '%d' )
 			);
 
 			return ( false !== $result ) ? (int) $wpdb->insert_id : false;
@@ -542,7 +559,7 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 			$table = self::table_name();
 
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$sql = "SELECT id, ip_hash, consent_data, consent_type, ua_summary, consent_date
+			$sql = "SELECT id, ip_hash, consent_data, consent_type, ua_summary, policy_version, consent_version, consent_date
 			        FROM {$table}
 			        {$where['sql']}
 			        ORDER BY consent_date {$order}, id {$order}
@@ -673,7 +690,7 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 			$out = fopen( 'php://output', 'w' );
 			// BOM UTF-8 per Excel.
 			fwrite( $out, "\xEF\xBB\xBF" );
-			fputcsv( $out, array( 'id', 'date', 'type', 'consent', 'ua_summary', 'ip_hash' ) );
+			fputcsv( $out, array( 'id', 'date', 'type', 'consent', 'ua_summary', 'ip_hash', 'policy_version', 'consent_version' ) );
 
 			$page = 1;
 			do {
@@ -687,6 +704,8 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 						$row->consent_data,
 						$row->ua_summary,
 						$row->ip_hash,
+						isset( $row->policy_version ) ? (int) $row->policy_version : 0,
+						isset( $row->consent_version ) ? (int) $row->consent_version : 0,
 					) );
 				}
 				++$page;
@@ -721,12 +740,14 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 					// stringa annidata.
 					$decoded = json_decode( (string) $row->consent_data, true );
 					$collected[] = array(
-						'id'           => (int) $row->id,
-						'date'         => $row->consent_date,
-						'type'         => $row->consent_type,
-						'consent'      => is_array( $decoded ) ? $decoded : null,
-						'ua_summary'   => $row->ua_summary,
-						'ip_hash'      => $row->ip_hash,
+						'id'              => (int) $row->id,
+						'date'            => $row->consent_date,
+						'type'            => $row->consent_type,
+						'consent'         => is_array( $decoded ) ? $decoded : null,
+						'ua_summary'      => $row->ua_summary,
+						'ip_hash'         => $row->ip_hash,
+						'policy_version'  => isset( $row->policy_version ) ? (int) $row->policy_version : 0,
+						'consent_version' => isset( $row->consent_version ) ? (int) $row->consent_version : 0,
 					);
 				}
 				++$page;

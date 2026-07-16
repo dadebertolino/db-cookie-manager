@@ -115,7 +115,20 @@ if ( ! class_exists( 'DBCM_Settings' ) ) {
 
 				/* ---- Consenso ---- */
 				'consent_duration'      => 365,             // giorni di validità del cookie
-				'reconsent_on_change'   => true,            // se cambia la cookie policy → richiedi nuovo consenso
+
+				/* ---- Versione del consenso (3.5.0) ----
+				 * Contatore manuale che identifica la configurazione dei
+				 * trattamenti al momento della scelta (Art. 4(11) + 6(1)(a):
+				 * il consenso è specifico e informato rispetto a ciò che era
+				 * presentato). L'admin lo incrementa deliberatamente dal
+				 * bottone "Richiedi nuovo consenso" quando mutano in modo
+				 * significativo le condizioni del trattamento (Linee guida
+				 * Garante 10/6/2021 §5): i cookie con versione diversa
+				 * vengono trattati come assenza di consenso (rigoroso).
+				 * NOTA: cookie senza campo 'cv' = versione 1, così
+				 * l'aggiornamento del plugin da solo non ri-prompta nessuno.
+				 * Sostituisce il vecchio 'reconsent_on_change' (mai cablato). */
+				'consent_version'       => 1,
 
 				/* ---- Default delle categorie opzionali (true = pre-selezionate) ----
 				 * GDPR-compliant: tutte false. L'utente deve esprimere consenso esplicito.
@@ -214,6 +227,20 @@ if ( ! class_exists( 'DBCM_Settings' ) ) {
 				return $all[ $key ];
 			}
 			return $fallback;
+		}
+
+		/**
+		 * Versione corrente del consenso, sempre >= 1.
+		 *
+		 * Sorgente di verità unica per consent-api (validazione cookie),
+		 * banner (config JS) e consent-log (colonna consent_version).
+		 * Il clamp a 1 protegge da valori corrotti in DB.
+		 *
+		 * @since 3.5.0
+		 * @return int
+		 */
+		public static function consent_version() {
+			return max( 1, (int) self::get( 'consent_version', 1 ) );
 		}
 
 		/**

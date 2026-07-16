@@ -247,6 +247,32 @@ if ( ! class_exists( 'DBCM_Consent_API' ) ) {
 		 * @return array|null
 		 */
 		public static function read_cookie() {
+			$decoded = self::decode_cookie();
+			if ( null === $decoded ) {
+				return null;
+			}
+
+			// Versione del consenso (3.5.0): un cookie scritto sotto una
+			// versione diversa da quella corrente NON copre i trattamenti
+			// attuali (Art. 4(11): il consenso è specifico e informato
+			// rispetto a ciò che era presentato al momento della scelta).
+			// Trattato come assenza di consenso → banner ri-mostrato.
+			if ( self::cookie_version_is_stale( $decoded ) ) {
+				return null;
+			}
+
+			return self::normalize_categories( $decoded );
+		}
+
+		/**
+		 * Decodifica il cookie grezzo: esiste + JSON valido + schema 3.x.
+		 * NON valida la versione del consenso (compito di read_cookie /
+		 * hydrate, che al mismatch reagiscono in modo diverso).
+		 *
+		 * @since 3.5.0
+		 * @return array|null Payload decodificato o null.
+		 */
+		private static function decode_cookie() {
 			$name = DBCM_Settings::COOKIE_NAME;
 			if ( empty( $_COOKIE[ $name ] ) ) {
 				return null;
@@ -268,6 +294,34 @@ if ( ! class_exists( 'DBCM_Consent_API' ) ) {
 				return null;
 			}
 
+			return $decoded;
+		}
+
+		/**
+		 * True se il cookie è stato scritto sotto una versione del consenso
+		 * diversa da quella corrente.
+		 *
+		 * Retrocompatibilità: 'cv' assente = versione 1. Così l'update del
+		 * plugin da 3.4.x NON invalida i consensi esistenti; solo il bump
+		 * esplicito dell'admin lo fa.
+		 *
+		 * @since 3.5.0
+		 * @param array $decoded Payload del cookie già decodificato.
+		 * @return bool
+		 */
+		private static function cookie_version_is_stale( $decoded ) {
+			$cv = isset( $decoded['cv'] ) ? (int) $decoded['cv'] : 1;
+			return DBCM_Settings::consent_version() !== $cv;
+		}
+
+		/**
+		 * Riduce il payload alle 5 categorie standard (bool, sempre presenti).
+		 *
+		 * @since 3.5.0
+		 * @param array $decoded
+		 * @return array
+		 */
+		private static function normalize_categories( $decoded ) {
 			$out = array();
 			foreach ( DBCM_Settings::categories() as $category ) {
 				$out[ $category ] = ! empty( $decoded[ $category ] );
@@ -298,11 +352,27 @@ if ( ! class_exists( 'DBCM_Consent_API' ) ) {
 			if ( ! function_exists( 'wp_set_consent' ) ) {
 				return;
 			}
-			$cookie = self::read_cookie();
-			if ( null === $cookie ) {
+			$decoded = self::decode_cookie();
+			if ( null === $decoded ) {
 				return;
 			}
-			self::propagate_consent( $cookie );
+
+			// Versione del consenso (3.5.0): il cookie pre-bump non copre i
+			// trattamenti correnti. Non basta ignorarlo: la WP Consent API
+			// ha i SUOI cookie (wp_consent_*) che sopravvivrebbero al bump
+			// e terrebbero il consenso stantio attivo per gli altri plugin.
+			// Reset esplicito: deny su tutte le opzionali finché l'utente
+			// non fa una nuova scelta (mismatch = no-consent, rigoroso).
+			if ( self::cookie_version_is_stale( $decoded ) ) {
+				$deny = array();
+				foreach ( DBCM_Settings::categories() as $category ) {
+					$deny[ $category ] = ( 'functional' === $category );
+				}
+				self::propagate_consent( $deny );
+				return;
+			}
+
+			self::propagate_consent( self::normalize_categories( $decoded ) );
 		}
 	}
 }

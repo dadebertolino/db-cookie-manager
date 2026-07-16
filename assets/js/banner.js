@@ -26,8 +26,9 @@
         return;
     }
 
-    var COOKIE_NAME    = C.cookieName;
-    var COOKIE_SCHEMA  = C.cookieSchema || 3;
+    var COOKIE_NAME     = C.cookieName;
+    var COOKIE_SCHEMA   = C.cookieSchema || 3;
+    var CONSENT_VERSION = parseInt(C.consentVersion, 10) || 1;
     var ALL_CATEGORIES = C.categories || ['functional', 'preferences', 'statistics', 'statistics-anonymous', 'marketing'];
     var OPT_CATEGORIES = C.categoriesOptional || ['preferences', 'statistics', 'statistics-anonymous', 'marketing'];
     var ROOT_ID        = 'dbcm-banner-root';
@@ -57,8 +58,11 @@
 
     /**
      * Legge il cookie del banner.
-     * Restituisce null se assente, malformato, o con schema diverso da quello
-     * corrente. Tornare null fa ri-mostrare il banner all'utente.
+     * Restituisce null se assente, malformato, con schema diverso da quello
+     * corrente, o scritto sotto una versione del consenso diversa (bump
+     * admin → il vecchio consenso non copre i nuovi trattamenti). Tornare
+     * null fa ri-mostrare il banner all'utente.
+     * Retrocompatibilità: cv assente = versione 1 (cookie pre-3.5.0).
      */
     function readCookie() {
         var match = document.cookie.match('(^|;)\\s*' + COOKIE_NAME + '=([^;]*)');
@@ -66,6 +70,7 @@
         try {
             var data = JSON.parse(decodeURIComponent(match[2]));
             if (!data || data.v !== COOKIE_SCHEMA) return null;
+            if ((parseInt(data.cv, 10) || 1) !== CONSENT_VERSION) return null;
             return normalize(data);
         } catch (e) {
             return null;
@@ -73,10 +78,11 @@
     }
 
     /**
-     * Forza la presenza di tutte le 5 chiavi (default false) e di functional=true.
+     * Forza la presenza di tutte le 5 chiavi (default false), functional=true
+     * e la versione del consenso corrente.
      */
     function normalize(data) {
-        var out = { v: COOKIE_SCHEMA, ts: data.ts || Date.now(), type: data.type || 'custom' };
+        var out = { v: COOKIE_SCHEMA, cv: CONSENT_VERSION, ts: data.ts || Date.now(), type: data.type || 'custom' };
         ALL_CATEGORIES.forEach(function (cat) {
             out[cat] = !!data[cat];
         });

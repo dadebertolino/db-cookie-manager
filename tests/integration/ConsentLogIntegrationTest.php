@@ -145,4 +145,47 @@ class ConsentLogIntegrationTest extends WP_UnitTestCase {
 			$this->assertSame( $type, $row->consent_type );
 		}
 	}
+
+	/* =====================================================================
+	 * Versione del consenso (3.5.0, schema 3)
+	 * ================================================================== */
+
+	/**
+	 * Lo schema 3 include la colonna consent_version: valore probatorio
+	 * Art. 7(1) — dimostrare il consenso significa dimostrare A COSA
+	 * (quale configurazione dei trattamenti era presentata).
+	 */
+	public function test_schema_3_has_consent_version_column(): void {
+		global $wpdb;
+		$table = DBCM_Consent_Log::table_name();
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$col = $wpdb->get_var( "SHOW COLUMNS FROM {$table} LIKE 'consent_version'" );
+		$this->assertSame( 'consent_version', $col, 'La colonna consent_version deve esistere (schema 3).' );
+	}
+
+	/**
+	 * insert() registra la versione corrente letta dal SETTING lato server
+	 * (non dal payload client → non falsificabile).
+	 */
+	public function test_insert_records_current_consent_version(): void {
+		DBCM_Settings::update( 'consent_version', 5 );
+		DBCM_Consent_Log::insert( 'accept_all', array( 'statistics' => true ) );
+
+		$row = $this->last_row();
+		$this->assertSame( 5, (int) $row->consent_version );
+
+		// Il payload JSON auto-contenuto include anche 'cv'.
+		$decoded = json_decode( $row->consent_data, true );
+		$this->assertSame( 5, (int) $decoded['cv'] );
+	}
+
+	/**
+	 * Senza setting esplicito la versione loggata è 1 (default), mai 0:
+	 * lo 0 è riservato alle righe pre-3.5 (versione non tracciata).
+	 */
+	public function test_insert_defaults_to_version_1(): void {
+		DBCM_Consent_Log::insert( 'custom', array( 'marketing' => false ) );
+		$row = $this->last_row();
+		$this->assertSame( 1, (int) $row->consent_version );
+	}
 }

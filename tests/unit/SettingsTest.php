@@ -188,4 +188,50 @@ final class SettingsTest extends TestCase {
 		$this->assertFalse( DBCM_Settings::is_valid_category( 'inesistente' ) );
 		$this->assertFalse( DBCM_Settings::is_valid_category( '' ) );
 	}
+
+	/* =====================================================================
+	 * consent_version() — versione del consenso (3.5.0)
+	 * ================================================================== */
+
+	/**
+	 * Il default è 1: gli installati esistenti partono dalla versione 1,
+	 * coerente con "cookie senza cv = versione 1" (nessun re-prompt
+	 * all'aggiornamento del plugin).
+	 */
+	public function test_consent_version_defaults_to_1(): void {
+		$this->assertSame( 1, DBCM_Settings::consent_version() );
+		$this->assertSame( 1, DBCM_Settings::defaults()['consent_version'] );
+	}
+
+	/**
+	 * Legge il valore salvato.
+	 */
+	public function test_consent_version_reads_saved_value(): void {
+		update_option( DBCM_Settings::OPTION_KEY, array( 'consent_version' => 7 ) );
+		$this->assertSame( 7, DBCM_Settings::consent_version() );
+	}
+
+	/**
+	 * Clamp a >= 1: valori corrotti (0, negativi, non numerici) non devono
+	 * mai produrre una versione invalida — un cookie forgiato con cv=0
+	 * non deve poter combaciare con un setting corrotto a 0.
+	 */
+	public function test_consent_version_clamps_to_minimum_1(): void {
+		update_option( DBCM_Settings::OPTION_KEY, array( 'consent_version' => 0 ) );
+		$this->assertSame( 1, DBCM_Settings::consent_version() );
+
+		update_option( DBCM_Settings::OPTION_KEY, array( 'consent_version' => -5 ) );
+		$this->assertSame( 1, DBCM_Settings::consent_version() );
+
+		update_option( DBCM_Settings::OPTION_KEY, array( 'consent_version' => 'garbage' ) );
+		$this->assertSame( 1, DBCM_Settings::consent_version() );
+	}
+
+	/**
+	 * Valori numerici in forma stringa (option round-trip) sono accettati.
+	 */
+	public function test_consent_version_casts_numeric_strings(): void {
+		update_option( DBCM_Settings::OPTION_KEY, array( 'consent_version' => '4' ) );
+		$this->assertSame( 4, DBCM_Settings::consent_version() );
+	}
 }

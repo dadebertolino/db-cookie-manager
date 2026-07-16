@@ -197,6 +197,10 @@ if ( ! class_exists( 'DBCM_Banner' ) ) {
 				'cookieName'        => DBCM_Settings::COOKIE_NAME,
 				'cookieSchema'      => DBCM_Settings::COOKIE_SCHEMA_VERSION,
 				'consentDuration'   => (int) $s['consent_duration'],
+				/* Versione del consenso (3.5.0): banner.js la scrive nel
+				 * campo 'cv' del cookie e invalida i cookie con versione
+				 * diversa → l'utente rivede il banner dopo un bump admin. */
+				'consentVersion'    => DBCM_Settings::consent_version(),
 
 				/* ---- Categorie ----
 				 * Sole 5 categorie standard WP Consent API. 'functional'

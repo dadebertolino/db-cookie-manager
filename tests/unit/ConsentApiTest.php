@@ -15,10 +15,12 @@ final class ConsentApiTest extends TestCase {
 
 	protected function setUp(): void {
 		dbcm_test_reset_consent();
+		$GLOBALS['__dbcm_options'] = array();
 	}
 
 	protected function tearDown(): void {
 		dbcm_test_reset_consent();
+		$GLOBALS['__dbcm_options'] = array();
 	}
 
 	/* =====================================================================
@@ -93,6 +95,73 @@ final class ConsentApiTest extends TestCase {
 		dbcm_test_set_consent_cookie( '{questo non e json valido', null );
 		$this->assertNull( DBCM_Consent_API::read_cookie(), 'Cookie malformato → read_cookie null.' );
 		$this->assertFalse( DBCM_Consent_API::has_consent( 'statistics' ) );
+	}
+
+	/* =====================================================================
+	 * Versione del consenso (3.5.0) — Art. 4(11): il consenso è specifico
+	 * rispetto ai trattamenti presentati al momento della scelta.
+	 * NOTA convenzione suite: questi test usano il fallback cookie di
+	 * has_consent() e devono stare PRIMA dei test che abilitano la finta
+	 * WP Consent API (una volta definita, wp_has_consent resta definita
+	 * e ha priorità sul cookie).
+	 * ================================================================== */
+
+	/**
+	 * RETROCOMPATIBILITÀ CRITICA: un cookie pre-3.5.0 (senza campo 'cv')
+	 * equivale a versione 1. Con il setting alla versione 1 di default,
+	 * l'aggiornamento del plugin da solo NON invalida i consensi esistenti.
+	 */
+	public function test_cookie_without_cv_is_valid_at_version_1(): void {
+		dbcm_test_set_consent_cookie( array( 'statistics' => true ) ); // niente 'cv'.
+		$this->assertIsArray( DBCM_Consent_API::read_cookie() );
+		$this->assertTrue( DBCM_Consent_API::has_consent( 'statistics' ) );
+	}
+
+	/**
+	 * Cookie con cv corrispondente al setting → valido.
+	 */
+	public function test_cookie_with_matching_cv_is_valid(): void {
+		update_option( DBCM_Settings::OPTION_KEY, array( 'consent_version' => 3 ) );
+		dbcm_test_set_consent_cookie( array( 'statistics' => true, 'cv' => 3 ) );
+
+		$this->assertTrue( DBCM_Consent_API::has_consent( 'statistics' ) );
+	}
+
+	/**
+	 * MISMATCH = NO-CONSENT (rigoroso): dopo un bump admin, il cookie
+	 * pre-bump non copre i trattamenti correnti. read_cookie → null,
+	 * has_consent → false, il banner viene ri-mostrato.
+	 */
+	public function test_stale_cv_cookie_is_treated_as_no_consent(): void {
+		update_option( DBCM_Settings::OPTION_KEY, array( 'consent_version' => 2 ) );
+		dbcm_test_set_consent_cookie( array( 'statistics' => true, 'cv' => 1 ) );
+
+		$this->assertNull( DBCM_Consent_API::read_cookie(), 'Cookie con versione stantia → null.' );
+		$this->assertFalse( DBCM_Consent_API::has_consent( 'statistics' ), 'Versione stantia = assenza di consenso.' );
+	}
+
+	/**
+	 * Il mismatch vale anche all'indietro: un cookie senza 'cv' (= v1) è
+	 * stantio se il setting è stato bumpato a 2.
+	 */
+	public function test_cookie_without_cv_is_stale_after_bump(): void {
+		update_option( DBCM_Settings::OPTION_KEY, array( 'consent_version' => 2 ) );
+		dbcm_test_set_consent_cookie( array( 'statistics' => true ) ); // pre-3.5, niente cv.
+
+		$this->assertNull( DBCM_Consent_API::read_cookie() );
+		$this->assertFalse( DBCM_Consent_API::has_consent( 'statistics' ) );
+	}
+
+	/**
+	 * Un cv "dal futuro" (> corrente) è comunque un mismatch: solo
+	 * l'uguaglianza esatta è valida (niente >= che accetterebbe cookie
+	 * forgiati con versioni arbitrarie).
+	 */
+	public function test_future_cv_cookie_is_invalid(): void {
+		update_option( DBCM_Settings::OPTION_KEY, array( 'consent_version' => 2 ) );
+		dbcm_test_set_consent_cookie( array( 'statistics' => true, 'cv' => 99 ) );
+
+		$this->assertNull( DBCM_Consent_API::read_cookie() );
 	}
 
 	/**
@@ -202,5 +271,52 @@ final class ConsentApiTest extends TestCase {
 	public function test_declare_consent_type_defaults_optin(): void {
 		$this->assertSame( 'optin', DBCM_Consent_API::declare_consent_type( '' ) );
 		$this->assertSame( 'optin', DBCM_Consent_API::declare_consent_type( null ) );
+	}
+
+	/* =====================================================================
+	 * Versione del consenso (3.5.0) — hydrate al mismatch
+	 * ================================================================== */
+
+	/**
+	 * HYDRATE al mismatch: non basta ignorare il cookie stantio — la WP
+	 * Consent API ha i SUOI cookie che terrebbero vivo il consenso pre-bump
+	 * per gli altri plugin. hydrate deve propagare un deny esplicito su
+	 * tutte le categorie opzionali (functional resta allow).
+	 */
+	public function test_hydrate_resets_wp_consent_api_on_stale_version(): void {
+		dbcm_test_set_consent_api( true );
+		// Stato pre-bump nella WP Consent API: statistics era concesso.
+		wp_set_consent( 'statistics', 'allow' );
+
+		update_option( DBCM_Settings::OPTION_KEY, array( 'consent_version' => 2 ) );
+		dbcm_test_set_consent_cookie( array( 'statistics' => true, 'cv' => 1 ) );
+
+		DBCM_Consent_API::hydrate_consent_from_cookie();
+
+		$this->assertFalse( wp_has_consent( 'statistics' ), 'Il consenso stantio deve essere resettato a deny.' );
+		$this->assertTrue( wp_has_consent( 'functional' ), 'functional resta sempre allow.' );
+	}
+
+	/**
+	 * HYDRATE con versione corrispondente: propaga normalmente le scelte.
+	 */
+	public function test_hydrate_propagates_when_version_matches(): void {
+		dbcm_test_set_consent_api( true );
+		update_option( DBCM_Settings::OPTION_KEY, array( 'consent_version' => 2 ) );
+		dbcm_test_set_consent_cookie( array( 'statistics' => true, 'marketing' => false, 'cv' => 2 ) );
+
+		DBCM_Consent_API::hydrate_consent_from_cookie();
+
+		$this->assertTrue( wp_has_consent( 'statistics' ) );
+		$this->assertFalse( wp_has_consent( 'marketing' ) );
+	}
+
+	/**
+	 * HYDRATE senza cookie: non deve propagare nulla (né crashare).
+	 */
+	public function test_hydrate_noop_without_cookie(): void {
+		dbcm_test_set_consent_api( true );
+		DBCM_Consent_API::hydrate_consent_from_cookie();
+		$this->assertFalse( wp_has_consent( 'statistics' ), 'Senza cookie lo stato resta il default (deny).' );
 	}
 }
