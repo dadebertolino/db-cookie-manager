@@ -704,10 +704,29 @@ if ( ! class_exists( 'DBCM_Cookie_Database' ) ) {
 			// Fornitori noti con trasferimento verso gli USA. La chiave è una
 			// sottostringa cercata (case-insensitive) nel nome del fornitore.
 			$us_providers = array(
-				'google', 'youtube', 'meta', 'facebook', 'instagram', 'microsoft',
-				'clarity', 'linkedin', 'tiktok', 'pinterest', 'hotjar', 'hubspot',
-				'cloudflare', 'stripe', 'mixpanel', 'heap', 'amplitude', 'mailchimp',
-				'convertkit', 'intercom', 'drift', 'x / twitter', 'twitter',
+				'google',
+				'youtube',
+				'meta',
+				'facebook',
+				'instagram',
+				'microsoft',
+				'clarity',
+				'linkedin',
+				'tiktok',
+				'pinterest',
+				'hotjar',
+				'hubspot',
+				'cloudflare',
+				'stripe',
+				'mixpanel',
+				'heap',
+				'amplitude',
+				'mailchimp',
+				'convertkit',
+				'intercom',
+				'drift',
+				'x / twitter',
+				'twitter',
 			);
 
 			$needle = strtolower( $provider );

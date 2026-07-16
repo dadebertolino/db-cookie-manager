@@ -55,7 +55,7 @@ if ( ! class_exists( 'DBCM_Blocker' ) ) {
 				return;
 			}
 
-			$auto_block   = (bool) DBCM_Settings::get( 'auto_block', true );
+			$auto_block    = (bool) DBCM_Settings::get( 'auto_block', true );
 			$localize_font = (bool) DBCM_Settings::get( 'localize_google_fonts', false );
 
 			// Nessuna delle due funzioni attive → non agganciamo nulla.

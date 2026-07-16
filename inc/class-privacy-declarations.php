@@ -49,7 +49,7 @@ if ( ! class_exists( 'DBCM_Privacy_Declarations' ) ) {
 		 * SEO Manager 1.3.0+ rimuove il filter legacy, solo il primo è attivo.
 		 */
 		public static function init() {
-			add_filter( 'dbph_processing_register',  array( __CLASS__, 'declare' ), 10, 1 );
+			add_filter( 'dbph_processing_register', array( __CLASS__, 'declare' ), 10, 1 );
 			add_filter( 'dbseo_processing_register', array( __CLASS__, 'declare' ), 10, 1 );
 		}
 
@@ -68,9 +68,9 @@ if ( ! class_exists( 'DBCM_Privacy_Declarations' ) ) {
 				$register = array();
 			}
 
-			$retention_days   = (int) DBCM_Settings::get( 'consent_log_retention', 365 );
-			$log_enabled      = (bool) DBCM_Settings::get( 'consent_log_enabled', true );
-			$ua_mode          = (string) DBCM_Settings::get( 'consent_log_user_agent', 'aggregate' );
+			$retention_days = (int) DBCM_Settings::get( 'consent_log_retention', 365 );
+			$log_enabled    = (bool) DBCM_Settings::get( 'consent_log_enabled', true );
+			$ua_mode        = (string) DBCM_Settings::get( 'consent_log_user_agent', 'aggregate' );
 
 			/* ---- 1. Raccolta del consenso ---------------------------------- */
 			$register[] = array(

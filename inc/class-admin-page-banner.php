@@ -223,11 +223,11 @@ if ( ! class_exists( 'DBCM_Admin_Page_Banner' ) ) {
 					<details style="margin-top:8px">
 						<summary style="cursor:pointer;font-size:13px;color:var(--db-text-muted)"><?php esc_html_e( 'Esempio: bordo arrotondato e ombra più morbida', 'db-cookie-manager' ); ?></summary>
 						<pre style="background:var(--db-bg-subtle);padding:10px;border-radius:6px;font-size:12px;margin-top:6px;overflow:auto"><code>#dbcm-banner-root .dbcm-banner {
-  border-radius: 16px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, .18);
+	border-radius: 16px;
+	box-shadow: 0 12px 40px rgba(0, 0, 0, .18);
 }
 #dbcm-banner-root .dbcm-btn--primary {
-  border-radius: 999px; /* pillola */
+	border-radius: 999px; /* pillola */
 }</code></pre>
 					</details>
 				</div>
@@ -333,10 +333,14 @@ if ( ! class_exists( 'DBCM_Admin_Page_Banner' ) ) {
 				<div class="db-ui-card-body">
 					<div class="db-ui-alert db-ui-alert-warning">
 						<span class="db-ui-alert-icon" aria-hidden="true">⚠️</span>
-						<span><?php esc_html_e(
+						<span>
+						<?php
+						esc_html_e(
 							'Per essere conformi al GDPR i toggle delle categorie opzionali devono essere disattivati di default. Attivarli pre-selezionati equivale a un consenso non valido.',
 							'db-cookie-manager'
-						); ?></span>
+						);
+						?>
+						</span>
 					</div>
 
 					<?php
@@ -382,6 +386,5 @@ if ( ! class_exists( 'DBCM_Admin_Page_Banner' ) ) {
 			<?php
 			DBCM_Admin::form_close( __( 'Salva contenuto', 'db-cookie-manager' ) );
 		}
-
 	}
 }

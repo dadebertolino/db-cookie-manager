@@ -668,7 +668,12 @@ if ( ! class_exists( 'DBCM_Signatures' ) ) {
 			$out = array();
 			foreach ( $cookies as $c ) {
 				if ( is_string( $c ) && '' !== trim( $c ) ) {
-					$out[] = array( 'name' => sanitize_text_field( $c ), 'domain' => '@self', 'duration' => '', 'desc' => '' );
+					$out[] = array(
+						'name' => sanitize_text_field( $c ),
+						'domain' => '@self',
+						'duration' => '',
+						'desc' => '',
+					);
 				} elseif ( is_array( $c ) && ! empty( $c['name'] ) ) {
 					$out[] = array(
 						'name'     => sanitize_text_field( $c['name'] ),

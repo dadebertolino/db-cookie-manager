@@ -318,7 +318,7 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 
 			$out = array();
 			foreach ( $schema[ $section ] as $key => $type ) {
-				$value = $raw[ $key ] ?? null;
+				$value       = $raw[ $key ] ?? null;
 				$out[ $key ] = self::sanitize_value( $value, $type, $key );
 			}
 			return $out;
@@ -500,16 +500,16 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 
 			$messages = array(
 				'saved'           => array( 'success', __( 'Impostazioni salvate.', 'db-cookie-manager' ) ),
-				'invalid_section' => array( 'error',   __( 'Sezione non valida.', 'db-cookie-manager' ) ),
+				'invalid_section' => array( 'error', __( 'Sezione non valida.', 'db-cookie-manager' ) ),
 				'scan_done'       => array( 'success', __( 'Scansione completata.', 'db-cookie-manager' ) ),
 				'policy_created'  => array( 'success', __( 'Pagina della Cookie Policy creata e collegata al banner.', 'db-cookie-manager' ) ),
 				'policy_updated'  => array( 'success', __( 'Pagina della Cookie Policy aggiornata.', 'db-cookie-manager' ) ),
-				'policy_error'    => array( 'error',   __( 'Errore nella creazione della pagina della Cookie Policy.', 'db-cookie-manager' ) ),
+				'policy_error'    => array( 'error', __( 'Errore nella creazione della pagina della Cookie Policy.', 'db-cookie-manager' ) ),
 				'sig_saved'       => array( 'success', __( 'Firma personalizzata salvata.', 'db-cookie-manager' ) ),
 				'sig_deleted'     => array( 'success', __( 'Firma personalizzata eliminata.', 'db-cookie-manager' ) ),
 				'sig_imported'    => array( 'success', __( 'Firme importate con successo.', 'db-cookie-manager' ) ),
-				'sig_error'       => array( 'error',   __( 'Dati della firma non validi. Controlla i campi e riprova.', 'db-cookie-manager' ) ),
-				'sig_import_error' => array( 'error',  __( 'Import fallito: JSON non valido o struttura non riconosciuta.', 'db-cookie-manager' ) ),
+				'sig_error'       => array( 'error', __( 'Dati della firma non validi. Controlla i campi e riprova.', 'db-cookie-manager' ) ),
+				'sig_import_error' => array( 'error', __( 'Import fallito: JSON non valido o struttura non riconosciuta.', 'db-cookie-manager' ) ),
 				'consent_version_bumped' => array( 'success', __( 'Versione del consenso incrementata: tutti i visitatori vedranno di nuovo il banner alla prossima visita.', 'db-cookie-manager' ) ),
 			);
 
@@ -611,8 +611,14 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 					id="dbcm-<?php echo esc_attr( $name ); ?>"
 					name="<?php echo esc_attr( $name ); ?>"
 					value="<?php echo esc_attr( $value ); ?>"
-					<?php if ( null !== $min ) : ?>min="<?php echo esc_attr( $min ); ?>"<?php endif; ?>
-					<?php if ( null !== $max ) : ?>max="<?php echo esc_attr( $max ); ?>"<?php endif; ?>>
+					<?php
+					if ( null !== $min ) :
+						?>
+						min="<?php echo esc_attr( $min ); ?>"<?php endif; ?>
+					<?php
+					if ( null !== $max ) :
+						?>
+						max="<?php echo esc_attr( $max ); ?>"<?php endif; ?>>
 				<?php if ( '' !== $help ) : ?>
 					<span class="db-ui-field-help"><?php echo esc_html( $help ); ?></span>
 				<?php endif; ?>
@@ -741,6 +747,5 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 			</div>
 			<?php
 		}
-
 	}
 }

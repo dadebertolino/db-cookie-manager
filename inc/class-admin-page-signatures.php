@@ -174,11 +174,11 @@ if ( ! class_exists( 'DBCM_Admin_Page_Signatures' ) ) {
 			$service     = isset( $row['service'] ) ? (string) $row['service'] : '';
 			$provider    = isset( $row['provider'] ) ? (string) $row['provider'] : '';
 			$privacy_url = isset( $row['privacy_url'] ) ? (string) $row['privacy_url'] : '';
-			$category  = isset( $row['category'] ) ? (string) $row['category'] : 'marketing';
-			$requires  = isset( $row['requires_consent'] ) ? ! empty( $row['requires_consent'] ) : true;
-			$block_src = isset( $row['block_source'] ) ? (string) $row['block_source'] : '';
-			$is_regex  = ! empty( $row['block_is_regex'] );
-			$reactive  = ! empty( $row['reactive_cleanup'] );
+			$category    = isset( $row['category'] ) ? (string) $row['category'] : 'marketing';
+			$requires    = isset( $row['requires_consent'] ) ? ! empty( $row['requires_consent'] ) : true;
+			$block_src   = isset( $row['block_source'] ) ? (string) $row['block_source'] : '';
+			$is_regex    = ! empty( $row['block_is_regex'] );
+			$reactive    = ! empty( $row['reactive_cleanup'] );
 
 			$cookie_names = array();
 			if ( ! empty( $row['cookies'] ) && is_array( $row['cookies'] ) ) {
@@ -503,6 +503,5 @@ if ( ! class_exists( 'DBCM_Admin_Page_Signatures' ) ) {
 				wp_die( esc_html__( 'Token di sicurezza scaduto. Ricarica la pagina e riprova.', 'db-cookie-manager' ), '', array( 'response' => 403 ) );
 			}
 		}
-
 	}
 }

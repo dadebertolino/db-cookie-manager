@@ -251,6 +251,5 @@ if ( ! class_exists( 'DBCM_Admin_Page_Policy' ) ) {
 			';
 			return '<!DOCTYPE html><html><head><meta charset="utf-8"><style>' . $css . '</style></head><body>' . $body . '</body></html>';
 		}
-
 	}
 }

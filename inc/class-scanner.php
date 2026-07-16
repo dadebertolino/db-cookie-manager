@@ -98,7 +98,7 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 			global $wpdb;
 			$table = self::table_name();
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$exists = $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ) === $table;
+			$exists    = $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ) === $table;
 			$installed = (int) get_option( self::SCHEMA_OPTION, 0 );
 
 			if ( ! $exists || $installed < self::SCHEMA_VERSION ) {
@@ -279,24 +279,28 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 				$urls[] = get_permalink( $blog_id );
 			}
 
-			$pages = get_posts( array(
-				'post_type'      => 'page',
-				'post_status'    => 'publish',
-				'posts_per_page' => 10,
-				'orderby'        => 'date',
-				'order'          => 'DESC',
-			) );
+			$pages = get_posts(
+				array(
+					'post_type'      => 'page',
+					'post_status'    => 'publish',
+					'posts_per_page' => 10,
+					'orderby'        => 'date',
+					'order'          => 'DESC',
+				)
+			);
 			foreach ( $pages as $p ) {
 				$urls[] = get_permalink( $p->ID );
 			}
 
-			$posts = get_posts( array(
-				'post_type'      => 'post',
-				'post_status'    => 'publish',
-				'posts_per_page' => 5,
-				'orderby'        => 'date',
-				'order'          => 'DESC',
-			) );
+			$posts = get_posts(
+				array(
+					'post_type'      => 'post',
+					'post_status'    => 'publish',
+					'posts_per_page' => 5,
+					'orderby'        => 'date',
+					'order'          => 'DESC',
+				)
+			);
 			foreach ( $posts as $p ) {
 				$urls[] = get_permalink( $p->ID );
 			}
@@ -332,7 +336,7 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 			// Cookie da Set-Cookie header.
 			foreach ( self::scan_url_headers( $url ) as $cookie ) {
 				$cookie['found_on'] = $url;
-				$key = $cookie['name'] . '|' . $cookie['domain'];
+				$key                = $cookie['name'] . '|' . $cookie['domain'];
 				if ( ! isset( $collected[ $key ] ) ) {
 					$collected[ $key ] = $cookie;
 				}
@@ -583,7 +587,10 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 				array(
 					'signature' => '/dbcm_consent|dbcm-banner-root/',
 					'cookies'   => array(
-						array( 'name' => 'dbcm_consent', 'domain' => $site_host ),
+						array(
+							'name' => 'dbcm_consent',
+							'domain' => $site_host,
+						),
 					),
 				),
 
@@ -591,8 +598,14 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 				array(
 					'signature' => '/google-analytics\.com\/analytics|googletagmanager\.com\/(gtag|gtm)|gtag\(|\bga\(/',
 					'cookies'   => array(
-						array( 'name' => '_ga',  'domain' => $dot ),
-						array( 'name' => '_gid', 'domain' => $dot ),
+						array(
+							'name' => '_ga',
+							'domain' => $dot,
+						),
+						array(
+							'name' => '_gid',
+							'domain' => $dot,
+						),
 					),
 				),
 
@@ -600,7 +613,10 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 				array(
 					'signature' => '/fbq\(|connect\.facebook\.net\/.*\/fbevents/',
 					'cookies'   => array(
-						array( 'name' => '_fbp', 'domain' => $dot ),
+						array(
+							'name' => '_fbp',
+							'domain' => $dot,
+						),
 					),
 				),
 
@@ -608,7 +624,10 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 				array(
 					'signature' => '/static\.hotjar\.com|script\.hotjar\.com|\bhj\(/',
 					'cookies'   => array(
-						array( 'name' => '_hjSessionUser_*', 'domain' => $dot ),
+						array(
+							'name' => '_hjSessionUser_*',
+							'domain' => $dot,
+						),
 					),
 				),
 
@@ -616,8 +635,14 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 				array(
 					'signature' => '/clarity\.ms\/tag/',
 					'cookies'   => array(
-						array( 'name' => '_clck', 'domain' => $dot ),
-						array( 'name' => '_clsk', 'domain' => $dot ),
+						array(
+							'name' => '_clck',
+							'domain' => $dot,
+						),
+						array(
+							'name' => '_clsk',
+							'domain' => $dot,
+						),
 					),
 				),
 
@@ -625,9 +650,18 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 				array(
 					'signature' => '/bat\.bing\.com/',
 					'cookies'   => array(
-						array( 'name' => '_uetsid', 'domain' => $dot ),
-						array( 'name' => '_uetvid', 'domain' => $dot ),
-						array( 'name' => 'MUID',    'domain' => '.bing.com' ),
+						array(
+							'name' => '_uetsid',
+							'domain' => $dot,
+						),
+						array(
+							'name' => '_uetvid',
+							'domain' => $dot,
+						),
+						array(
+							'name' => 'MUID',
+							'domain' => '.bing.com',
+						),
 					),
 				),
 
@@ -635,8 +669,14 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 				array(
 					'signature' => '/snap\.licdn\.com|linkedin\.com\/px/',
 					'cookies'   => array(
-						array( 'name' => 'li_sugr', 'domain' => '.linkedin.com' ),
-						array( 'name' => 'lidc',    'domain' => '.linkedin.com' ),
+						array(
+							'name' => 'li_sugr',
+							'domain' => '.linkedin.com',
+						),
+						array(
+							'name' => 'lidc',
+							'domain' => '.linkedin.com',
+						),
 					),
 				),
 
@@ -644,7 +684,10 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 				array(
 					'signature' => '/analytics\.tiktok\.com/',
 					'cookies'   => array(
-						array( 'name' => '_ttp', 'domain' => $dot ),
+						array(
+							'name' => '_ttp',
+							'domain' => $dot,
+						),
 					),
 				),
 
@@ -652,7 +695,10 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 				array(
 					'signature' => '/ct\.pinterest\.com|pintrk\(/',
 					'cookies'   => array(
-						array( 'name' => '_pinterest_*', 'domain' => $dot ),
+						array(
+							'name' => '_pinterest_*',
+							'domain' => $dot,
+						),
 					),
 				),
 
@@ -660,8 +706,14 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 				array(
 					'signature' => '/js\.hs-scripts\.com|hs-analytics/',
 					'cookies'   => array(
-						array( 'name' => '__hstc',    'domain' => $dot ),
-						array( 'name' => 'hubspotutk', 'domain' => $dot ),
+						array(
+							'name' => '__hstc',
+							'domain' => $dot,
+						),
+						array(
+							'name' => 'hubspotutk',
+							'domain' => $dot,
+						),
 					),
 				),
 
@@ -670,8 +722,14 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 				array(
 					'signature' => '/youtube\.com\/embed|youtube-nocookie\.com/',
 					'cookies'   => array(
-						array( 'name' => 'YSC',                'domain' => '.youtube.com' ),
-						array( 'name' => 'VISITOR_INFO1_LIVE', 'domain' => '.youtube.com' ),
+						array(
+							'name' => 'YSC',
+							'domain' => '.youtube.com',
+						),
+						array(
+							'name' => 'VISITOR_INFO1_LIVE',
+							'domain' => '.youtube.com',
+						),
 					),
 				),
 
@@ -679,7 +737,10 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 				array(
 					'signature' => '/player\.vimeo\.com/',
 					'cookies'   => array(
-						array( 'name' => 'vuid', 'domain' => '.vimeo.com' ),
+						array(
+							'name' => 'vuid',
+							'domain' => '.vimeo.com',
+						),
 					),
 				),
 
@@ -687,8 +748,14 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 				array(
 					'signature' => '/js\.stripe\.com|api\.stripe\.com/',
 					'cookies'   => array(
-						array( 'name' => '__stripe_mid', 'domain' => $dot ),
-						array( 'name' => '__stripe_sid', 'domain' => $dot ),
+						array(
+							'name' => '__stripe_mid',
+							'domain' => $dot,
+						),
+						array(
+							'name' => '__stripe_sid',
+							'domain' => $dot,
+						),
 					),
 				),
 
@@ -948,11 +1015,21 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 			$hours   = (int) round( $seconds / HOUR_IN_SECONDS );
 			$minutes = (int) round( $seconds / MINUTE_IN_SECONDS );
 
-			if ( $years   >= 1 ) return sprintf( _n( '%d anno',   '%d anni',   $years,   'db-cookie-manager' ), $years );
-			if ( $months  >= 1 ) return sprintf( _n( '%d mese',   '%d mesi',   $months,  'db-cookie-manager' ), $months );
-			if ( $days    >= 1 ) return sprintf( _n( '%d giorno', '%d giorni', $days,    'db-cookie-manager' ), $days );
-			if ( $hours   >= 1 ) return sprintf( _n( '%d ora',    '%d ore',    $hours,   'db-cookie-manager' ), $hours );
-			if ( $minutes >= 1 ) return sprintf( _n( '%d minuto', '%d minuti', $minutes, 'db-cookie-manager' ), $minutes );
+			if ( $years >= 1 ) {
+				return sprintf( _n( '%d anno', '%d anni', $years, 'db-cookie-manager' ), $years );
+			}
+			if ( $months >= 1 ) {
+				return sprintf( _n( '%d mese', '%d mesi', $months, 'db-cookie-manager' ), $months );
+			}
+			if ( $days >= 1 ) {
+				return sprintf( _n( '%d giorno', '%d giorni', $days, 'db-cookie-manager' ), $days );
+			}
+			if ( $hours >= 1 ) {
+				return sprintf( _n( '%d ora', '%d ore', $hours, 'db-cookie-manager' ), $hours );
+			}
+			if ( $minutes >= 1 ) {
+				return sprintf( _n( '%d minuto', '%d minuti', $minutes, 'db-cookie-manager' ), $minutes );
+			}
 
 			/* translators: %d: numero secondi */
 			return sprintf( _n( '%d secondo', '%d secondi', $seconds, 'db-cookie-manager' ), $seconds );
@@ -1032,13 +1109,13 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 		 * }
 		 */
 		public static function get_scan_diff() {
-			$previous = get_option( self::PREVIOUS_SCAN_OPTION, array() );
+			$previous     = get_option( self::PREVIOUS_SCAN_OPTION, array() );
 			$has_previous = is_array( $previous ) && ! empty( $previous['items'] );
 
 			$current_rows = self::get_results();
-			$current = array();
+			$current      = array();
 			foreach ( $current_rows as $row ) {
-				$key = ( isset( $row->cookie_name ) ? $row->cookie_name : '' ) . '|' . ( isset( $row->category ) ? $row->category : '' );
+				$key             = ( isset( $row->cookie_name ) ? $row->cookie_name : '' ) . '|' . ( isset( $row->category ) ? $row->category : '' );
 				$current[ $key ] = array(
 					'name'     => isset( $row->cookie_name ) ? (string) $row->cookie_name : '',
 					'category' => isset( $row->category ) ? (string) $row->category : '',
@@ -1058,7 +1135,7 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 
 			$prev = array();
 			foreach ( $previous['items'] as $item ) {
-				$key = ( isset( $item['name'] ) ? $item['name'] : '' ) . '|' . ( isset( $item['category'] ) ? $item['category'] : '' );
+				$key          = ( isset( $item['name'] ) ? $item['name'] : '' ) . '|' . ( isset( $item['category'] ) ? $item['category'] : '' );
 				$prev[ $key ] = $item;
 			}
 
@@ -1068,7 +1145,7 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 
 			foreach ( $current as $key => $item ) {
 				if ( isset( $prev[ $key ] ) ) {
-					$unchanged++;
+					++$unchanged;
 				} else {
 					$added[] = $item;
 				}
@@ -1175,7 +1252,7 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 			$limit = max( 1, min( 200, (int) $limit ) );
 
 			global $wpdb;
-			$table = self::table_name();
+			$table   = self::table_name();
 			$pattern = '%' . $wpdb->esc_like( $keyword ) . '%';
 
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared

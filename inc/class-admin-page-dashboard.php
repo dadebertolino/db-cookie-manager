@@ -42,7 +42,7 @@ if ( ! class_exists( 'DBCM_Admin_Page_Dashboard' ) ) {
 			);
 
 			// Stat: cookie per categoria.
-			$by_cat = class_exists( 'DBCM_Scanner' )
+			$by_cat        = class_exists( 'DBCM_Scanner' )
 				? DBCM_Scanner::count_by_category()
 				: array_fill_keys( DBCM_Settings::categories(), 0 );
 			$total_cookies = array_sum( $by_cat );
@@ -102,10 +102,14 @@ if ( ! class_exists( 'DBCM_Admin_Page_Dashboard' ) ) {
 
 			<div class="db-ui-alert db-ui-alert-info">
 				<span class="db-ui-alert-icon" aria-hidden="true">ℹ️</span>
-				<span><?php esc_html_e(
+				<span>
+				<?php
+				esc_html_e(
 					'Tutti i cookie di terze parti (analytics, marketing, embed) sono bloccati preventivamente finché l\'utente non concede il consenso. Il banner usa le 5 categorie standard WP Consent API.',
 					'db-cookie-manager'
-				); ?></span>
+				);
+				?>
+				</span>
 			</div>
 
 			<h2 style="margin-top:24px"><?php esc_html_e( 'Sezioni', 'db-cookie-manager' ); ?></h2>
@@ -116,7 +120,7 @@ if ( ! class_exists( 'DBCM_Admin_Page_Dashboard' ) ) {
 					if ( 'dashboard' === $slug ) {
 						continue;
 					}
-					$url = admin_url( 'admin.php?page=' . DBCM_Admin::MENU_SLUG . '-' . $slug );
+					$url  = admin_url( 'admin.php?page=' . DBCM_Admin::MENU_SLUG . '-' . $slug );
 					$desc = self::page_description( $slug );
 					?>
 					<a href="<?php echo esc_url( $url ); ?>" class="db-ui-card dbcm-dash-card" style="text-decoration:none;color:inherit;display:block">
@@ -159,6 +163,5 @@ if ( ! class_exists( 'DBCM_Admin_Page_Dashboard' ) ) {
 		 * fatali. Il salvataggio funziona già: una volta che 6b/6c/6d
 		 * popoleranno render_*, i form salveranno via il dispatcher centrale.
 		 * ------------------------------------------------------------------ */
-
 	}
 }

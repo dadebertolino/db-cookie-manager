@@ -86,10 +86,14 @@ if ( ! class_exists( 'DBCM_Admin_Page_Advanced' ) ) {
 
 					<div class="db-ui-alert db-ui-alert-info" style="margin-top:14px">
 						<span class="db-ui-alert-icon" aria-hidden="true">ℹ️</span>
-						<span><?php esc_html_e(
+						<span>
+						<?php
+						esc_html_e(
 							'Il geo-targeting riduce il banner per visitatori extra-UE ma non li esclude del tutto: il blocco preventivo degli script tracking continua a funzionare per coerenza tecnica. Per disattivare completamente il banner per alcune regioni, considera di disabilitarlo via codice tramite il filtro dbcm_should_render_banner.',
 							'db-cookie-manager'
-						); ?></span>
+						);
+						?>
+						</span>
 					</div>
 				</div>
 			</div>
@@ -177,18 +181,19 @@ if ( ! class_exists( 'DBCM_Admin_Page_Advanced' ) ) {
 				'has-consent' => array(
 					'title' => __( 'Verificare il consenso a una categoria', 'db-cookie-manager' ),
 					'desc'  => __( 'Carica uno script di analytics solo se l\'utente ha concesso "statistics".', 'db-cookie-manager' ),
-					'code'  => <<<JS
+					'code'  => <<<'JS'
 if (window.DBCM && window.DBCM.hasConsent('statistics')) {
     var s = document.createElement('script');
     s.src = 'https://www.googletagmanager.com/gtag/js?id=G-XXXX';
     document.head.appendChild(s);
 }
-JS,
+JS
+					,
 				),
 				'on-consent' => array(
 					'title' => __( 'Reagire al cambio di consenso', 'db-cookie-manager' ),
 					'desc'  => __( 'Esegue il callback ogni volta che l\'utente cambia le proprie preferenze.', 'db-cookie-manager' ),
-					'code'  => <<<JS
+					'code'  => <<<'JS'
 window.DBCM.onConsent(function(consent, type) {
     console.log('Tipo:', type); // 'accept_all' | 'reject_all' | 'custom'
     console.log('Marketing:', consent.marketing);
@@ -196,30 +201,33 @@ window.DBCM.onConsent(function(consent, type) {
         // attiva pixel pubblicitari
     }
 });
-JS,
+JS
+					,
 				),
 				'open-prefs' => array(
 					'title' => __( 'Aprire il pannello preferenze da un link', 'db-cookie-manager' ),
 					'desc'  => __( 'Aggancia un click handler a un link "Modifica preferenze" nel footer.', 'db-cookie-manager' ),
-					'code'  => <<<JS
+					'code'  => <<<'JS'
 document.querySelectorAll('.modifica-cookie').forEach(function(el) {
     el.addEventListener('click', function(e) {
         e.preventDefault();
         window.DBCM.openPreferences();
     });
 });
-JS,
+JS
+					,
 				),
 				'event' => array(
 					'title' => __( 'Ascoltare l\'evento dbcm:consent', 'db-cookie-manager' ),
 					'desc'  => __( 'Alternativa a onConsent: usa il sistema standard di eventi DOM.', 'db-cookie-manager' ),
-					'code'  => <<<JS
+					'code'  => <<<'JS'
 document.addEventListener('dbcm:consent', function(ev) {
     var consent = ev.detail.consent;
     var type    = ev.detail.type;
     // ...
 });
-JS,
+JS
+					,
 				),
 			);
 			?>
@@ -265,6 +273,5 @@ JS,
 			</div>
 			<?php
 		}
-
 	}
 }

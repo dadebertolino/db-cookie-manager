@@ -36,11 +36,16 @@ if ( ! class_exists( 'DBCM_Admin_Page_Log' ) ) {
 			$paged    = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
 			$per_page = 25;
 			$total    = DBCM_Consent_Log::count( $filters );
-			$rows     = DBCM_Consent_Log::get_results( array_merge( $filters, array(
-				'page'     => $paged,
-				'per_page' => $per_page,
-				'order'    => 'DESC',
-			) ) );
+			$rows     = DBCM_Consent_Log::get_results(
+				array_merge(
+					$filters,
+					array(
+						'page'     => $paged,
+						'per_page' => $per_page,
+						'order'    => 'DESC',
+					)
+				)
+			);
 
 			DBCM_Admin::open_wrap(
 				__( 'Registro consensi', 'db-cookie-manager' ),
@@ -63,11 +68,26 @@ if ( ! class_exists( 'DBCM_Admin_Page_Log' ) ) {
 		 */
 		private static function render_log_status_card( $total ) {
 			// Breakdown per type negli ultimi 30 giorni.
-			$since   = gmdate( 'Y-m-d', time() - ( 30 * DAY_IN_SECONDS ) );
-			$accept  = DBCM_Consent_Log::count( array( 'type' => 'accept_all', 'date_from' => $since ) );
-			$reject  = DBCM_Consent_Log::count( array( 'type' => 'reject_all', 'date_from' => $since ) );
-			$custom  = DBCM_Consent_Log::count( array( 'type' => 'custom',     'date_from' => $since ) );
-			$last30  = $accept + $reject + $custom;
+			$since  = gmdate( 'Y-m-d', time() - ( 30 * DAY_IN_SECONDS ) );
+			$accept = DBCM_Consent_Log::count(
+				array(
+					'type' => 'accept_all',
+					'date_from' => $since,
+				)
+			);
+			$reject = DBCM_Consent_Log::count(
+				array(
+					'type' => 'reject_all',
+					'date_from' => $since,
+				)
+			);
+			$custom = DBCM_Consent_Log::count(
+				array(
+					'type' => 'custom',
+					'date_from' => $since,
+				)
+			);
+			$last30 = $accept + $reject + $custom;
 			?>
 			<div class="db-ui-card">
 				<div class="db-ui-card-header"><h3><?php esc_html_e( 'Stato', 'db-cookie-manager' ); ?></h3></div>
@@ -183,7 +203,7 @@ if ( ! class_exists( 'DBCM_Admin_Page_Log' ) ) {
 		 */
 		private static function render_log_filters_and_export( $filters ) {
 			$base_url = admin_url( 'admin.php?page=' . DBCM_Admin::MENU_SLUG . '-log' );
-			$csv_url  = DBCM_Consent_Log::export_url( 'csv',  $filters );
+			$csv_url  = DBCM_Consent_Log::export_url( 'csv', $filters );
 			$json_url = DBCM_Consent_Log::export_url( 'json', $filters );
 			?>
 			<div class="db-ui-card">
@@ -357,9 +377,9 @@ if ( ! class_exists( 'DBCM_Admin_Page_Log' ) ) {
 		 * @return string HTML escaped.
 		 */
 		private static function format_consent_type_badge( $type ) {
-			$map = array(
-				'accept_all' => array( __( 'Accetta tutto', 'db-cookie-manager' ),  '#1d6e3f' ),
-				'reject_all' => array( __( 'Rifiuta tutto', 'db-cookie-manager' ),  '#d63638' ),
+			$map   = array(
+				'accept_all' => array( __( 'Accetta tutto', 'db-cookie-manager' ), '#1d6e3f' ),
+				'reject_all' => array( __( 'Rifiuta tutto', 'db-cookie-manager' ), '#d63638' ),
 				'custom'     => array( __( 'Personalizzato', 'db-cookie-manager' ), '#7a5d00' ),
 			);
 			$entry = $map[ $type ] ?? array( $type, '#646970' );
@@ -385,10 +405,10 @@ if ( ! class_exists( 'DBCM_Admin_Page_Log' ) ) {
 
 			$parts = array();
 			foreach ( DBCM_Settings::categories() as $cat ) {
-				$on    = ! empty( $data[ $cat ] );
-				$icon  = $on ? '✓' : '✗';
-				$color = $on ? '#1d6e3f' : '#646970';
-				$short = self::short_category_label( $cat );
+				$on      = ! empty( $data[ $cat ] );
+				$icon    = $on ? '✓' : '✗';
+				$color   = $on ? '#1d6e3f' : '#646970';
+				$short   = self::short_category_label( $cat );
 				$parts[] = '<span style="color:' . esc_attr( $color ) . '">' . esc_html( $short ) . ' ' . $icon . '</span>';
 			}
 			return '<span style="font-size:12px">' . implode( ' · ', $parts ) . '</span>';
@@ -410,6 +430,5 @@ if ( ! class_exists( 'DBCM_Admin_Page_Log' ) ) {
 			);
 			return $map[ $cat ] ?? $cat;
 		}
-
 	}
 }

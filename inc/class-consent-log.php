@@ -118,7 +118,7 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 			global $wpdb;
 			$table = self::table_name();
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$exists = $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ) === $table;
+			$exists    = $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ) === $table;
 			$installed = (int) get_option( self::SCHEMA_OPTION, 0 );
 
 			if ( ! $exists || $installed < self::SCHEMA_VERSION ) {
@@ -177,7 +177,7 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 		 */
 		public static function hub_count( $args = array() ) {
 			global $wpdb;
-			$table = self::table_name();
+			$table                            = self::table_name();
 			list( $where_sql, $where_params ) = self::build_hub_where( $args );
 
 			if ( ! empty( $where_params ) ) {
@@ -195,13 +195,13 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 		 */
 		public static function hub_query( $args = array() ) {
 			global $wpdb;
-			$table = self::table_name();
+			$table                            = self::table_name();
 			list( $where_sql, $where_params ) = self::build_hub_where( $args );
 
 			$limit = isset( $args['_internal_limit'] ) ? (int) $args['_internal_limit'] : 1000;
 			$limit = max( 1, min( 50000, $limit ) );
 
-			$sql = "SELECT * FROM {$table} {$where_sql} ORDER BY consent_date DESC LIMIT {$limit}";
+			$sql  = "SELECT * FROM {$table} {$where_sql} ORDER BY consent_date DESC LIMIT {$limit}";
 			$rows = ! empty( $where_params )
 				? $wpdb->get_results( $wpdb->prepare( $sql, $where_params ) )
 				: $wpdb->get_results( $sql );
@@ -237,16 +237,16 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 			$params = array();
 
 			if ( ! empty( $args['date_from'] ) ) {
-				$where[] = 'consent_date >= %s';
+				$where[]  = 'consent_date >= %s';
 				$params[] = $args['date_from'] . ' 00:00:00';
 			}
 			if ( ! empty( $args['date_to'] ) ) {
-				$where[] = 'consent_date <= %s';
+				$where[]  = 'consent_date <= %s';
 				$params[] = $args['date_to'] . ' 23:59:59';
 			}
 			if ( ! empty( $args['subject'] ) ) {
 				// Il "subject" lato cookie è IP-hash:abc…; permettiamo match parziale sul prefisso hash.
-				$where[] = 'ip_hash LIKE %s';
+				$where[]  = 'ip_hash LIKE %s';
 				$params[] = '%' . $args['subject'] . '%';
 			}
 
@@ -258,16 +258,26 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 		 * Formatta consent_data JSON in stringa leggibile per il Registro consensi.
 		 */
 		private static function format_consent_data_for_display( $json, $type ) {
-			if ( $type === 'accept_all' )  return __( 'Tutte le categorie cookie accettate', 'db-cookie-manager' );
-			if ( $type === 'reject_all' )  return __( 'Tutte le categorie cookie rifiutate (solo necessari)', 'db-cookie-manager' );
+			if ( $type === 'accept_all' ) {
+				return __( 'Tutte le categorie cookie accettate', 'db-cookie-manager' );
+			}
+			if ( $type === 'reject_all' ) {
+				return __( 'Tutte le categorie cookie rifiutate (solo necessari)', 'db-cookie-manager' );
+			}
 
 			$data = json_decode( (string) $json, true );
-			if ( ! is_array( $data ) ) return __( 'Configurazione personalizzata', 'db-cookie-manager' );
+			if ( ! is_array( $data ) ) {
+				return __( 'Configurazione personalizzata', 'db-cookie-manager' );
+			}
 
 			$accepted = array();
 			foreach ( $data as $cat => $val ) {
-				if ( $cat === 'v' ) continue;
-				if ( $val ) $accepted[] = $cat;
+				if ( $cat === 'v' ) {
+					continue;
+				}
+				if ( $val ) {
+					$accepted[] = $cat;
+				}
 			}
 			return empty( $accepted )
 				? __( 'Nessuna categoria opzionale accettata', 'db-cookie-manager' )
@@ -583,7 +593,7 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 			$params     = array();
 
 			if ( ! empty( $args['type'] ) ) {
-				$type = self::sanitize_type( $args['type'] );
+				$type         = self::sanitize_type( $args['type'] );
 				$conditions[] = 'consent_type = %s';
 				$params[]     = $type;
 			}
@@ -597,7 +607,10 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 			}
 
 			$sql = empty( $conditions ) ? '' : 'WHERE ' . implode( ' AND ', $conditions );
-			return array( 'sql' => $sql, 'params' => $params );
+			return array(
+				'sql' => $sql,
+				'params' => $params,
+			);
 		}
 
 		/* =====================================================================
@@ -616,7 +629,7 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 			if ( $days <= 0 ) {
 				return 0; // 0 = nessuna scadenza.
 			}
-			$table = self::table_name();
+			$table  = self::table_name();
 			$cutoff = gmdate( 'Y-m-d H:i:s', time() - ( $days * DAY_IN_SECONDS ) );
 
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
@@ -695,18 +708,21 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 			$page = 1;
 			do {
 				$args['page'] = $page;
-				$rows = self::get_results( $args );
+				$rows         = self::get_results( $args );
 				foreach ( $rows as $row ) {
-					fputcsv( $out, array(
-						$row->id,
-						$row->consent_date,
-						$row->consent_type,
-						$row->consent_data,
-						$row->ua_summary,
-						$row->ip_hash,
-						isset( $row->policy_version ) ? (int) $row->policy_version : 0,
-						isset( $row->consent_version ) ? (int) $row->consent_version : 0,
-					) );
+					fputcsv(
+						$out,
+						array(
+							$row->id,
+							$row->consent_date,
+							$row->consent_type,
+							$row->consent_data,
+							$row->ua_summary,
+							$row->ip_hash,
+							isset( $row->policy_version ) ? (int) $row->policy_version : 0,
+							isset( $row->consent_version ) ? (int) $row->consent_version : 0,
+						)
+					);
 				}
 				++$page;
 			} while ( count( $rows ) === $args['per_page'] );
@@ -730,15 +746,15 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 			header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
 
 			$collected = array();
-			$page = 1;
+			$page      = 1;
 			do {
 				$args['page'] = $page;
-				$rows = self::get_results( $args );
+				$rows         = self::get_results( $args );
 				foreach ( $rows as $row ) {
 					// consent_data è un JSON: lo decodifichiamo per
 					// produrre un export "navigabile" invece di una
 					// stringa annidata.
-					$decoded = json_decode( (string) $row->consent_data, true );
+					$decoded     = json_decode( (string) $row->consent_data, true );
 					$collected[] = array(
 						'id'              => (int) $row->id,
 						'date'            => $row->consent_date,
@@ -774,13 +790,15 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 		 */
 		public static function export_url( $format = 'csv', $args = array() ) {
 			$base = add_query_arg(
-				array_filter( array(
-					'page'        => 'dbcm-consent-log',
-					'dbcm_export' => $format,
-					'type'        => $args['type'] ?? '',
-					'date_from'   => $args['date_from'] ?? '',
-					'date_to'     => $args['date_to'] ?? '',
-				) ),
+				array_filter(
+					array(
+						'page'        => 'dbcm-consent-log',
+						'dbcm_export' => $format,
+						'type'        => $args['type'] ?? '',
+						'date_from'   => $args['date_from'] ?? '',
+						'date_to'     => $args['date_to'] ?? '',
+					)
+				),
 				admin_url( 'admin.php' )
 			);
 			return wp_nonce_url( $base, 'dbcm_export_log' );

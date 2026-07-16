@@ -63,7 +63,11 @@ if ( ! class_exists( 'DBCM_Admin_Page_Scanner' ) ) {
 
 					<?php if ( $total > 0 ) : ?>
 					<div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:6px">
-						<?php foreach ( $by_cat as $cat => $n ) : if ( 0 === $n ) continue; ?>
+						<?php
+						foreach ( $by_cat as $cat => $n ) :
+							if ( 0 === $n ) {
+								continue;}
+							?>
 							<span class="db-ui-badge" style="background:<?php echo esc_attr( DBCM_Cookie_Database::get_category_color( $cat ) ); ?>;color:#fff">
 								<?php echo esc_html( DBCM_Cookie_Database::get_category_label( $cat ) ); ?>: <?php echo (int) $n; ?>
 							</span>
@@ -224,7 +228,8 @@ if ( ! class_exists( 'DBCM_Admin_Page_Scanner' ) ) {
 						<?php esc_html_e( 'Puoi correggere manualmente la categoria di un cookie usando il selettore nella colonna "Categoria". Le modifiche sono immediate e persistono fino alla prossima scansione.', 'db-cookie-manager' ); ?>
 					</p>
 
-					<?php foreach ( $grouped as $category => $cookies ) :
+					<?php
+					foreach ( $grouped as $category => $cookies ) :
 						$label = DBCM_Cookie_Database::get_category_label( $category );
 						$color = DBCM_Cookie_Database::get_category_color( $category );
 						?>
@@ -288,6 +293,5 @@ if ( ! class_exists( 'DBCM_Admin_Page_Scanner' ) ) {
 			</div>
 			<?php
 		}
-
 	}
 }

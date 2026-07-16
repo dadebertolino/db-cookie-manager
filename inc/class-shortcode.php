@@ -84,7 +84,7 @@ if ( ! class_exists( 'DBCM_Shortcode' ) ) {
 			// del banner non sono ancora pronti (window.DBCM è disponibile
 			// dal momento in cui banner.js parte, prima del DOMContentLoaded
 			// per il footer).
-			$onclick = "if(window.DBCM&&window.DBCM.openPreferences){window.DBCM.openPreferences();}return false;";
+			$onclick = 'if(window.DBCM&&window.DBCM.openPreferences){window.DBCM.openPreferences();}return false;';
 
 			$attrs = sprintf(
 				'class="%s"%s onclick="%s"',

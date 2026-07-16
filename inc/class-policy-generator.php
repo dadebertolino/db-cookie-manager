@@ -128,7 +128,7 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 			$url  = esc_url( $context['site_url'] );
 			$date = esc_html( $context['date'] );
 
-			$html = '<h2>' . esc_html__( 'Cookie Policy', 'db-cookie-manager' ) . '</h2>';
+			$html  = '<h2>' . esc_html__( 'Cookie Policy', 'db-cookie-manager' ) . '</h2>';
 			$html .= '<p><strong>' . esc_html__( 'Ultimo aggiornamento:', 'db-cookie-manager' ) . '</strong> ' . $date . '</p>';
 			$html .= '<p>' . sprintf(
 				/* translators: 1: nome sito, 2: URL sito */
@@ -178,33 +178,36 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 			$label = DBCM_Cookie_Database::get_category_label( $category );
 			$desc  = DBCM_Cookie_Database::get_category_description( $category );
 
-			$html  = '<h4>' . esc_html( $label ) . '</h4>';
+			$html = '<h4>' . esc_html( $label ) . '</h4>';
 			if ( $desc ) {
 				$html .= '<p>' . esc_html( $desc ) . '</p>';
 			}
 
-			$html .= '<table style="width:100%;border-collapse:collapse;margin-bottom:1.5em">';
-			$html .= '<thead><tr>';
-			$html .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Cookie', 'db-cookie-manager' ) . '</th>';
-			$html .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Fornitore', 'db-cookie-manager' ) . '</th>';
-			$html .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Finalità', 'db-cookie-manager' ) . '</th>';
-			$html .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Durata', 'db-cookie-manager' ) . '</th>';
-			$html .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Trasferimento', 'db-cookie-manager' ) . '</th>';
-			$html .= '</tr></thead>';
-			$html .= '<tbody>';
+			$html        .= '<table style="width:100%;border-collapse:collapse;margin-bottom:1.5em">';
+			$html        .= '<thead><tr>';
+			$html        .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Cookie', 'db-cookie-manager' ) . '</th>';
+			$html        .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Fornitore', 'db-cookie-manager' ) . '</th>';
+			$html        .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Finalità', 'db-cookie-manager' ) . '</th>';
+			$html        .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Durata', 'db-cookie-manager' ) . '</th>';
+			$html        .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Trasferimento', 'db-cookie-manager' ) . '</th>';
+			$html        .= '</tr></thead>';
+			$html        .= '<tbody>';
 			$has_extra_eu = false;
 			foreach ( $cookies as $cookie ) {
-				$provider = isset( $cookie->provider ) ? $cookie->provider : '';
-				$transfer = method_exists( 'DBCM_Cookie_Database', 'get_transfer_info' )
+				$provider       = isset( $cookie->provider ) ? $cookie->provider : '';
+				$transfer       = method_exists( 'DBCM_Cookie_Database', 'get_transfer_info' )
 					? DBCM_Cookie_Database::get_transfer_info( $provider )
-					: array( 'location' => '', 'country' => '' );
+					: array(
+						'location' => '',
+						'country' => '',
+					);
 				$transfer_label = '' !== $transfer['location'] ? $transfer['location'] : esc_html__( 'UE/SEE', 'db-cookie-manager' );
 				if ( '' !== $transfer['location'] ) {
 					$has_extra_eu = true;
 				}
 				// Trasparenza Art. 13(1)(e)-(f): se il fornitore è noto alle
 				// firme, il nome linka la sua informativa privacy.
-				$privacy_url = method_exists( 'DBCM_Signatures', 'privacy_url_for_provider' )
+				$privacy_url   = method_exists( 'DBCM_Signatures', 'privacy_url_for_provider' )
 					? DBCM_Signatures::privacy_url_for_provider( $provider )
 					: '';
 				$provider_cell = '' !== $privacy_url
@@ -238,7 +241,7 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 		 * @return string
 		 */
 		private static function fallback_no_scan() {
-			$html  = '<p>' . esc_html__( 'Non è ancora stata eseguita una scansione automatica. Di seguito il cookie tecnico sempre presente del sistema di gestione del consenso. Si consiglia di eseguire una scansione dall\'area amministrativa per generare un elenco completo.', 'db-cookie-manager' ) . '</p>';
+			$html = '<p>' . esc_html__( 'Non è ancora stata eseguita una scansione automatica. Di seguito il cookie tecnico sempre presente del sistema di gestione del consenso. Si consiglia di eseguire una scansione dall\'area amministrativa per generare un elenco completo.', 'db-cookie-manager' ) . '</p>';
 
 			$html .= '<h4>' . esc_html__( 'Tecnici (necessari)', 'db-cookie-manager' ) . '</h4>';
 			$html .= '<p>' . esc_html( DBCM_Cookie_Database::get_category_description( 'functional' ) ) . '</p>';
@@ -267,7 +270,7 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 				return '';
 			}
 
-			$html = '<h3>' . esc_html__( '3. Servizi esterni senza cookie', 'db-cookie-manager' ) . '</h3>';
+			$html  = '<h3>' . esc_html__( '3. Servizi esterni senza cookie', 'db-cookie-manager' ) . '</h3>';
 			$html .= '<p>' . esc_html__(
 				'Il sito utilizza alcuni servizi di terze parti che non installano cookie ma comportano comunque una connessione a server esterni. Questi servizi possono raccogliere dati tecnici (come l\'indirizzo IP) durante il caricamento.',
 				'db-cookie-manager'
@@ -290,7 +293,7 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 		}
 
 		private static function section_browser_management() {
-			$html = '<h3>' . esc_html__( '4. Come gestire i cookie', 'db-cookie-manager' ) . '</h3>';
+			$html  = '<h3>' . esc_html__( '4. Come gestire i cookie', 'db-cookie-manager' ) . '</h3>';
 			$html .= '<p>' . esc_html__(
 				'Le preferenze sui cookie possono essere modificate in qualsiasi momento attraverso il banner cookie o il pulsante "Modifica preferenze" presente sul sito. È inoltre possibile gestire i cookie direttamente dalle impostazioni del proprio browser:',
 				'db-cookie-manager'
@@ -314,7 +317,7 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 			// Legge i dati del titolare dalle option pubblicate dal DB Privacy
 			// Hub. Se l'Hub non è installato (o l'admin non ha ancora compilato
 			// il form), cade su un placeholder esplicito da sostituire a mano.
-			$nome     = trim( (string) get_option( 'dbph_titolare_nome', '' ) );
+			$nome      = trim( (string) get_option( 'dbph_titolare_nome', '' ) );
 			$indirizzo = trim( (string) get_option( 'dbph_titolare_indirizzo', '' ) );
 			$piva      = trim( (string) get_option( 'dbph_titolare_piva', '' ) );
 			$email     = trim( (string) get_option( 'dbph_titolare_email', '' ) );
@@ -333,7 +336,7 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 					$html .= '<br>' . esc_html__( 'P.IVA / C.F.:', 'db-cookie-manager' ) . ' ' . esc_html( $piva );
 				}
 				$contact_email = $email !== '' ? $email : esc_html( $context['admin_email'] );
-				$html .= '<br>' . esc_html__( 'Email:', 'db-cookie-manager' ) . ' ' . esc_html( $contact_email );
+				$html         .= '<br>' . esc_html__( 'Email:', 'db-cookie-manager' ) . ' ' . esc_html( $contact_email );
 				if ( $pec !== '' ) {
 					$html .= '<br>' . esc_html__( 'PEC:', 'db-cookie-manager' ) . ' ' . esc_html( $pec );
 				}
@@ -343,10 +346,10 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 				$html .= '</p>';
 			} else {
 				$admin_email = esc_html( $context['admin_email'] );
-				$html .= '<p><strong>[' . esc_html__( 'NOME COMPLETO / RAGIONE SOCIALE', 'db-cookie-manager' ) . ']</strong><br>';
-				$html .= '<strong>[' . esc_html__( 'INDIRIZZO', 'db-cookie-manager' ) . ']</strong><br>';
-				$html .= esc_html__( 'Email:', 'db-cookie-manager' ) . ' ' . $admin_email . '</p>';
-				$html .= '<p><em>' . esc_html__( 'Sostituire i campi tra parentesi con i dati reali del titolare prima di pubblicare la pagina. In alternativa, installa il plugin DB Privacy Hub e compila i dati del titolare: la Cookie Policy verrà aggiornata automaticamente.', 'db-cookie-manager' ) . '</em></p>';
+				$html       .= '<p><strong>[' . esc_html__( 'NOME COMPLETO / RAGIONE SOCIALE', 'db-cookie-manager' ) . ']</strong><br>';
+				$html       .= '<strong>[' . esc_html__( 'INDIRIZZO', 'db-cookie-manager' ) . ']</strong><br>';
+				$html       .= esc_html__( 'Email:', 'db-cookie-manager' ) . ' ' . $admin_email . '</p>';
+				$html       .= '<p><em>' . esc_html__( 'Sostituire i campi tra parentesi con i dati reali del titolare prima di pubblicare la pagina. In alternativa, installa il plugin DB Privacy Hub e compila i dati del titolare: la Cookie Policy verrà aggiornata automaticamente.', 'db-cookie-manager' ) . '</em></p>';
 			}
 
 			return apply_filters( 'dbcm_policy_section_controller', $html, $context );

@@ -47,17 +47,17 @@ if ( ! class_exists( 'DBCM_Consent_API' ) ) {
 			add_filter( 'wp_get_consent_type', array( __CLASS__, 'declare_consent_type' ) );
 
 			// 2. AJAX endpoint per sincronizzare il consenso lato server
-			//    quando il banner JS aggiorna le scelte. Disponibile sia
-			//    per utenti loggati sia per visitatori anonimi.
+			// quando il banner JS aggiorna le scelte. Disponibile sia
+			// per utenti loggati sia per visitatori anonimi.
 			add_action( 'wp_ajax_dbcm_set_consent', array( __CLASS__, 'ajax_set_consent' ) );
 			add_action( 'wp_ajax_nopriv_dbcm_set_consent', array( __CLASS__, 'ajax_set_consent' ) );
 
 			// 3. Hook per "spingere" il consenso letto dal cookie nella
-			//    WP Consent API a ogni page load. Questo è importante
-			//    perché wp_set_consent() salva i valori in cookie a vita
-			//    di sessione: vogliamo che ogni nuova page-view sappia
-			//    immediatamente quali categorie sono concesse, senza
-			//    aspettare che JS le ri-imposti.
+			// WP Consent API a ogni page load. Questo è importante
+			// perché wp_set_consent() salva i valori in cookie a vita
+			// di sessione: vogliamo che ogni nuova page-view sappia
+			// immediatamente quali categorie sono concesse, senza
+			// aspettare che JS le ri-imposti.
 			add_action( 'init', array( __CLASS__, 'hydrate_consent_from_cookie' ), 5 );
 		}
 
@@ -145,7 +145,7 @@ if ( ! class_exists( 'DBCM_Consent_API' ) ) {
 				$type = 'custom';
 			}
 
-			$raw = isset( $_POST['consent'] ) ? wp_unslash( $_POST['consent'] ) : '';
+			$raw     = isset( $_POST['consent'] ) ? wp_unslash( $_POST['consent'] ) : '';
 			$consent = self::sanitize_consent_payload( $raw );
 
 			// Forza 'functional' sempre true (sicurezza lato server).
@@ -278,8 +278,8 @@ if ( ! class_exists( 'DBCM_Consent_API' ) ) {
 				return null;
 			}
 
-			$raw = wp_unslash( $_COOKIE[ $name ] );
-			$raw = urldecode( $raw );
+			$raw     = wp_unslash( $_COOKIE[ $name ] );
+			$raw     = urldecode( $raw );
 			$decoded = json_decode( $raw, true );
 			if ( ! is_array( $decoded ) ) {
 				return null;
