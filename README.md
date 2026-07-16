@@ -268,6 +268,10 @@ Cookie scritti dal plugin:
 
 
 
+#### 3.5.1 — Split di class-admin.php _(2026)_
+
+Release di manutenzione, zero cambi di comportamento. Il monolite `class-admin.php` (2.871 righe) è stato spezzato in un guscio comune (menu, dispatcher di salvataggio, render helper, flash notices — 745 righe) più una classe per pagina: Dashboard, Banner, Scanner, Firme, Cookie Policy, Registro consensi, Avanzate (`inc/class-admin-page-*.php`, ognuna ≤ 510 righe). Refactor meccanico validato con la suite completa prima/dopo (107 unit + 16 integration invariati) e smoke di riflessione sulle classi estratte. Pattern PHPCS dei falsi positivi documentati estesi ai nuovi file (stesso codice, stessa verifica manuale).
+
 #### 3.5.0 — Versioning del consenso _(2026)_
 
 Il consenso GDPR è **specifico e informato rispetto ai trattamenti presentati al momento della scelta** (Art. 4(11) + 6(1)(a)): se dopo la raccolta del consenso aggiungi un nuovo tracker o cambi in modo significativo i trattamenti, i consensi già salvati (validi fino a 365 giorni) non coprono le novità. Da questa versione ogni consenso è legato a una **versione della configurazione dei trattamenti**.
@@ -682,6 +686,10 @@ Cookies written by the plugin:
 ---
 
 ### Changelog
+
+#### 3.5.1 — class-admin.php split _(2026)_
+
+Maintenance release, zero behavior changes. The `class-admin.php` monolith (2,871 lines) has been split into a shared core (menu, save dispatcher, render helpers, flash notices — 745 lines) plus one class per page: Dashboard, Banner, Scanner, Signatures, Cookie Policy, Consent Log, Advanced (`inc/class-admin-page-*.php`, each ≤ 510 lines). Mechanical refactor validated with the full suite before/after (107 unit + 16 integration unchanged) and a reflection smoke test on the extracted classes. Documented PHPCS false-positive patterns extended to the new files (same code, same manual verification).
 
 #### 3.5.0 — Consent versioning _(2026)_
 

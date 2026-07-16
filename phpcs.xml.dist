@@ -117,10 +117,14 @@
 	<!-- "50% valid code": docblock che descrive la detection User-Agent e
 	     contiene stringhe tipo "Chrome" tra virgolette, scambiato per codice
 	     commentato. Falso positivo. Stesso caso in class-admin.php (commenti
-	     inline dopo valori numerici, es. posizione menu "81 // ..."). -->
+	     inline dopo valori numerici, es. posizione menu "81 // ...").
+	     3.5.1: class-admin.php è stato spezzato in class-admin-page-*.php
+	     (refactor meccanico, codice identico) → pattern esteso a coprire
+	     i file estratti, stessa verifica manuale. -->
 	<rule ref="Squiz.PHP.CommentedOutCode">
 		<exclude-pattern>*/class-consent-log.php</exclude-pattern>
 		<exclude-pattern>*/class-admin.php</exclude-pattern>
+		<exclude-pattern>*/class-admin-page-*.php</exclude-pattern>
 	</rule>
 
 	<!-- NonceVerification in class-admin.php: VERIFICATO MANUALMENTE (rev. 3.3.0).
@@ -131,9 +135,15 @@
 	     chiamate di rendering, che non processano form. Falsi positivi: lo sniff
 	     vede $_GET/$_POST fuori da un nonce nello stesso scope senza distinguere
 	     lettura innocua da azione. NON riattivare senza verificare che TUTTI gli
-	     handler di salvataggio mantengano il controllo nonce. -->
+	     handler di salvataggio mantengano il controllo nonce.
+	     3.5.1: split meccanico in class-admin-page-*.php — gli handler che
+	     salvano (handle_save, handle_create_policy_page, handle_*_signatures,
+	     handle_bump_consent_version) verificano tutti il nonce; le letture
+	     segnalate restano quelle di sola visualizzazione ($_GET filtri log,
+	     parametro edit firme, dbcm_msg flash). Stessa verifica manuale. -->
 	<rule ref="WordPress.Security.NonceVerification">
 		<exclude-pattern>*/class-admin.php</exclude-pattern>
+		<exclude-pattern>*/class-admin-page-*.php</exclude-pattern>
 	</rule>
 
 	<config name="testVersion" value="7.4-"/>
