@@ -845,6 +845,51 @@ function dbcm_signatures_data() {
 			'cookies'          => array(),
 		),
 
+		/* Contenuti incorporati Facebook via iframe (post, video, like/share
+		 * button caricati con facebook.com/plugins/...). Distinto dal Meta
+		 * Pixel (fbevents.js, firma 'meta-pixel'): quello traccia, questo
+		 * incorpora — ma entrambi installano identificatori Meta e
+		 * richiedono consenso marketing. Prima della 3.6.1 questi iframe
+		 * NON erano bloccati (gap rilevato su caso reale): il pattern non
+		 * era né nelle firme né nei pattern hardcoded del blocker. */
+		'facebook' => array(
+			'service'          => 'Facebook',
+			'provider'         => 'Meta Platforms Ireland Ltd.',
+			'privacy_url'      => 'https://www.facebook.com/privacy/policy/',
+			'category'         => 'marketing',
+			'requires_consent' => true,
+			/* Niente script_patterns: il caricamento via SDK JS
+			 * (connect.facebook.net) è già coperto — e bloccato — dal
+			 * pattern generico della firma 'meta-pixel', che precede
+			 * questa nell'array e vincerebbe comunque il match. Questa
+			 * firma copre gli embed via IFRAME diretto. */
+			'script_patterns'  => array(),
+			'iframe_patterns'  => array(
+				'facebook.com/plugins/',
+			),
+			'scan_signature'   => '/facebook\.com\/(v[\d.]+\/)?plugins\//',
+			'cookies'          => array(
+				array(
+					'name'     => 'fr',
+					'domain'   => '.facebook.com',
+					'duration' => __( '3 mesi', 'db-cookie-manager' ),
+					'desc'     => __( 'Identificatore per pubblicità e misurazione Meta. Marketing.', 'db-cookie-manager' ),
+				),
+				array(
+					'name'     => 'datr',
+					'domain'   => '.facebook.com',
+					'duration' => __( '2 anni', 'db-cookie-manager' ),
+					'desc'     => __( 'Identifica il browser per sicurezza e integrità Meta. Marketing.', 'db-cookie-manager' ),
+				),
+				array(
+					'name'     => 'sb',
+					'domain'   => '.facebook.com',
+					'duration' => __( '2 anni', 'db-cookie-manager' ),
+					'desc'     => __( 'Identificatore del browser Meta. Marketing.', 'db-cookie-manager' ),
+				),
+			),
+		),
+
 		'instagram' => array(
 			'service'          => 'Instagram',
 			'provider'         => 'Meta Platforms Ireland Ltd.',

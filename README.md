@@ -268,6 +268,10 @@ Cookie scritti dal plugin:
 
 
 
+#### 3.6.1 — Firma Facebook per contenuti incorporati _(2026)_
+
+Chiude un gap di blocco rilevato tramite la nuova pagina Servizi dichiarati: gli embed Facebook via iframe (`facebook.com/plugins/…` — post, video, like/share button) non erano coperti da alcuna firma né dai pattern del blocker, quindi **caricavano prima del consenso** (era gestito solo il Meta Pixel via `connect.facebook.net`). Nuova firma `facebook` con cookie tipici (`fr`, `datr`, `sb`) e informativa Meta: in cascata sistemano blocco preventivo dell'iframe, placeholder click-to-load, registro dei servizi dichiarati, pick-list e rilevamento scanner. Il caricamento via SDK JS resta attribuito a `meta-pixel` (nessuna doppia attribuzione). Test: +3 unit di regressione (132 totali).
+
 #### 3.6.0 — Registro dei servizi dichiarati _(2026)_
 
 Risolve un problema strutturale emerso in audit su caso reale: la Cookie Policy generata elencava solo i cookie tecnici, perché lo scanner acquisisce le pagine via self-request e l'HTML che analizza è già passato dal blocco — gli embed gated (YouTube, Maps, ...) sono già placeholder e le firme non matchano più. Più il blocco funziona, più la policy è incompleta: non giustifica il consenso richiesto dal banner (incoerenza documentale, Art. 5(1)(a)).
@@ -698,6 +702,10 @@ Cookies written by the plugin:
 ---
 
 ### Changelog
+
+#### 3.6.1 — Facebook signature for embedded content _(2026)_
+
+Closes a blocking gap surfaced through the new Declared Services page: Facebook iframe embeds (`facebook.com/plugins/…` — posts, videos, like/share buttons) were covered by no signature and no blocker pattern, so they **loaded before consent** (only the Meta Pixel via `connect.facebook.net` was handled). New `facebook` signature with typical cookies (`fr`, `datr`, `sb`) and the Meta policy link: it cascades into preventive iframe blocking, the click-to-load placeholder, the declared services registry, the pick-list and scanner detection. SDK-based loading remains attributed to `meta-pixel` (no double attribution). Tests: +3 regression units (132 total).
 
 #### 3.6.0 — Declared services registry _(2026)_
 

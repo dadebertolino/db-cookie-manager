@@ -397,4 +397,54 @@ final class SignaturesTest extends TestCase {
 		$this->assertNull( DBCM_Signatures::identify_url( 'https://esempio.example/sconosciuto.js' ) );
 		$this->assertNull( DBCM_Signatures::identify_url( '' ) );
 	}
+
+	/**
+	 * REGRESSIONE 3.6.1: gli embed Facebook via iframe (facebook.com/plugins)
+	 * non erano coperti da alcuna firma → non bloccati e non dichiarabili.
+	 * La firma 'facebook' chiude il buco: risolve l'URL, richiede consenso
+	 * marketing e alimenta i pattern del blocker via filtro.
+	 */
+	public function test_identify_url_resolves_facebook_plugins_iframe(): void {
+		$hit = DBCM_Signatures::identify_url( 'https://www.facebook.com/plugins/post.php?href=...' );
+		$this->assertNotNull( $hit, 'facebook.com/plugins deve risolvere in una firma.' );
+		$this->assertSame( 'facebook', $hit['slug'] );
+		$this->assertSame( 'marketing', $hit['category'] );
+		$this->assertTrue( $hit['requires_consent'] );
+	}
+
+	/**
+	 * La firma Facebook alimenta i pattern IFRAME del blocker via il filtro
+	 * dbcm_blocker_patterns (è così che l'embed viene effettivamente
+	 * bloccato prima del consenso).
+	 */
+	public function test_facebook_iframe_pattern_feeds_blocker_filter(): void {
+		DBCM_Signatures::init();
+		$groups = apply_filters( 'dbcm_blocker_patterns', array() );
+
+		$found = false;
+		foreach ( $groups as $group ) {
+			$type = $group['type'] ?? 'script';
+			if ( 'iframe' !== $type && 'both' !== $type ) {
+				continue;
+			}
+			foreach ( (array) $group['patterns'] as $pattern ) {
+				if ( false !== stripos( 'https://www.facebook.com/plugins/video.php', $pattern ) ) {
+					$found = true;
+					$this->assertSame( 'marketing', $group['category'] );
+				}
+			}
+		}
+		$this->assertTrue( $found, 'Il pattern facebook.com/plugins deve arrivare al blocker.' );
+	}
+
+	/**
+	 * Il match via SDK JS resta attribuito a meta-pixel (pattern generico
+	 * connect.facebook.net): la firma facebook copre SOLO gli iframe,
+	 * niente doppia attribuzione.
+	 */
+	public function test_facebook_sdk_still_resolves_to_meta_pixel(): void {
+		$hit = DBCM_Signatures::identify_url( 'https://connect.facebook.net/it_IT/sdk.js' );
+		$this->assertNotNull( $hit );
+		$this->assertSame( 'meta-pixel', $hit['slug'] );
+	}
 }
