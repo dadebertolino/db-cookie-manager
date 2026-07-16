@@ -364,4 +364,37 @@ final class SignaturesTest extends TestCase {
 		$this->assertSame( 'https://esempio.com/privacy', DBCM_Signatures::privacy_url_for_provider( 'Esempio S.r.l.' ) );
 		$this->assertSame( '', DBCM_Signatures::privacy_url_for_provider( 'Malintenzionato S.p.A.' ), 'URL non http(s) deve essere azzerato in salvataggio.' );
 	}
+
+	/* =====================================================================
+	 * identify_url() — risoluzione URL → servizio (3.6.0)
+	 * ================================================================== */
+
+	/**
+	 * Un URL di embed noto risolve nella firma corrispondente. È il ponte
+	 * fra il match del blocker e il registro dei servizi dichiarati.
+	 */
+	public function test_identify_url_resolves_known_embed(): void {
+		$hit = DBCM_Signatures::identify_url( 'https://www.youtube.com/embed/xyz?rel=0' );
+		$this->assertNotNull( $hit );
+		$this->assertSame( 'youtube', $hit['slug'] );
+		$this->assertSame( 'marketing', $hit['category'] );
+		$this->assertTrue( $hit['requires_consent'] );
+	}
+
+	/**
+	 * Il match copre anche gli script_patterns, non solo gli iframe.
+	 */
+	public function test_identify_url_matches_script_patterns(): void {
+		$hit = DBCM_Signatures::identify_url( 'https://connect.facebook.net/en_US/fbevents.js' );
+		$this->assertNotNull( $hit );
+		$this->assertSame( 'marketing', $hit['category'] );
+	}
+
+	/**
+	 * URL sconosciuto o vuoto → null, senza errori.
+	 */
+	public function test_identify_url_unknown_returns_null(): void {
+		$this->assertNull( DBCM_Signatures::identify_url( 'https://esempio.example/sconosciuto.js' ) );
+		$this->assertNull( DBCM_Signatures::identify_url( '' ) );
+	}
 }

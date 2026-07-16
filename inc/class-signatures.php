@@ -362,6 +362,41 @@ if ( ! class_exists( 'DBCM_Signatures' ) ) {
 		}
 
 		/**
+		 * Identifica il servizio corrispondente a un URL (src di script o
+		 * iframe) matchando script_patterns + iframe_patterns di tutte le
+		 * firme (bundled + custom). Usato dal registro dei servizi
+		 * dichiarati per risolvere lo slug al momento del blocco.
+		 *
+		 * @since 3.6.0
+		 * @param string $url
+		 * @return array|null { slug, service, category, requires_consent }
+		 */
+		public static function identify_url( $url ) {
+			$url = (string) $url;
+			if ( '' === $url ) {
+				return null;
+			}
+
+			foreach ( self::all() as $slug => $sig ) {
+				$patterns = array_merge(
+					isset( $sig['script_patterns'] ) ? (array) $sig['script_patterns'] : array(),
+					isset( $sig['iframe_patterns'] ) ? (array) $sig['iframe_patterns'] : array()
+				);
+				foreach ( $patterns as $pattern ) {
+					if ( '' !== (string) $pattern && false !== stripos( $url, (string) $pattern ) ) {
+						return array(
+							'slug'             => $slug,
+							'service'          => $sig['service'],
+							'category'         => $sig['category'],
+							'requires_consent' => ! empty( $sig['requires_consent'] ),
+						);
+					}
+				}
+			}
+			return null;
+		}
+
+		/**
 		 * Classifica un cookie per nome/prefisso: restituisce categoria +
 		 * metadati del servizio, o null se sconosciuto. Usato dallo scanner e
 		 * dalla cancellazione reattiva.

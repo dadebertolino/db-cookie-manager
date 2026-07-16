@@ -116,6 +116,11 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 				'has_scan'       => ! empty( $grouped ),
 				'google_fonts'   => (bool) get_option( 'dbcm_google_fonts_detected', false ),
 				'external_svcs'  => (bool) get_option( 'dbcm_external_services_detected', false ),
+				/* 3.6.0: servizi attivi previo consenso, non rilevabili dallo
+				 * scanner perché bloccati by design (registro dichiarati). */
+				'declared'       => class_exists( 'DBCM_Declared_Services' )
+					? DBCM_Declared_Services::grouped_for_policy()
+					: array(),
 			);
 		}
 
@@ -155,16 +160,77 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 
 			if ( ! $context['has_scan'] ) {
 				$html .= self::fallback_no_scan();
-				return apply_filters( 'dbcm_policy_section_cookies', $html, $context );
+			} else {
+				$html .= '<p>' . esc_html__( 'Dalla scansione automatica del sito sono stati rilevati i seguenti cookie, raggruppati per categoria:', 'db-cookie-manager' ) . '</p>';
+
+				foreach ( $context['grouped'] as $category => $cookies ) {
+					$html .= self::render_category_block( $category, $cookies );
+				}
 			}
 
-			$html .= '<p>' . esc_html__( 'Dalla scansione automatica del sito sono stati rilevati i seguenti cookie, raggruppati per categoria:', 'db-cookie-manager' ) . '</p>';
-
-			foreach ( $context['grouped'] as $category => $cookies ) {
-				$html .= self::render_category_block( $category, $cookies );
-			}
+			// 3.6.0: servizi dichiarati attivi previo consenso. La scansione
+			// non può vederli (il blocker li ha già riscritti in placeholder
+			// quando lo scanner richiede la pagina): senza questa sezione la
+			// policy elencherebbe solo i cookie tecnici e non giustificherebbe
+			// il consenso richiesto dal banner — incoerenza documentale.
+			$html .= self::render_declared_section( $context['declared'] );
 
 			return apply_filters( 'dbcm_policy_section_cookies', $html, $context );
+		}
+
+		/**
+		 * Sezione dei servizi dichiarati (contenuti incorporati e tracker
+		 * caricati solo previo consenso), raggruppati per categoria.
+		 *
+		 * Nota legale: le Linee Guida del Garante 10/06/2021 ammettono il
+		 * rinvio alle informative delle terze parti per i cookie non sotto
+		 * il controllo del titolare — non serve un'enumerazione esaustiva:
+		 * servizio, natura, condizione di caricamento e link bastano, e il
+		 * testo lo dichiara esplicitamente.
+		 *
+		 * @since 3.6.0
+		 * @param array $declared categoria => voci (da DBCM_Declared_Services).
+		 * @return string
+		 */
+		private static function render_declared_section( $declared ) {
+			if ( empty( $declared ) ) {
+				return '';
+			}
+
+			$html  = '<h4>' . esc_html__( 'Contenuti incorporati e servizi attivi previo consenso', 'db-cookie-manager' ) . '</h4>';
+			$html .= '<p>' . esc_html__( 'Il sito incorpora contenuti e servizi di piattaforme terze che, una volta caricati, possono installare propri cookie o identificatori. Questi contenuti sono bloccati per impostazione predefinita e vengono caricati soltanto dopo il consenso alla relativa categoria espresso tramite il banner.', 'db-cookie-manager' ) . '</p>';
+
+			foreach ( $declared as $category => $entries ) {
+				$label = DBCM_Cookie_Database::get_category_label( $category );
+
+				$html .= '<p><strong>' . esc_html( $label ) . '</strong></p>';
+				$html .= '<table style="width:100%;border-collapse:collapse;margin-bottom:1.5em">';
+				$html .= '<thead><tr>';
+				$html .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Servizio', 'db-cookie-manager' ) . '</th>';
+				$html .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Fornitore', 'db-cookie-manager' ) . '</th>';
+				$html .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Cookie tipici', 'db-cookie-manager' ) . '</th>';
+				$html .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Durata', 'db-cookie-manager' ) . '</th>';
+				$html .= '<th style="border:1px solid #ddd;padding:8px;text-align:left;background:#f5f5f5">' . esc_html__( 'Informativa', 'db-cookie-manager' ) . '</th>';
+				$html .= '</tr></thead><tbody>';
+
+				foreach ( $entries as $entry ) {
+					$policy_cell = '' !== $entry['policy_url']
+						? '<a href="' . esc_url( $entry['policy_url'] ) . '" target="_blank" rel="noopener">' . esc_html__( 'Informativa', 'db-cookie-manager' ) . '</a>'
+						: '&mdash;';
+					$html       .= '<tr>';
+					$html       .= '<td style="border:1px solid #ddd;padding:8px">' . esc_html( $entry['service'] ) . '</td>';
+					$html       .= '<td style="border:1px solid #ddd;padding:8px">' . esc_html( $entry['provider'] ) . '</td>';
+					$html       .= '<td style="border:1px solid #ddd;padding:8px">' . ( '' !== $entry['cookies_text'] ? '<code>' . esc_html( $entry['cookies_text'] ) . '</code>' : '&mdash;' ) . '</td>';
+					$html       .= '<td style="border:1px solid #ddd;padding:8px">' . ( '' !== $entry['duration_text'] ? esc_html( $entry['duration_text'] ) : '&mdash;' ) . '</td>';
+					$html       .= '<td style="border:1px solid #ddd;padding:8px">' . $policy_cell . '</td>';
+					$html       .= '</tr>';
+				}
+				$html .= '</tbody></table>';
+			}
+
+			$html .= '<p style="font-size:0.9em;color:#555">' . esc_html__( 'I cookie indicati sono tipici delle rispettive piattaforme e non sono sotto il controllo diretto del titolare. Per l\'elenco completo e aggiornato dei cookie impostati da ciascuna piattaforma si rinvia alla rispettiva informativa, come consentito dalle Linee Guida del Garante del 10 giugno 2021.', 'db-cookie-manager' ) . '</p>';
+
+			return $html;
 		}
 
 		/**
@@ -369,7 +435,7 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 			$html .= '<p style="font-size:0.85em;color:#666"><em>';
 			$html .= sprintf(
 				/* translators: %s: data scansione */
-				esc_html__( 'Testo generato automaticamente da DB Cookie Manager in base alla scansione del %s. Verificare con un professionista prima della pubblicazione.', 'db-cookie-manager' ),
+				esc_html__( 'Testo generato automaticamente da DB Cookie Manager in base alla scansione del %s e ai servizi dichiarati attivi previo consenso. Verificare con un professionista prima della pubblicazione.', 'db-cookie-manager' ),
 				$date
 			);
 			$html .= '</em></p>';

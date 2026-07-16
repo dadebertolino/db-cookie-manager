@@ -41,6 +41,34 @@ if ( ! class_exists( 'DBCM_Admin_Page_Dashboard' ) ) {
 				__( 'Gestione cookie GDPR-compliant: banner, scanner, registro consensi e cookie policy.', 'db-cookie-manager' )
 			);
 
+			// 3.6.0: validazione di coerenza banner ↔ policy. Una categoria
+			// richiesta nel banner senza cookie rilevati né servizi
+			// dichiarati = richiesta di consenso non giustificata.
+			if ( class_exists( 'DBCM_Declared_Services' ) ) {
+				$uncovered = DBCM_Declared_Services::coherence_warnings();
+				if ( ! empty( $uncovered ) ) {
+					$labels = array();
+					foreach ( $uncovered as $category ) {
+						$labels[] = DBCM_Cookie_Database::get_category_label( $category );
+					}
+					echo '<div class="db-ui-card"><div class="db-ui-card-body">';
+					echo '<div class="db-ui-alert db-ui-alert-warning"><span class="db-ui-alert-icon" aria-hidden="true">⚠️</span><span>';
+					printf(
+						/* translators: 1: elenco categorie, 2: URL pagina servizi dichiarati */
+						wp_kses(
+							__( 'Il banner richiede il consenso per: <strong>%1$s</strong>, ma la policy non contiene voci per queste categorie. <a href="%2$s">Dichiara i servizi mancanti</a> o valuta se le categorie sono necessarie.', 'db-cookie-manager' ),
+							array(
+								'strong' => array(),
+								'a'      => array( 'href' => array() ),
+							)
+						),
+						esc_html( implode( ', ', $labels ) ),
+						esc_url( admin_url( 'admin.php?page=' . DBCM_Admin::MENU_SLUG . '-declared' ) )
+					);
+					echo '</span></div></div></div>';
+				}
+			}
+
 			// Stat: cookie per categoria.
 			$by_cat        = class_exists( 'DBCM_Scanner' )
 				? DBCM_Scanner::count_by_category()

@@ -123,6 +123,9 @@ if ( ! class_exists( 'DBCM_Settings' ) ) {
 $GLOBALS['__dbcm_wp_consent_api']   = false;      // WP Consent API installata?
 $GLOBALS['__dbcm_wp_consent_store'] = array();    // stato consensi (se attiva)
 
+if ( ! defined( 'DAY_IN_SECONDS' ) ) {
+	define( 'DAY_IN_SECONDS', 86400 );
+}
 if ( ! function_exists( 'wp_unslash' ) ) {
 	function wp_unslash( $value ) {
 		return is_string( $value ) ? stripslashes( $value ) : $value;
@@ -339,6 +342,7 @@ if ( ! class_exists( 'DBCM_Cookie_Database' ) ) {
 // Carica i sorgenti sotto test.
 require_once DBCM_TEST_ROOT . '/inc/data/signatures.php';
 require_once DBCM_TEST_ROOT . '/inc/class-signatures.php';
+require_once DBCM_TEST_ROOT . '/inc/class-declared-services.php';
 require_once DBCM_TEST_ROOT . '/inc/class-consent-api.php';
 require_once DBCM_TEST_ROOT . '/inc/class-consent-signals.php';
 require_once DBCM_TEST_ROOT . '/inc/class-policy-generator.php';

@@ -268,6 +268,18 @@ Cookie scritti dal plugin:
 
 
 
+#### 3.6.0 — Registro dei servizi dichiarati _(2026)_
+
+Risolve un problema strutturale emerso in audit su caso reale: la Cookie Policy generata elencava solo i cookie tecnici, perché lo scanner acquisisce le pagine via self-request e l'HTML che analizza è già passato dal blocco — gli embed gated (YouTube, Maps, ...) sono già placeholder e le firme non matchano più. Più il blocco funziona, più la policy è incompleta: non giustifica il consenso richiesto dal banner (incoerenza documentale, Art. 5(1)(a)).
+
+- **Registrazione automatica al momento del blocco**: quando il blocker matcha e riscrive un iframe/script, risolve la src in una firma (`DBCM_Signatures::identify_url()`, nuovo) e registra `{slug, last_seen}`. Evidenza empirica dell'uso reale — niente sovra-dichiarazione dei 42 servizi bundled su siti che non li usano. La self-request dello scanner passa dal blocco, quindi **lanciare una scansione popola il registro**: circolarità risolta senza alcun bypass (un bypass sarebbe spoofabile = elusione del consenso). Scritture throttled: una per servizio al giorno.
+- **Staleness**: le voci auto entrano in policy solo se viste negli ultimi 30 giorni (filtro `dbcm_declared_services_ttl`) — embed rimosso, voce che decade da sola. I dettagli (fornitore, cookie tipici, durate, informativa) sono idratati dal DB firme alla generazione: fonte unica di verità.
+- **Nuova sezione in policy** "Contenuti incorporati e servizi attivi previo consenso", per categoria, con dicitura "bloccati per impostazione predefinita" e rinvio esplicito alle informative delle terze parti (ammesso dalle Linee Guida Garante 10/06/2021 per cookie non sotto il controllo del titolare).
+- **Dichiarazione manuale** (*Cookie Manager → Servizi dichiarati*): pick-list dalle firme note (dati precompilati) o form libero per i casi residuali; le voci manuali non scadono e, a parità di servizio, prevalgono su quelle automatiche.
+- **Validazione di coerenza banner ↔ policy**: categorie richieste nel banner senza cookie rilevati né servizi dichiarati generano un avviso in dashboard — copre sia il servizio non documentato sia la richiesta di consenso ingiustificata.
+- **Integrazione DB Privacy Hub**: registro esposto via filtro `dbcm_declared_services_register` (consumo da DBPH ≥ 1.4.0, fallback trasparente se assente).
+- Test: +22 unit (registro 17, `identify_url` 3, policy 2+1), tutti validati con mutation testing.
+
 #### 3.5.1 — Split di class-admin.php _(2026)_
 
 Release di manutenzione, zero cambi di comportamento. Il monolite `class-admin.php` (2.871 righe) è stato spezzato in un guscio comune (menu, dispatcher di salvataggio, render helper, flash notices — 745 righe) più una classe per pagina: Dashboard, Banner, Scanner, Firme, Cookie Policy, Registro consensi, Avanzate (`inc/class-admin-page-*.php`, ognuna ≤ 510 righe). Refactor meccanico validato con la suite completa prima/dopo (107 unit + 16 integration invariati) e smoke di riflessione sulle classi estratte. Pattern PHPCS dei falsi positivi documentati estesi ai nuovi file (stesso codice, stessa verifica manuale).
@@ -686,6 +698,18 @@ Cookies written by the plugin:
 ---
 
 ### Changelog
+
+#### 3.6.0 — Declared services registry _(2026)_
+
+Fixes a structural issue found in a real-world audit: the generated Cookie Policy only listed technical cookies, because the scanner fetches pages via self-request and the HTML it analyses has already gone through the blocker — gated embeds (YouTube, Maps, ...) are already placeholders and signatures no longer match. The better the blocking works, the more incomplete the policy: it fails to justify the consent the banner requests (documentation inconsistency, Art. 5(1)(a)).
+
+- **Automatic registration at block time**: when the blocker matches and rewrites an iframe/script, it resolves the src to a signature (new `DBCM_Signatures::identify_url()`) and records `{slug, last_seen}`. Empirical evidence of actual usage — no over-declaration of the 42 bundled services on sites that don't use them. The scanner's self-request goes through the blocker, so **running a scan populates the registry**: circularity solved with no blocker bypass (a bypass would be spoofable = consent circumvention). Writes throttled to one per service per day.
+- **Staleness**: auto entries appear in the policy only if seen within the last 30 days (`dbcm_declared_services_ttl` filter) — embed removed, entry decays on its own. Details (provider, typical cookies, durations, policy link) are hydrated from the signatures DB at generation time: single source of truth.
+- **New policy section** "Embedded content and services active subject to consent", per category, with the "blocked by default" wording and an explicit referral to third-party policies (allowed by the Italian DPA Guidelines of 10 June 2021 for cookies outside the controller's direct control).
+- **Manual declaration** (*Cookie Manager → Declared services*): pick-list from known signatures (pre-filled data) or free form for residual cases; manual entries never expire and take precedence over automatic ones for the same service.
+- **Banner ↔ policy coherence validation**: categories requested in the banner with no detected cookies and no declared services trigger a dashboard warning — covering both the undocumented service and the unjustified consent request.
+- **DB Privacy Hub integration**: registry exposed via the `dbcm_declared_services_register` filter (consumed by DBPH ≥ 1.4.0, transparent fallback if absent).
+- Tests: +22 unit (registry 17, `identify_url` 3, policy 2+1), all validated with mutation testing.
 
 #### 3.5.1 — class-admin.php split _(2026)_
 

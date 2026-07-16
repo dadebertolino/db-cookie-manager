@@ -237,4 +237,44 @@ final class PolicyGeneratorTest extends TestCase {
 		$this->assertStringNotContainsString( 'rel="noopener">DB Cookie Manager</a>', $html, 'Un fornitore senza informativa nota non deve essere linkato.' );
 	}
 
+
+	/* =====================================================================
+	 * Servizi dichiarati in policy (3.6.0)
+	 * ================================================================== */
+
+	/**
+	 * Con un servizio nel registro, la policy contiene la sezione "previo
+	 * consenso" con servizio, dicitura di blocco di default e rinvio alle
+	 * informative delle terze parti (Linee Guida Garante 10/06/2021).
+	 * Risolve l\'incoerenza documentale del caso audit: la policy ora
+	 * giustifica il consenso richiesto dal banner.
+	 */
+	public function test_generate_includes_declared_services_section(): void {
+		update_option( DBCM_Declared_Services::OPTION, array(
+			'auto' => array( 'youtube' => array( 'last_seen' => gmdate( 'Y-m-d' ) ) ),
+		) );
+
+		$html = DBCM_Policy_Generator::generate();
+
+		$this->assertStringContainsString( 'servizi attivi previo consenso', $html );
+		$this->assertStringContainsString( 'YouTube', $html );
+		$this->assertStringContainsString( 'bloccati per impostazione predefinita', $html );
+		$this->assertStringContainsString( 'si rinvia alla rispettiva informativa', $html );
+	}
+
+	/**
+	 * Il footer dichiara entrambe le fonti del testo generato.
+	 */
+	public function test_footer_mentions_declared_services(): void {
+		$html = DBCM_Policy_Generator::generate();
+		$this->assertStringContainsString( 'servizi dichiarati attivi previo consenso', $html );
+	}
+
+	/**
+	 * Registro vuoto → nessuna sezione dichiarati (niente sezioni fantasma).
+	 */
+	public function test_generate_without_declared_has_no_section(): void {
+		$html = DBCM_Policy_Generator::generate();
+		$this->assertStringNotContainsString( 'Contenuti incorporati e servizi attivi previo consenso', $html );
+	}
 }

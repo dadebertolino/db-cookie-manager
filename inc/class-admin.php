@@ -88,6 +88,10 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 			// arbitrario dal form → non decrementabile né falsificabile.
 			add_action( 'admin_post_dbcm_bump_consent_version', array( 'DBCM_Admin_Page_Banner', 'handle_bump_consent_version' ) );
 
+			// 3.6.0: registro dei servizi dichiarati (voci manuali).
+			add_action( 'admin_post_dbcm_add_declared_service', array( 'DBCM_Admin_Page_Declared', 'handle_add_declared_service' ) );
+			add_action( 'admin_post_dbcm_delete_declared_service', array( 'DBCM_Admin_Page_Declared', 'handle_delete_declared_service' ) );
+
 			// Notice di attivazione plugin (banner setup hint).
 			add_action( 'admin_notices', array( __CLASS__, 'render_flash_notices' ) );
 		}
@@ -167,6 +171,11 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 					'title'    => __( 'Cookie Manager — Cookie Policy', 'db-cookie-manager' ),
 					'menu'     => __( 'Cookie Policy', 'db-cookie-manager' ),
 					'callback' => array( 'DBCM_Admin_Page_Policy', 'render_policy' ),
+				),
+				'declared' => array(
+					'title'    => __( 'Cookie Manager — Servizi dichiarati', 'db-cookie-manager' ),
+					'menu'     => __( 'Servizi dichiarati', 'db-cookie-manager' ),
+					'callback' => array( 'DBCM_Admin_Page_Declared', 'render_declared' ),
 				),
 				'log' => array(
 					'title'    => __( 'Cookie Manager — Registro consensi', 'db-cookie-manager' ),
@@ -510,6 +519,9 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 				'sig_imported'    => array( 'success', __( 'Firme importate con successo.', 'db-cookie-manager' ) ),
 				'sig_error'       => array( 'error', __( 'Dati della firma non validi. Controlla i campi e riprova.', 'db-cookie-manager' ) ),
 				'sig_import_error' => array( 'error', __( 'Import fallito: JSON non valido o struttura non riconosciuta.', 'db-cookie-manager' ) ),
+				'declared_added'   => array( 'success', __( 'Servizio dichiarato aggiunto: comparirà nella Cookie Policy alla prossima generazione.', 'db-cookie-manager' ) ),
+				'declared_deleted' => array( 'success', __( 'Voce dichiarata eliminata.', 'db-cookie-manager' ) ),
+				'declared_error'   => array( 'error', __( 'Operazione non riuscita: il nome del servizio è obbligatorio.', 'db-cookie-manager' ) ),
 				'consent_version_bumped' => array( 'success', __( 'Versione del consenso incrementata: tutti i visitatori vedranno di nuovo il banner alla prossima visita.', 'db-cookie-manager' ) ),
 			);
 

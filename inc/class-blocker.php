@@ -319,6 +319,26 @@ if ( ! class_exists( 'DBCM_Blocker' ) ) {
 			return DBCM_Consent_API::has_consent( $category );
 		}
 
+		/**
+		 * Registra nel registro dei servizi dichiarati l'URL appena matchato.
+		 *
+		 * Chiamata DOPO il match e PRIMA del check di consenso: il servizio
+		 * è in uso sul sito a prescindere dallo stato del consenso del
+		 * singolo visitatore. È così che la Cookie Policy generata arriva a
+		 * conoscere gli embed gated che lo scanner, per costruzione, non può
+		 * vedere (la sua self-request passa da questo stesso buffer, che li
+		 * ha già riscritti in placeholder).
+		 *
+		 * @since 3.6.0
+		 * @param string $src
+		 * @return void
+		 */
+		private static function record_declared_service( $src ) {
+			if ( class_exists( 'DBCM_Declared_Services' ) ) {
+				DBCM_Declared_Services::record_from_url( $src );
+			}
+		}
+
 		/* =====================================================================
 		 * MECCANISMO 1 — script_loader_tag
 		 * ================================================================== */
@@ -336,6 +356,7 @@ if ( ! class_exists( 'DBCM_Blocker' ) ) {
 			if ( ! $category ) {
 				return $tag;
 			}
+			self::record_declared_service( $src );
 			if ( self::has_consent( $category ) ) {
 				return $tag;
 			}
@@ -487,6 +508,9 @@ if ( ! class_exists( 'DBCM_Blocker' ) ) {
 			if ( ! $category ) {
 				return $m[0];
 			}
+			if ( ! empty( $src_match[1] ) ) {
+				self::record_declared_service( $src_match[1] );
+			}
 			if ( self::has_consent( $category ) ) {
 				return $m[0];
 			}
@@ -537,6 +561,7 @@ if ( ! class_exists( 'DBCM_Blocker' ) ) {
 			if ( ! $category ) {
 				return $m[0];
 			}
+			self::record_declared_service( $src );
 			if ( self::has_consent( $category ) ) {
 				return $m[0];
 			}

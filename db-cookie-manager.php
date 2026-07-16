@@ -3,7 +3,7 @@
  * Plugin Name: DB Cookie Manager
  * Plugin URI:  https://www.davidebertolino.it/progetti/db-cookie-manager
  * Description: Gestione completa dei cookie per WordPress: scanner automatico, banner GDPR multilingua con blocco preventivo, integrazione WP Consent API, generatore Cookie Policy e registro consensi.
- * Version:     3.5.1
+ * Version:     3.6.0
  * Author:      Davide Bertolino
  * Author URI:  https://www.davidebertolino.it
  * License:     GPL v2 or later
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Costanti
  * ========================================================================== */
 
-define( 'DBCM_VERSION', '3.5.1' );
+define( 'DBCM_VERSION', '3.6.0' );
 define( 'DBCM_FILE', __FILE__ );
 define( 'DBCM_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DBCM_URL', plugin_dir_url( __FILE__ ) );
@@ -97,6 +97,11 @@ if ( ! class_exists( 'DBCM_Plugin' ) ) {
 			require_once DBCM_DIR . 'inc/data/signatures.php';
 			require_once DBCM_DIR . 'inc/class-signatures.php';
 
+			// 3.6.0 — Registro servizi dichiarati (previo consenso): popolato
+			// dal blocker al momento del match, consumato dal generatore
+			// policy e da DB Privacy Hub via filtro.
+			require_once DBCM_DIR . 'inc/class-declared-services.php';
+
 			// Step 3 — Blocker preventivo.
 			require_once DBCM_DIR . 'inc/class-blocker.php';
 
@@ -118,6 +123,7 @@ if ( ! class_exists( 'DBCM_Plugin' ) ) {
 			require_once DBCM_DIR . 'inc/class-admin-page-policy.php';
 			require_once DBCM_DIR . 'inc/class-admin-page-log.php';
 			require_once DBCM_DIR . 'inc/class-admin-page-advanced.php';
+			require_once DBCM_DIR . 'inc/class-admin-page-declared.php';
 
 			// Step 7 — Shortcode [dbcm_preferences].
 			require_once DBCM_DIR . 'inc/class-shortcode.php';
