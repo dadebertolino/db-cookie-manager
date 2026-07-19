@@ -127,6 +127,20 @@ if ( ! class_exists( 'DBCM_Privacy_Declarations' ) ) {
 				'transfers'      => __( 'Nessuno. Lo scanner contatta solo URL pubblici dello stesso sito.', 'db-cookie-manager' ),
 			);
 
+			/* ---- 4. Meta Pixel nativo (solo se attivo) --------------------- */
+			if ( class_exists( 'DBCM_Meta_Pixel' ) && DBCM_Meta_Pixel::is_active() ) {
+				$register[] = array(
+					'id'             => 'dbcm_meta_pixel',
+					'label'          => __( 'Marketing via Meta Pixel (DB Cookie Manager)', 'db-cookie-manager' ),
+					'status'         => 'active',
+					'purpose'        => __( 'Misurazione delle performance delle sponsorizzazioni e remarketing su Facebook/Instagram. Il pixel viene caricato esclusivamente dopo il consenso alla categoria Marketing.', 'db-cookie-manager' ),
+					'legal_basis'    => __( 'Consenso dell\'interessato (art. 6.1.a GDPR), revocabile in ogni momento con pari facilità (art. 7.3).', 'db-cookie-manager' ),
+					'data_collected' => __( 'ID browser (cookie _fbp), click ID dell\'annuncio (cookie _fbc, se presente fbclid), evento PageView, indirizzo IP, user agent.', 'db-cookie-manager' ),
+					'retention'      => __( 'Cookie lato client: fino a 3 mesi. Retention lato Meta definita dalle policy di Meta Platforms.', 'db-cookie-manager' ),
+					'transfers'      => __( 'Meta Platforms Ireland Ltd. in contitolarità (art. 26 GDPR, sent. CGUE C-40/17 Fashion ID); trasferimento verso Meta Platforms Inc. (USA) sulla base del Data Privacy Framework.', 'db-cookie-manager' ),
+				);
+			}
+
 			return $register;
 		}
 

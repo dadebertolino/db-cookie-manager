@@ -167,6 +167,39 @@ if ( ! class_exists( 'DBCM_Admin_Page_Advanced' ) ) {
 				</div>
 			</div>
 
+			<div class="db-ui-card">
+				<div class="db-ui-card-header"><h3><?php esc_html_e( 'Meta Pixel', 'db-cookie-manager' ); ?></h3></div>
+				<div class="db-ui-card-body">
+					<p style="margin:0 0 14px;font-size:13px;color:var(--db-text-muted)">
+						<?php esc_html_e( 'Modulo Meta Pixel nativo: il plugin che raccoglie il consenso emette anche il pixel, quindi il caricamento è vincolato per costruzione alla categoria Marketing. Lo script di Meta (fbevents.js) non viene contattato finché l\'utente non accetta; all\'accettazione il pixel parte senza reload, e alla revoca riceve il segnale di revoca e i cookie vengono rimossi.', 'db-cookie-manager' ); ?>
+					</p>
+					<?php
+					DBCM_Admin::field_checkbox(
+						'meta_pixel_enabled',
+						$s['meta_pixel_enabled'],
+						__( 'Attiva Meta Pixel', 'db-cookie-manager' ),
+						__( 'Richiede un Pixel ID valido. Se usi già un altro plugin che inserisce il Meta Pixel (es. Meta for WooCommerce), disattivalo per evitare doppi conteggi: quello resterebbe comunque bloccato dal blocker fino al consenso.', 'db-cookie-manager' )
+					);
+					DBCM_Admin::field_text(
+						'meta_pixel_id',
+						$s['meta_pixel_id'],
+						__( 'Pixel ID', 'db-cookie-manager' ),
+						__( '15–16 cifre. Lo trovi in Meta Gestione eventi → Origini dei dati. Un valore non numerico o di lunghezza errata viene scartato al salvataggio.', 'db-cookie-manager' )
+					);
+					DBCM_Admin::field_checkbox(
+						'meta_pixel_capi_handoff',
+						$s['meta_pixel_capi_handoff'],
+						__( 'Handoff event_id per Conversions API', 'db-cookie-manager' ),
+						__( 'Attiva solo se usi DB Meta Events per la Conversions API server-side: il PageView viene inviato con un eventID condiviso (esposto in window.DBCM_META_LAST_EVENT_ID) per la deduplicazione browser/server.', 'db-cookie-manager' )
+					);
+					?>
+					<div class="db-ui-alert db-ui-alert-info" style="margin-top:14px">
+						<span class="db-ui-alert-icon" aria-hidden="true">ℹ️</span>
+						<span><?php esc_html_e( 'Conformità: l\'uso del Meta Pixel comporta contitolarità con Meta (art. 26 GDPR) e trasferimento verso gli USA in Data Privacy Framework. Il plugin dichiara automaticamente cookie e trattamento nella Cookie Policy e, via DB Privacy Hub, nella Privacy Policy; verifica di aver accettato le Condizioni per gli strumenti business di Meta.', 'db-cookie-manager' ); ?></span>
+					</div>
+				</div>
+			</div>
+
 			<?php
 			DBCM_Admin::form_close( __( 'Salva impostazioni avanzate', 'db-cookie-manager' ) );
 		}

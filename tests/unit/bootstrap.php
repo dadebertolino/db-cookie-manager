@@ -261,6 +261,12 @@ if ( ! function_exists( 'esc_attr' ) ) {
 		return htmlspecialchars( (string) $t, ENT_QUOTES, 'UTF-8' );
 	}
 }
+if ( ! function_exists( 'esc_js' ) ) {
+	function esc_js( $t ) {
+		// Stub minimale: sufficiente per un Pixel ID numerico.
+		return addslashes( (string) $t );
+	}
+}
 if ( ! function_exists( 'get_bloginfo' ) ) {
 	function get_bloginfo( $key = 'name' ) {
 		return 'Sito Di Test';
@@ -346,6 +352,8 @@ require_once DBCM_TEST_ROOT . '/inc/class-declared-services.php';
 require_once DBCM_TEST_ROOT . '/inc/class-consent-api.php';
 require_once DBCM_TEST_ROOT . '/inc/class-consent-signals.php';
 require_once DBCM_TEST_ROOT . '/inc/class-policy-generator.php';
+require_once DBCM_TEST_ROOT . '/inc/class-blocker.php';
+require_once DBCM_TEST_ROOT . '/inc/class-meta-pixel.php';
 
 // Autoload Composer per PHPUnit.
 require_once DBCM_TEST_ROOT . '/vendor/autoload.php';

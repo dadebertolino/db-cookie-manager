@@ -3,7 +3,7 @@
  * Plugin Name: DB Cookie Manager
  * Plugin URI:  https://www.davidebertolino.it/progetti/db-cookie-manager
  * Description: Gestione completa dei cookie per WordPress: scanner automatico, banner GDPR multilingua con blocco preventivo, integrazione WP Consent API, generatore Cookie Policy e registro consensi.
- * Version:     3.6.1
+ * Version:     3.7.0
  * Author:      Davide Bertolino
  * Author URI:  https://www.davidebertolino.it
  * License:     GPL v2 or later
@@ -23,7 +23,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Costanti
  * ========================================================================== */
 
-define( 'DBCM_VERSION', '3.6.1' );
+define( 'DBCM_VERSION', '3.7.0' );
 define( 'DBCM_FILE', __FILE__ );
 define( 'DBCM_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DBCM_URL', plugin_dir_url( __FILE__ ) );
@@ -92,6 +92,9 @@ if ( ! class_exists( 'DBCM_Plugin' ) ) {
 			// v3.3.0 — Google Consent Mode v2 (opt-in). Inietta lo snippet
 			// default 'denied' nel <head> e il mapping categoria→segnale.
 			require_once DBCM_DIR . 'inc/class-consent-signals.php';
+
+			// v3.7.0 — Meta Pixel nativo (gated by-design, opt-in).
+			require_once DBCM_DIR . 'inc/class-meta-pixel.php';
 
 			// v3.3.0 — Database firme locale (sorgente unica per blocker e scanner).
 			require_once DBCM_DIR . 'inc/data/signatures.php';
@@ -172,6 +175,12 @@ if ( ! class_exists( 'DBCM_Plugin' ) ) {
 
 			// GCM v2: inerte se gcm_enabled = false (default).
 			DBCM_Consent_Signals::init();
+
+			// Meta Pixel nativo: inerte se meta_pixel_enabled = false
+			// (default) o senza Pixel ID valido. Quando attivo emette il
+			// gate JS in wp_head e registra il servizio nel registro
+			// dichiarati (art. 13).
+			DBCM_Meta_Pixel::init();
 
 			// v3.3.0 — Database firme: aggancia le viste blocker/scanner ai
 			// filtri esistenti PRIMA che Blocker e Scanner girino. Additivo:

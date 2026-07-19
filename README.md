@@ -268,6 +268,16 @@ Cookie scritti dal plugin:
 
 
 
+#### 3.7.0 — Modulo Meta Pixel nativo _(2026)_
+
+Il plugin che possiede il consenso possiede anche il pixel: nuovo modulo opt-in (*Avanzate → Meta Pixel*) che emette lo snippet Meta come gate JS, quindi il caricamento di `fbevents.js` è vincolato **per costruzione** alla categoria Marketing (Art. 6.1.a) — nessuna race tra CMP e tag di terzi.
+
+- **Fire senza reload**: check iniziale su `window.DBCM.hasConsent('marketing')` (version-aware: un consenso con versione obsoleta non concede) + listener su `dbcm:consent`. Alla revoca invia `fbq('consent','revoke')` a runtime (Art. 7.3); la rimozione di `_fbp` è coperta dalla cancellazione reattiva esistente.
+- **Anti auto-blocco**: il gate contiene le stringhe che il blocker matcha sul contenuto inline (`connect.facebook.net`, `fbevents.js`) — nuovo skip esplicito `data-dbcm-own` nel blocker, con test di contratto: il gate passa, un Meta Pixel di terzi (es. Meta for WooCommerce) resta bloccato.
+- **Trasparenza automatica**: quando attivo, lo slug `meta-pixel` è registrato nei servizi dichiarati (idratato dalla firma: fonte unica di verità) e il trattamento in contitolarità con Meta (Art. 26, DPF) è dichiarato a DB Privacy Hub via `dbph_processing_register`. Alla firma `meta-pixel` si aggiunge il cookie `_fbc` (click ID).
+- **Handoff CAPI** (opt-in): PageView inviato con `eventID` condiviso esposto in `window.DBCM_META_LAST_EVENT_ID`, per la deduplicazione con la futura Conversions API server-side (DB Meta Events).
+- Pixel ID validato server-side (solo 15–16 cifre, ri-sanitizzato anche in lettura). Test: +24 unit (modulo 20, contratto blocker 4), validati con mutation testing.
+
 #### 3.6.1 — Firma Facebook per contenuti incorporati _(2026)_
 
 Chiude un gap di blocco rilevato tramite la nuova pagina Servizi dichiarati: gli embed Facebook via iframe (`facebook.com/plugins/…` — post, video, like/share button) non erano coperti da alcuna firma né dai pattern del blocker, quindi **caricavano prima del consenso** (era gestito solo il Meta Pixel via `connect.facebook.net`). Nuova firma `facebook` con cookie tipici (`fr`, `datr`, `sb`) e informativa Meta: in cascata sistemano blocco preventivo dell'iframe, placeholder click-to-load, registro dei servizi dichiarati, pick-list e rilevamento scanner. Il caricamento via SDK JS resta attribuito a `meta-pixel` (nessuna doppia attribuzione). Test: +3 unit di regressione (132 totali).
@@ -702,6 +712,16 @@ Cookies written by the plugin:
 ---
 
 ### Changelog
+
+#### 3.7.0 — Native Meta Pixel module _(2026)_
+
+The plugin that owns the consent also owns the pixel: new opt-in module (*Advanced → Meta Pixel*) that emits the Meta snippet as a JS gate, so loading `fbevents.js` is bound to the Marketing category **by construction** (Art. 6.1.a) — no race between CMP and third-party tags.
+
+- **Fires without reload**: initial check on `window.DBCM.hasConsent('marketing')` (version-aware: consent with an outdated version does not grant) + `dbcm:consent` listener. On withdrawal it sends `fbq('consent','revoke')` at runtime (Art. 7.3); `_fbp` removal is covered by the existing reactive cleanup.
+- **Self-blocking avoided**: the gate contains the strings the blocker matches on inline content (`connect.facebook.net`, `fbevents.js`) — new explicit `data-dbcm-own` skip in the blocker, with contract tests: the gate passes, a third-party Meta Pixel (e.g. Meta for WooCommerce) stays blocked.
+- **Automatic transparency**: when active, the `meta-pixel` slug is registered in the declared services (hydrated from the signature: single source of truth) and the joint-controllership treatment with Meta (Art. 26, DPF) is declared to DB Privacy Hub via `dbph_processing_register`. The `_fbc` cookie (click ID) is added to the `meta-pixel` signature.
+- **CAPI handoff** (opt-in): PageView sent with a shared `eventID` exposed in `window.DBCM_META_LAST_EVENT_ID`, for deduplication with the upcoming server-side Conversions API (DB Meta Events).
+- Pixel ID validated server-side (15–16 digits only, re-sanitised on read too). Tests: +24 units (module 20, blocker contract 4), validated via mutation testing.
 
 #### 3.6.1 — Facebook signature for embedded content _(2026)_
 

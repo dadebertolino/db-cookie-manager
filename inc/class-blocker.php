@@ -495,6 +495,14 @@ if ( ! class_exists( 'DBCM_Blocker' ) ) {
 			if ( false !== stripos( $attrs, 'dbcm-banner' ) ) {
 				return $m[0];
 			}
+			// Skip: script emessi dai moduli interni del plugin, già gated
+			// by-design (es. gate Meta Pixel: contiene le stringhe
+			// connect.facebook.net/fbevents.js che matcherebbero i pattern
+			// sul contenuto inline, ma carica fbevents.js solo post-consenso).
+			// Non è un bypass: chi può stampare <script> controlla già il sito.
+			if ( false !== stripos( $attrs, 'data-dbcm-own' ) ) {
+				return $m[0];
+			}
 
 			// Determina la categoria: prima dal src, poi dal contenuto inline.
 			$category = null;

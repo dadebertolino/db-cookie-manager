@@ -401,6 +401,9 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 					'uet_enabled'    => 'bool',
 					'clarity_enabled' => 'bool',
 					'localize_google_fonts' => 'bool',
+					'meta_pixel_enabled'      => 'bool',
+					'meta_pixel_id'           => 'pixel_id',
+					'meta_pixel_capi_handoff' => 'bool',
 				),
 			);
 		}
@@ -460,6 +463,12 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 				case 'page_id':
 					$id = (int) $value;
 					return ( $id > 0 && get_post_status( $id ) ) ? $id : 0;
+
+				case 'pixel_id':
+					// Meta Pixel ID: solo cifre, 15–16 caratteri, altrimenti ''.
+					return class_exists( 'DBCM_Meta_Pixel' )
+						? DBCM_Meta_Pixel::sanitize_pixel_id( $value )
+						: '';
 
 				case 'ua_mode':
 					$value = is_string( $value ) ? sanitize_key( $value ) : '';

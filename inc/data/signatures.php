@@ -581,6 +581,12 @@ function dbcm_signatures_data() {
 					'desc'     => __( 'Identifica il browser per pubblicità e retargeting Meta. Marketing.', 'db-cookie-manager' ),
 				),
 				array(
+					'name'     => '_fbc',
+					'domain'   => '@self.',
+					'duration' => __( '3 mesi', 'db-cookie-manager' ),
+					'desc'     => __( 'Memorizza il click ID (fbclid) dell\'annuncio Meta per l\'attribuzione. Marketing.', 'db-cookie-manager' ),
+				),
+				array(
 					'name'     => 'fr',
 					'domain'   => '.facebook.com',
 					'duration' => __( '3 mesi', 'db-cookie-manager' ),

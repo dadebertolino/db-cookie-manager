@@ -190,6 +190,17 @@ if ( ! class_exists( 'DBCM_Settings' ) ) {
 				 * Microsoft dal 31/10/2025 in EEA/UK/CH). */
 				'clarity_enabled'        => false,
 
+				/* ---- Meta Pixel nativo (opt-in) ----
+				 * OFF di default (privacy by default, Art. 25). Quando ON e
+				 * con Pixel ID valido, il gate JS carica fbevents.js SOLO
+				 * dopo consenso marketing (Art. 6.1.a) e invia
+				 * fbq('consent','revoke') alla revoca (Art. 7.3). Il
+				 * possessore del consenso possiede il pixel: gating
+				 * by-design, nessuna race con tag di terzi. */
+				'meta_pixel_enabled'      => false,
+				'meta_pixel_id'           => '',
+				'meta_pixel_capi_handoff' => false,
+
 				/* ---- Localizzazione Google Fonts (opt-in) ----
 				 * OFF di default. Quando ON, i <link> verso fonts.googleapis.com
 				 * vengono rimossi dall'HTML: il browser non contatta più i server
