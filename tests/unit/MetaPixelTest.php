@@ -150,6 +150,12 @@ final class MetaPixelTest extends TestCase {
 		$this->assertStringContainsString( 'CAPI_HANDOFF = false', $html, 'Handoff OFF di default.' );
 	}
 
+	public function test_snippet_rechecks_on_dbcm_ready(): void {
+		update_option( 'dbcm_settings', array( 'meta_pixel_enabled' => true, 'meta_pixel_id' => '123456789012345' ) );
+		$html = $this->capture_snippet();
+		$this->assertStringContainsString( "addEventListener('dbcm:ready'", $html, 'Con banner.js ritardato dagli ottimizzatori il consenso salvato va riletto su dbcm:ready.' );
+	}
+
 	public function test_snippet_capi_handoff_flag(): void {
 		update_option( 'dbcm_settings', array(
 			'meta_pixel_enabled'      => true,

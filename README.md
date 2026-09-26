@@ -105,6 +105,12 @@ document.addEventListener('dbcm:consent', function(ev) {
     var consent = ev.detail.consent;
     var type    = ev.detail.type;
 });
+
+// Dalla 3.7.1: window.DBCM è pronto (utile se banner.js viene ritardato
+// da un ottimizzatore e il tuo script gira prima).
+document.addEventListener('dbcm:ready', function() {
+    if (window.DBCM.hasConsent('marketing')) { /* ... */ }
+});
 ```
 
 ---
@@ -127,6 +133,7 @@ document.addEventListener('dbcm:consent', function(ev) {
 | `dbcm_consent_set`          | action  | Fired ad ogni cambio consenso — args: `$type, $consent`      |
 | `dbcm_consent_propagated`   | action  | Fired dopo la propagazione a `wp_set_consent()`              |
 | `dbcm_consent_type`         | filter  | Default `'optin'` — sovrascrivi il consent type WP API       |
+| `dbcm_consent_rate_limit`   | filter  | Default `20` — richieste di consenso per IP ogni 10 minuti (visitatori anonimi); `0` disattiva |
 
 #### Blocker
 
@@ -267,6 +274,12 @@ Cookie scritti dal plugin:
 ### Changelog
 
 
+
+#### 3.7.1 — Consensi registrati anche con cache di pagina _(2026)_
+
+- **Fix registro consensi con cache di pagina**: con WP Rocket, LiteSpeed Cache e simili il nonce stampato nell'HTML scadeva dopo 12–24h e da quel momento ogni scelta dei visitatori veniva rifiutata in silenzio dall'endpoint `dbcm_set_consent` — il banner funzionava, ma il consenso non finiva nel registro (Art. 7.1) né nella WP Consent API. Per i visitatori anonimi il nonce (identico per tutti) è sostituito da controllo di origine (`Origin`/`Referer` dello stesso sito) e rate limit per IP (hash salato, filtro `dbcm_consent_rate_limit`); per gli utenti loggati resta il nonce. `banner.js` ora segnala in console una sincronizzazione fallita invece di ignorarla.
+- **Meta Pixel con JS ritardato**: se un ottimizzatore ritarda `banner.js` fino alla prima interazione, il gate non trovava `window.DBCM` a `DOMContentLoaded` e il pixel non partiva per chi aveva già acconsentito. Nuovo evento `dbcm:ready`, emesso quando l'API pubblica è disponibile: il gate ripete lì il check.
+- Test: +7 unit (164 totali).
 
 #### 3.7.0 — Modulo Meta Pixel nativo _(2026)_
 
@@ -552,6 +565,12 @@ document.addEventListener('dbcm:consent', function(ev) {
     var consent = ev.detail.consent;
     var type    = ev.detail.type;
 });
+
+// Since 3.7.1: window.DBCM is ready (useful when an optimizer delays
+// banner.js and your script runs first).
+document.addEventListener('dbcm:ready', function() {
+    if (window.DBCM.hasConsent('marketing')) { /* ... */ }
+});
 ```
 
 ---
@@ -574,6 +593,7 @@ document.addEventListener('dbcm:consent', function(ev) {
 | `dbcm_consent_set`          | action  | Fired on every consent change — args: `$type, $consent`         |
 | `dbcm_consent_propagated`   | action  | Fired after propagation to `wp_set_consent()`                   |
 | `dbcm_consent_type`         | filter  | Default `'optin'` — override WP API consent type                |
+| `dbcm_consent_rate_limit`   | filter  | Default `20` — consent requests per IP every 10 minutes (anonymous visitors); `0` disables |
 
 #### Blocker
 
@@ -712,6 +732,12 @@ Cookies written by the plugin:
 ---
 
 ### Changelog
+
+#### 3.7.1 — Consents recorded even with page caching _(2026)_
+
+- **Consent log fix with page caching**: with WP Rocket, LiteSpeed Cache and similar, the nonce printed in the HTML expired after 12–24h and from then on every visitor choice was silently rejected by the `dbcm_set_consent` endpoint — the banner worked, but the consent never reached the log (Art. 7.1) nor the WP Consent API. For anonymous visitors the nonce (identical for everyone) is replaced by an origin check (same-site `Origin`/`Referer`) and a per-IP rate limit (salted hash, `dbcm_consent_rate_limit` filter); logged-in users keep the nonce. `banner.js` now reports a failed sync in the console instead of swallowing it.
+- **Meta Pixel with delayed JS**: when an optimizer delays `banner.js` until first interaction, the gate could not find `window.DBCM` at `DOMContentLoaded` and the pixel never fired for visitors who had already consented. New `dbcm:ready` event, fired when the public API is available: the gate re-checks there.
+- Tests: +7 unit (164 total).
 
 #### 3.7.0 — Native Meta Pixel module _(2026)_
 

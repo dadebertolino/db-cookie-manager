@@ -132,6 +132,12 @@ Ogni campo dichiara il proprio tipo: `bool`/`int`/`color`/`select:val1|val2`/`pa
 
 **Motivazione**: compromettere un nonce non dà accesso agli altri. Principle of least privilege esteso ai token CSRF.
 
+### Endpoint pubblico del consenso senza nonce per gli anonimi (3.7.1)
+
+`dbcm_set_consent` richiede il nonce solo agli utenti loggati. Per i visitatori anonimi il nonce è identico per tutti (nessuna protezione reale) e, stampato in pagine servite da cache, scade dopo 12–24h: ogni scelta successiva veniva rifiutata in silenzio e il consenso spariva dal registro. Al suo posto: controllo di origine (`Origin`/`Referer` sullo stesso host di `home_url`/`site_url`) + rate limit per IP via transient (hash salato, filtro `dbcm_consent_rate_limit`). Il payload accetta comunque solo booleani sulle 5 categorie.
+
+**Regola generale**: nessun nonce in HTML pubblico destinato ad azioni di visitatori anonimi — la cache di pagina lo rende una bomba a orologeria.
+
 ---
 
 ## 5. UI e design system

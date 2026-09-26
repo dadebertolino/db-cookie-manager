@@ -138,7 +138,9 @@ if ( ! class_exists( 'DBCM_Consent_API' ) ) {
 		 * Risposta: { success: true, consent: { ... } }
 		 */
 		public static function ajax_set_consent() {
-			check_ajax_referer( 'dbcm_consent_nonce', 'nonce' );
+			self::verify_consent_request();
+
+			// phpcs:disable WordPress.Security.NonceVerification.Missing -- nonce (loggati) o origin + rate limit (anonimi) verificati in verify_consent_request().
 
 			$type = isset( $_POST['type'] ) ? sanitize_key( wp_unslash( $_POST['type'] ) ) : 'custom';
 			if ( ! in_array( $type, array( 'accept_all', 'reject_all', 'custom' ), true ) ) {
@@ -147,6 +149,7 @@ if ( ! class_exists( 'DBCM_Consent_API' ) ) {
 
 			$raw     = isset( $_POST['consent'] ) ? wp_unslash( $_POST['consent'] ) : '';
 			$consent = self::sanitize_consent_payload( $raw );
+			// phpcs:enable WordPress.Security.NonceVerification.Missing
 
 			// Forza 'functional' sempre true (sicurezza lato server).
 			$consent['functional'] = true;
@@ -169,6 +172,107 @@ if ( ! class_exists( 'DBCM_Consent_API' ) ) {
 					'type'    => $type,
 				)
 			);
+		}
+
+		/**
+		 * Numero massimo di richieste dbcm_set_consent per IP nella finestra
+		 * di RATE_WINDOW secondi (visitatori anonimi). Filtrabile via
+		 * 'dbcm_consent_rate_limit'.
+		 */
+		const RATE_LIMIT  = 20;
+		const RATE_WINDOW = 600;
+
+		/**
+		 * Verifica la richiesta AJAX di consenso; termina con errore se non valida.
+		 *
+		 * Utenti loggati: nonce classico (le loro pagine non finiscono in
+		 * cache, e il nonce è legato alla sessione → protezione CSRF reale).
+		 *
+		 * Visitatori anonimi (3.7.1): niente nonce. Con una cache di pagina
+		 * (WP Rocket, LiteSpeed, ...) il nonce stampato nell'HTML scade dopo
+		 * 12–24h e ogni scelta successiva veniva rifiutata in silenzio →
+		 * consenso non registrato nel log (art. 7.1) né propagato alla WP
+		 * Consent API. Per un anonimo il nonce è comunque identico per tutti
+		 * i visitatori, quindi non protegge nulla: lo sostituiamo con un
+		 * controllo di origine (Origin/Referer dello stesso sito) e un rate
+		 * limit per IP contro il flooding del registro consensi.
+		 *
+		 * @return void
+		 */
+		private static function verify_consent_request() {
+			if ( is_user_logged_in() ) {
+				check_ajax_referer( 'dbcm_consent_nonce', 'nonce' );
+				return;
+			}
+
+			// phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- confrontati solo come host via wp_parse_url().
+			$origin = '';
+			if ( ! empty( $_SERVER['HTTP_ORIGIN'] ) ) {
+				$origin = wp_unslash( $_SERVER['HTTP_ORIGIN'] );
+			} elseif ( ! empty( $_SERVER['HTTP_REFERER'] ) ) {
+				$origin = wp_unslash( $_SERVER['HTTP_REFERER'] );
+			}
+			// phpcs:enable
+
+			if ( ! self::origin_matches( $origin, array( home_url(), site_url() ) ) ) {
+				wp_send_json_error( array( 'code' => 'bad_origin' ), 403 );
+			}
+
+			if ( self::is_rate_limited() ) {
+				wp_send_json_error( array( 'code' => 'rate_limited' ), 429 );
+			}
+		}
+
+		/**
+		 * True se l'host di $origin coincide con l'host di uno degli URL del sito.
+		 *
+		 * Confronto sul solo host (case-insensitive): http/https e porta
+		 * possono differire dietro proxy. Origin vuoto o 'null' → false.
+		 *
+		 * @param string $origin    Valore dell'header Origin o Referer.
+		 * @param array  $site_urls URL del sito (home_url, site_url).
+		 * @return bool
+		 */
+		public static function origin_matches( $origin, $site_urls ) {
+			$origin = is_string( $origin ) ? trim( $origin ) : '';
+			if ( '' === $origin || 'null' === $origin ) {
+				return false;
+			}
+			$host = wp_parse_url( $origin, PHP_URL_HOST );
+			if ( ! is_string( $host ) || '' === $host ) {
+				return false;
+			}
+			$host = strtolower( $host );
+			foreach ( (array) $site_urls as $url ) {
+				$site_host = wp_parse_url( (string) $url, PHP_URL_HOST );
+				if ( is_string( $site_host ) && strtolower( $site_host ) === $host ) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		/**
+		 * Rate limit per IP (hash salato, mai in chiaro) via transient.
+		 *
+		 * @return bool True se la richiesta supera il limite.
+		 */
+		private static function is_rate_limited() {
+			$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? filter_var( wp_unslash( $_SERVER['REMOTE_ADDR'] ), FILTER_VALIDATE_IP ) : false;
+			if ( ! $ip ) {
+				return false;
+			}
+			$limit = (int) apply_filters( 'dbcm_consent_rate_limit', self::RATE_LIMIT );
+			if ( $limit <= 0 ) {
+				return false;
+			}
+			$key   = 'dbcm_rl_' . substr( hash( 'sha256', $ip . wp_salt( 'nonce' ) ), 0, 32 );
+			$count = (int) get_transient( $key );
+			if ( $count >= $limit ) {
+				return true;
+			}
+			set_transient( $key, $count + 1, self::RATE_WINDOW );
+			return false;
 		}
 
 		/**

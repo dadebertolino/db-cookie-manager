@@ -319,4 +319,34 @@ final class ConsentApiTest extends TestCase {
 		DBCM_Consent_API::hydrate_consent_from_cookie();
 		$this->assertFalse( wp_has_consent( 'statistics' ), 'Senza cookie lo stato resta il default (deny).' );
 	}
+
+	/* =====================================================================
+	 * origin_matches() — controllo di origine per visitatori anonimi
+	 * ================================================================== */
+
+	public function test_origin_matches_same_host(): void {
+		$this->assertTrue( DBCM_Consent_API::origin_matches( 'https://gatdus.example', array( 'https://gatdus.example' ) ) );
+	}
+
+	public function test_origin_matches_referer_with_path_and_case(): void {
+		$this->assertTrue( DBCM_Consent_API::origin_matches( 'http://GATDUS.example/pagina/?x=1', array( 'https://gatdus.example' ) ) );
+	}
+
+	public function test_origin_matches_any_site_url(): void {
+		$this->assertTrue( DBCM_Consent_API::origin_matches( 'https://wp.gatdus.example', array( 'https://gatdus.example', 'https://wp.gatdus.example/wp' ) ) );
+	}
+
+	public function test_origin_rejects_foreign_host(): void {
+		$this->assertFalse( DBCM_Consent_API::origin_matches( 'https://evil.example', array( 'https://gatdus.example' ) ) );
+	}
+
+	public function test_origin_rejects_suffix_trick(): void {
+		$this->assertFalse( DBCM_Consent_API::origin_matches( 'https://gatdus.example.evil.example', array( 'https://gatdus.example' ) ) );
+	}
+
+	public function test_origin_rejects_empty_and_null(): void {
+		$this->assertFalse( DBCM_Consent_API::origin_matches( '', array( 'https://gatdus.example' ) ) );
+		$this->assertFalse( DBCM_Consent_API::origin_matches( 'null', array( 'https://gatdus.example' ) ) );
+		$this->assertFalse( DBCM_Consent_API::origin_matches( null, array( 'https://gatdus.example' ) ) );
+	}
 }

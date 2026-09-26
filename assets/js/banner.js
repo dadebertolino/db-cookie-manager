@@ -138,7 +138,14 @@
             method:      'POST',
             body:        body,
             credentials: 'same-origin'
-        }).catch(function () { /* silent */ });
+        }).then(function (res) {
+            // Il consenso resta valido lato client (cookie già scritto), ma
+            // senza sync non finisce nel registro né nella WP Consent API:
+            // lo segnaliamo invece di ignorarlo.
+            if (!res.ok && window.console) {
+                console.warn('[DBCM] Sincronizzazione consenso fallita (HTTP ' + res.status + ').');
+            }
+        }).catch(function () { /* rete assente: silent */ });
     }
 
     /**
@@ -750,6 +757,16 @@
          */
         categories: ALL_CATEGORIES.slice()
     };
+
+    /*
+     * 'dbcm:ready' — l'API pubblica è disponibile. Serve agli script che
+     * girano PRIMA di banner.js e non possono contare su DOMContentLoaded
+     * (es. ottimizzatori che ritardano il JS fino alla prima interazione):
+     * il gate Meta Pixel lo usa per il check del consenso già salvato.
+     */
+    try {
+        document.dispatchEvent(new CustomEvent('dbcm:ready'));
+    } catch (e) { /* old browser */ }
 
     /* =========================================================================
      * BOOT

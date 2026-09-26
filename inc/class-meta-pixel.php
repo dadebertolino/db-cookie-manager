@@ -206,7 +206,8 @@ if ( ! class_exists( 'DBCM_Meta_Pixel' ) ) {
 		 * carica nulla finché window.DBCM.hasConsent('marketing') non è true:
 		 *  - check iniziale a DOMContentLoaded (banner.js è in footer, quindi
 		 *    a quel punto l'API pubblica esiste ed è già version-aware: un
-		 *    consenso con consent_version obsoleta risulta non concesso);
+		 *    consenso con consent_version obsoleta risulta non concesso),
+		 *    ripetuto su 'dbcm:ready' se banner.js è stato ritardato (3.7.1);
 		 *  - listener su 'dbcm:consent' per partire all'accettazione senza
 		 *    reload e per inviare fbq('consent','revoke') alla revoca.
 		 *
@@ -253,13 +254,19 @@ if ( ! class_exists( 'DBCM_Meta_Pixel' ) ) {
 		return !!(window.DBCM && window.DBCM.hasConsent && window.DBCM.hasConsent('marketing'));
 	}
 
-	/* Consenso già salvato (reload): banner.js è in footer → check a DOMContentLoaded. */
+	function checkSaved() {
+		if (marketingGranted()) { loadPixel(); }
+	}
+
+	/* Consenso già salvato (reload): banner.js è in footer → check a
+		DOMContentLoaded. Se un ottimizzatore ritarda banner.js oltre quel
+		momento (es. "Delay JS" fino all'interazione), window.DBCM non esiste
+		ancora: ripetiamo il check su 'dbcm:ready'. loadPixel è idempotente. */
+	document.addEventListener('dbcm:ready', checkSaved);
 	if ('loading' === document.readyState) {
-		document.addEventListener('DOMContentLoaded', function () {
-			if (marketingGranted()) { loadPixel(); }
-		});
-	} else if (marketingGranted()) {
-		loadPixel();
+		document.addEventListener('DOMContentLoaded', checkSaved);
+	} else {
+		checkSaved();
 	}
 
 	/* Cambio consenso a runtime (accettazione o revoca, senza reload). */

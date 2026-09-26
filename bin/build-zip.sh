@@ -40,6 +40,8 @@ tar \
 	--exclude='*.dist' \
 	--exclude='./playwright-report' \
 	--exclude='./test-results' \
+	--exclude='.DS_Store' \
+	--exclude='./.phpunit.result.cache' \
 	-cf - . | ( cd "${STAGE}" && tar -xf - )
 
 if [[ ! -f "${STAGE}/${SLUG}.php" ]]; then
