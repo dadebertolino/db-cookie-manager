@@ -21,6 +21,15 @@
  *  - Decision via DBCM_Consent_API::has_consent() — usa wp_has_consent()
  *    se la WP Consent API è installata, altrimenti il cookie del banner.
  *
+ * 3.8.0 — HTML indipendente dal consenso per i visitatori anonimi: con una
+ * cache di pagina (WP Rocket, LiteSpeed, Cloudflare APO, cache dell'hosting)
+ * la pagina generata per un visitatore che aveva accettato veniva servita
+ * a TUTTI con i tracker attivi (tracciamento prima del consenso). Ora per i
+ * non loggati ogni script/iframe riconosciuto è SEMPRE neutralizzato e la
+ * riattivazione avviene solo lato client (banner.js → boot()/commit()),
+ * leggendo il cookie del singolo browser. La decisione server-side resta
+ * solo per gli utenti loggati, le cui pagine non finiscono in cache.
+ *
  * Due meccanismi:
  *  1. Filtro 'script_loader_tag' (priorità 100) — copre wp_enqueue_script.
  *  2. Output buffering su 'template_redirect' priorità 1 — copre script
@@ -145,7 +154,6 @@ if ( ! class_exists( 'DBCM_Blocker' ) ) {
 						'umami.is/script.js',
 						'cdn.usefathom.com',
 						'simpleanalytics.com/latest.js',
-						'sa.davidebertolino.it',         // sentinella locale (esempio)
 					),
 				),
 
@@ -320,6 +328,37 @@ if ( ! class_exists( 'DBCM_Blocker' ) ) {
 		}
 
 		/**
+		 * True se l'HTML può uscire con lo script/iframe ATTIVO perché la
+		 * categoria è concessa.
+		 *
+		 * Per i visitatori anonimi restituisce SEMPRE false (3.8.0): l'HTML
+		 * deve essere identico per tutti, altrimenti una cache di pagina
+		 * servirebbe a chiunque la versione "consenso dato" generata per il
+		 * primo visitatore. La riattivazione avviene lato client in banner.js.
+		 * Per gli utenti loggati (pagine non cachate) la decisione resta
+		 * server-side, così l'admin vede subito gli script attivi.
+		 *
+		 * Filtro 'dbcm_blocker_server_side_decision': true forza la decisione
+		 * server-side anche per gli anonimi (solo siti SENZA cache di pagina).
+		 *
+		 * @since 3.8.0
+		 * @param string $category
+		 * @return bool
+		 */
+		private static function output_allowed( $category ) {
+			$server_side = function_exists( 'is_user_logged_in' ) && is_user_logged_in();
+
+			/**
+			 * Decisione server-side del consenso nel blocker.
+			 *
+			 * @param bool $server_side Default: true solo per utenti loggati.
+			 */
+			$server_side = (bool) apply_filters( 'dbcm_blocker_server_side_decision', $server_side );
+
+			return $server_side && self::has_consent( $category );
+		}
+
+		/**
 		 * Registra nel registro dei servizi dichiarati l'URL appena matchato.
 		 *
 		 * Chiamata DOPO il match e PRIMA del check di consenso: il servizio
@@ -357,7 +396,7 @@ if ( ! class_exists( 'DBCM_Blocker' ) ) {
 				return $tag;
 			}
 			self::record_declared_service( $src );
-			if ( self::has_consent( $category ) ) {
+			if ( self::output_allowed( $category ) ) {
 				return $tag;
 			}
 			return self::neutralize_script_tag( $tag, $category );
@@ -371,6 +410,9 @@ if ( ! class_exists( 'DBCM_Blocker' ) ) {
 		 * @return string
 		 */
 		private static function neutralize_script_tag( $tag, $category ) {
+			// Conserva un type non classico (es. module) per la riattivazione.
+			$orig_type = self::original_type_attr( $tag );
+
 			// Sostituisce o aggiunge type="text/plain".
 			if ( preg_match( '/\stype\s*=\s*["\'][^"\']*["\']/i', $tag ) ) {
 				$tag = preg_replace( '/\stype\s*=\s*["\'][^"\']*["\']/i', ' type="text/plain"', $tag, 1 );
@@ -382,13 +424,33 @@ if ( ! class_exists( 'DBCM_Blocker' ) ) {
 			if ( false === stripos( $tag, 'data-dbcm-blocked' ) ) {
 				$tag = preg_replace(
 					'/<script\b/i',
-					'<script data-dbcm-blocked="true" data-dbcm-category="' . esc_attr( $category ) . '"',
+					'<script data-dbcm-blocked="true" data-dbcm-category="' . esc_attr( $category ) . '"' . $orig_type,
 					$tag,
 					1
 				);
 			}
 
 			return $tag;
+		}
+
+		/**
+		 * Restituisce ' data-dbcm-type="…"' se il tag ha un type diverso da
+		 * quello classico (es. type="module"), stringa vuota altrimenti.
+		 * banner.js lo usa per ripristinare il type corretto alla riattivazione.
+		 *
+		 * @since 3.8.0
+		 * @param string $attrs Tag o stringa di attributi.
+		 * @return string
+		 */
+		private static function original_type_attr( $attrs ) {
+			if ( ! preg_match( '/\stype\s*=\s*["\']([^"\']*)["\']/i', $attrs, $m ) ) {
+				return '';
+			}
+			$type = strtolower( trim( $m[1] ) );
+			if ( '' === $type || 'text/javascript' === $type || 'application/javascript' === $type || 'text/plain' === $type ) {
+				return '';
+			}
+			return ' data-dbcm-type="' . esc_attr( $type ) . '"';
 		}
 
 		/* =====================================================================
@@ -519,18 +581,19 @@ if ( ! class_exists( 'DBCM_Blocker' ) ) {
 			if ( ! empty( $src_match[1] ) ) {
 				self::record_declared_service( $src_match[1] );
 			}
-			if ( self::has_consent( $category ) ) {
+			if ( self::output_allowed( $category ) ) {
 				return $m[0];
 			}
 
 			// Sostituisce o aggiunge type="text/plain".
-			$blocked = $attrs;
+			$orig_type = self::original_type_attr( $attrs );
+			$blocked   = $attrs;
 			if ( preg_match( '/\stype\s*=\s*["\'][^"\']*["\']/i', $blocked ) ) {
 				$blocked = preg_replace( '/\stype\s*=\s*["\'][^"\']*["\']/i', ' type="text/plain"', $blocked, 1 );
 			} else {
 				$blocked = ' type="text/plain"' . $blocked;
 			}
-			$blocked .= ' data-dbcm-blocked="true" data-dbcm-category="' . esc_attr( $category ) . '"';
+			$blocked .= ' data-dbcm-blocked="true" data-dbcm-category="' . esc_attr( $category ) . '"' . $orig_type;
 
 			return '<script' . $blocked . '>' . $content . '</script>';
 		}
@@ -570,7 +633,7 @@ if ( ! class_exists( 'DBCM_Blocker' ) ) {
 				return $m[0];
 			}
 			self::record_declared_service( $src );
-			if ( self::has_consent( $category ) ) {
+			if ( self::output_allowed( $category ) ) {
 				return $m[0];
 			}
 

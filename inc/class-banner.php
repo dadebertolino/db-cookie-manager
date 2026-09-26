@@ -40,9 +40,16 @@ if ( ! class_exists( 'DBCM_Banner' ) ) {
 		 *
 		 * Punti decisionali:
 		 *  - Banner disabilitato in settings → no.
-		 *  - Cookie di consenso già presente e valido → no.
 		 *  - geo_targeting=true e visitatore fuori UE/EEA/UK → no.
 		 *  - Filtro dbcm_should_render_banner restituisce false → no.
+		 *
+		 * 3.8.0 — il cookie di consenso NON è più letto qui: il valore finisce
+		 * nella config JS (autoOpen) e quindi nell'HTML, che una cache di
+		 * pagina servirebbe a tutti. Se il visitatore ha già scelto lo decide
+		 * banner.js in boot() leggendo il proprio cookie (readCookie()).
+		 * Il geo-targeting (opt-in, default off) resta server-side ed è
+		 * dichiarato incompatibile con la cache di pagina completa (vedi
+		 * Avanzate → Geo-targeting e README).
 		 *
 		 * GPC e DNT non sono gestiti qui ma lato JS al boot (vedi banner.js):
 		 * il banner viene reso ma JS scrive subito un cookie "reject_all"
@@ -53,13 +60,6 @@ if ( ! class_exists( 'DBCM_Banner' ) ) {
 		 */
 		public static function should_render() {
 			if ( ! DBCM_Settings::get( 'banner_enabled', true ) ) {
-				return false;
-			}
-
-			// Se il cookie è già stato accettato (con schema corretto), non
-			// mostrare il banner. La gestione del bottone "Riapri preferenze"
-			// è a parte: lì il banner viene riaperto via JS senza ricaricare.
-			if ( null !== DBCM_Consent_API::read_cookie() ) {
 				return false;
 			}
 
@@ -203,7 +203,105 @@ if ( ! class_exists( 'DBCM_Banner' ) ) {
 				true // in footer
 			);
 
+			// 3.8.0: applica le impostazioni di aspetto (colori, tema auto,
+			// CSS personalizzato), prima salvate ma mai emesse.
+			$inline_css = self::build_inline_css();
+			if ( '' !== $inline_css ) {
+				wp_add_inline_style( 'dbcm-banner', $inline_css );
+			}
+
 			wp_localize_script( 'dbcm-banner', 'dbcmBanner', self::build_config() );
+		}
+
+		/**
+		 * CSS inline generato dalle impostazioni "Tema & colori" e "CSS
+		 * personalizzato".
+		 *
+		 * - Bottone primario/link: --dbcm-primary, --dbcm-primary-h (versione
+		 *   scurita) e --dbcm-on-primary valgono per ogni tema.
+		 * - Sfondo/testo: --dbcm-bg e --dbcm-text valgono per il tema chiaro
+		 *   e per "auto" in modalità chiara; il tema scuro mantiene la sua
+		 *   palette (i colori personalizzati sono pensati per il chiaro).
+		 * - Tema "auto": con prefers-color-scheme: dark usa la palette scura
+		 *   (stessi valori di [data-theme="dark"] in banner.css).
+		 * - CSS personalizzato: già privato dei tag al salvataggio; qui
+		 *   ripassato da wp_strip_all_tags() e privato di '</' per non poter
+		 *   chiudere il blocco <style>.
+		 *
+		 * @since 3.8.0
+		 * @return string
+		 */
+		private static function build_inline_css() {
+			$s    = DBCM_Settings::all();
+			$bg   = sanitize_hex_color( (string) $s['banner_color_bg'] );
+			$text = sanitize_hex_color( (string) $s['banner_color_text'] );
+			$btn  = sanitize_hex_color( (string) $s['banner_color_btn'] );
+			$on   = sanitize_hex_color( (string) $s['banner_color_btn_text'] );
+
+			$css = '';
+
+			$root_vars = '';
+			if ( $btn ) {
+				$root_vars .= '--dbcm-primary:' . $btn . ';--dbcm-primary-h:' . self::darken_hex( $btn, 0.15 ) . ';';
+			}
+			if ( $on ) {
+				$root_vars .= '--dbcm-on-primary:' . $on . ';';
+			}
+			if ( '' !== $root_vars ) {
+				$css .= '#dbcm-banner-root{' . $root_vars . '}';
+			}
+
+			$light_vars = '';
+			if ( $bg ) {
+				$light_vars .= '--dbcm-bg:' . $bg . ';';
+			}
+			if ( $text ) {
+				$light_vars .= '--dbcm-text:' . $text . ';';
+			}
+			if ( '' !== $light_vars ) {
+				$css .= '#dbcm-banner-root[data-theme="light"],#dbcm-banner-root[data-theme="auto"]{' . $light_vars . '}';
+			}
+
+			// Tema auto: palette scura quando il sistema la richiede. Stessa
+			// specificità del blocco sopra ma dichiarata dopo → vince.
+			$css .= '@media (prefers-color-scheme: dark){#dbcm-banner-root[data-theme="auto"]{--dbcm-bg:#1d2327;--dbcm-text:#f0f0f1;--dbcm-muted:#a7aaad;--dbcm-border:#3c434a;}}';
+
+			$custom = trim( wp_strip_all_tags( (string) $s['banner_custom_css'] ) );
+			if ( '' !== $custom ) {
+				$css .= "\n" . str_replace( '</', '<\\/', $custom );
+			}
+
+			/**
+			 * Filtra il CSS inline del banner (colori, tema auto, CSS custom).
+			 *
+			 * @since 3.8.0
+			 * @param string $css
+			 * @param array  $settings
+			 */
+			return (string) apply_filters( 'dbcm_banner_inline_css', $css, $s );
+		}
+
+		/**
+		 * Scurisce un colore esadecimale di una frazione (0..1). Usato per lo
+		 * stato hover del bottone primario (--dbcm-primary-h).
+		 *
+		 * @since 3.8.0
+		 * @param string $hex    #rgb o #rrggbb (già validato).
+		 * @param float  $amount Frazione di scurimento.
+		 * @return string
+		 */
+		private static function darken_hex( $hex, $amount ) {
+			$hex = ltrim( $hex, '#' );
+			if ( 3 === strlen( $hex ) ) {
+				$hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+			}
+			$out = '#';
+			for ( $i = 0; $i < 3; $i++ ) {
+				$c    = hexdec( substr( $hex, $i * 2, 2 ) );
+				$c    = (int) max( 0, min( 255, round( $c * ( 1 - $amount ) ) ) );
+				$out .= str_pad( dechex( $c ), 2, '0', STR_PAD_LEFT );
+			}
+			return $out;
 		}
 
 		/**
@@ -253,6 +351,9 @@ if ( ! class_exists( 'DBCM_Banner' ) ) {
 				'theme'             => $s['banner_theme'],
 				'showReopenBtn'     => (bool) $s['show_reopen_btn'],
 				'reopenPosition'    => $s['reopen_position'],
+				/* Credit "Powered by" (3.8.0: prima salvato ma mai mostrato). */
+				'credits'           => (bool) $s['banner_credits'],
+				'creditsUrl'        => 'https://www.davidebertolino.it/progetti/db-cookie-manager',
 
 				/* ---- Lingue ---- */
 				'activeLangs'       => array_values( (array) $s['banner_languages'] ),
@@ -291,7 +392,9 @@ if ( ! class_exists( 'DBCM_Banner' ) ) {
 
 				/* ---- Render decision ----
 				 * Se false, il banner JS sa di non auto-mostrarsi (ma lascia
-				 * comunque il pulsante "Riapri" disponibile). */
+				 * comunque il pulsante "Riapri" disponibile). Indipendente dal
+				 * cookie del visitatore (3.8.0, cache-safe): il consenso già
+				 * espresso lo verifica banner.js in boot(). */
 				'autoOpen'          => self::should_render(),
 			);
 		}

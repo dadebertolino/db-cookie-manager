@@ -145,7 +145,13 @@
             if (!res.ok && window.console) {
                 console.warn('[DBCM] Sincronizzazione consenso fallita (HTTP ' + res.status + ').');
             }
-        }).catch(function () { /* rete assente: silent */ });
+        }).catch(function (err) {
+            // Rete assente o richiesta bloccata: il cookie è scritto, ma il
+            // consenso non arriva al registro → va segnalato, non ignorato.
+            if (window.console) {
+                console.warn('[DBCM] Sincronizzazione consenso non riuscita (errore di rete).', err);
+            }
+        });
     }
 
     /**
@@ -249,7 +255,8 @@
                     text: T('accept_all'),
                     onClick: handleAcceptAll
                 })
-            ])
+            ]),
+            renderCredits()
         ]);
 
         if (C.overlay) {
@@ -262,6 +269,17 @@
         if (!C.policyUrl) return null;
         return el('p', { className: 'dbcm-banner__policy' }, [
             el('a', { href: C.policyUrl, target: '_blank', rel: 'noopener', text: T('policy_link') })
+        ]);
+    }
+
+    /**
+     * Credit opzionale "Powered by DB Cookie Manager" (setting banner_credits).
+     * Link semplice, nessun parametro di tracciamento.
+     */
+    function renderCredits() {
+        if (!C.credits || !C.creditsUrl) return null;
+        return el('p', { className: 'dbcm-banner__credits' }, [
+            el('a', { href: C.creditsUrl, target: '_blank', rel: 'noopener', text: 'Powered by DB Cookie Manager' })
         ]);
     }
 
@@ -385,6 +403,7 @@
     function commit(consent, type) {
         var written = writeCookie(consent, type);
         syncWithServer(written, type);
+        sendWpConsentApi(written); // WP Consent API lato JS (wp_listen_for_consent_change).
         activateBlockedScripts(written);
         restoreBlockedIframes(written);
         reactiveCleanup(written); // Revoca: rimuove i cookie delle categorie non concesse.
@@ -393,6 +412,30 @@
         sendClarityUpdate(written); // Microsoft Clarity: update ConsentV2.
         dispatchConsentEvent(written, type);
         close();
+    }
+
+    /**
+     * WP Consent API lato client — window.wp_set_consent(categoria, valore).
+     *
+     * Se la WP Consent API è installata, il suo consent-api.js espone
+     * wp_set_consent(): aggiorna i cookie wp_consent_* ed emette l'evento
+     * 'wp_listen_for_consent_change' a cui si agganciano gli script degli
+     * altri plugin (Site Kit, WooCommerce, ...) SENZA ricaricare la pagina.
+     * La propagazione server-side via AJAX resta (serve al registro e al
+     * prossimo page load). Inerte se la funzione non esiste.
+     */
+    function sendWpConsentApi(consent) {
+        if (!consent || typeof window.wp_set_consent !== 'function') return;
+        ALL_CATEGORIES.forEach(function (cat) {
+            var value = (cat === 'functional' || consent[cat]) ? 'allow' : 'deny';
+            try {
+                window.wp_set_consent(cat, value);
+            } catch (e) {
+                if (window.console) {
+                    console.warn('[DBCM] wp_set_consent(' + cat + ') ha sollevato un errore.', e);
+                }
+            }
+        });
     }
 
     /**
@@ -514,13 +557,21 @@
             Array.prototype.forEach.call(oldScript.attributes, function (attr) {
                 if (attr.name === 'type'
                     || attr.name === 'data-dbcm-blocked'
-                    || attr.name === 'data-dbcm-category') {
+                    || attr.name === 'data-dbcm-category'
+                    || attr.name === 'data-dbcm-type') {
                     return;
                 }
                 newScript.setAttribute(attr.name, attr.value);
             });
-            // Forza il type corretto (lo lasciamo esplicito per chiarezza).
-            newScript.type = 'text/javascript';
+            // Ripristina il type originale se non classico (es. module,
+            // salvato dal blocker in data-dbcm-type), altrimenti JS classico.
+            newScript.type = oldScript.getAttribute('data-dbcm-type') || 'text/javascript';
+            // Gli script inseriti via DOM sono async di default: senza questo
+            // una libreria esterna e il suo snippet di init potrebbero
+            // eseguire fuori ordine. Rispettiamo async/defer se dichiarati.
+            if (oldScript.src && !oldScript.hasAttribute('async')) {
+                newScript.async = false;
+            }
             // Inline content (se presente): copialo prima dell'append così
             // il browser lo esegue al momento dell'inserimento nel DOM.
             if (oldScript.textContent) {
@@ -561,10 +612,16 @@
         if (!src) return;
 
         var iframe = document.createElement('iframe');
+        // Attributi originali (title, allow, class, referrerpolicy, ...)
+        // salvati dal blocker in data-dbcm-attrs: senza, l'embed ricostruito
+        // perderebbe accessibilità (title) e permessi (allow). Con la 3.8.0
+        // ogni iframe tracciante passa da qui anche per chi ha già il
+        // consenso, quindi il ripristino deve essere fedele.
+        copyOriginalIframeAttrs(ph.getAttribute('data-dbcm-attrs'), iframe);
         iframe.setAttribute('src', src);
-        iframe.setAttribute('frameborder', '0');
-        iframe.setAttribute('allowfullscreen', '');
-        iframe.setAttribute('loading', 'lazy');
+        if (!iframe.hasAttribute('frameborder')) iframe.setAttribute('frameborder', '0');
+        if (!iframe.hasAttribute('allowfullscreen')) iframe.setAttribute('allowfullscreen', '');
+        if (!iframe.hasAttribute('loading')) iframe.setAttribute('loading', 'lazy');
 
         // Eredita le dimensioni del placeholder per evitare layout shift.
         if (ph.style.width)  iframe.style.width  = ph.style.width;
@@ -584,6 +641,27 @@
                 }
             }));
         } catch (e) { /* CustomEvent non supportato: ignora */ }
+    }
+
+    /**
+     * Copia sull'iframe gli attributi originali serializzati dal blocker.
+     * Il parsing avviene in un <template> (inerte: niente esecuzione né
+     * richieste di rete). Esclusi src/srcdoc (gestiti a parte) e gli handler
+     * on*: l'embed deve restare quello matchato dal blocker, nient'altro.
+     */
+    function copyOriginalIframeAttrs(attrs, iframe) {
+        if (!attrs || !('content' in document.createElement('template'))) return;
+        try {
+            var tpl = document.createElement('template');
+            tpl.innerHTML = '<iframe ' + attrs + '></iframe>';
+            var parsed = tpl.content.firstElementChild;
+            if (!parsed) return;
+            Array.prototype.forEach.call(parsed.attributes, function (attr) {
+                var name = attr.name.toLowerCase();
+                if (name === 'src' || name === 'srcdoc' || name.indexOf('on') === 0) return;
+                iframe.setAttribute(attr.name, attr.value);
+            });
+        } catch (e) { /* attributi non parsabili: iframe con i soli default */ }
     }
 
     /**
@@ -851,10 +929,8 @@
         // può cambiare idea esplicitamente in seguito.
         var signal = detectOptOutSignal();
         if (signal) {
+            // commit() → close() disegna già il pulsante "Riapri preferenze".
             commit(buildRejectAllConsent(), 'reject_all');
-            if (C.showReopenBtn) {
-                renderReopenButton();
-            }
             return;
         }
 

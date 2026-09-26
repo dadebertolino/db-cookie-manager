@@ -158,7 +158,7 @@ if ( ! class_exists( 'DBCM_Settings' ) ) {
 				'banner_color_text'      => '#1d2327',
 				'banner_color_btn'       => '#2271b1',
 				'banner_color_btn_text'  => '#ffffff',
-				'banner_credits'         => true,           // mostra "Powered by DB Cookie Manager"
+				'banner_credits'         => false,          // mostra "Powered by DB Cookie Manager" (3.8.0: default off, prima mai applicato)
 				'banner_custom_css'      => '',
 
 				/* ---- Segnali browser (priorità 3 — verranno implementati negli step successivi) ---- */
@@ -209,6 +209,12 @@ if ( ! class_exists( 'DBCM_Settings' ) ) {
 				 * la trasmissione avverrebbe prima di ogni consenso). Il sito
 				 * ripiega sui font di sistema definiti nel fallback CSS. */
 				'localize_google_fonts'  => false,
+
+				/* ---- Disinstallazione (3.8.0) ----
+				 * Se true, uninstall.php non cancella tabelle né impostazioni:
+				 * il registro consensi è prova dell'art. 7.1 GDPR e può dover
+				 * sopravvivere a una reinstallazione. Default off. */
+				'preserve_data_on_uninstall' => false,
 			);
 		}
 

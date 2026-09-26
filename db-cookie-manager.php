@@ -3,7 +3,7 @@
  * Plugin Name: DB Cookie Manager
  * Plugin URI:  https://www.davidebertolino.it/progetti/db-cookie-manager
  * Description: Gestione completa dei cookie per WordPress: scanner automatico, banner GDPR multilingua con blocco preventivo, integrazione WP Consent API, generatore Cookie Policy e registro consensi.
- * Version:     3.7.1
+ * Version:     3.8.0
  * Author:      Davide Bertolino
  * Author URI:  https://www.davidebertolino.it
  * License:     GPL v2 or later
@@ -15,6 +15,24 @@
  * @package DBCM
  */
 
+/**
+ * Privacy capabilities (per references/PRIVACY-INTEGRATION.md):
+ *  - Personal data:        YES — registro consensi wp_dbcm_consent_log (hash
+ *                          SHA-256 salato dell'IP, UA aggregato, scelta, data)
+ *  - Third-party scripts:  YES — blocco preventivo di tracker/iframe noti,
+ *                          riattivati solo lato client dopo il consenso;
+ *                          Meta Pixel nativo opt-in (gated by-design)
+ *  - User consent:         YES — banner cookie (consent manager della WP
+ *                          Consent API), prova art. 7.1 nel registro consensi
+ *  - DSAR-aware:           NO  — il registro contiene solo l'hash dell'IP, non
+ *                          collegabile a un'email o a un account: una
+ *                          richiesta DSAR non può individuare le righe
+ *                          dell'interessato. DBCM_DSAR_AVAILABLE NON definita.
+ *  - Hub-aware:            YES — dbph_processing_register (+ legacy
+ *                          dbseo_processing_register), dbph_consents_register,
+ *                          dbph_policy_destinatari, dbcm_declared_services_register
+ */
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
@@ -23,7 +41,7 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Costanti
  * ========================================================================== */
 
-define( 'DBCM_VERSION', '3.7.1' );
+define( 'DBCM_VERSION', '3.8.0' );
 define( 'DBCM_FILE', __FILE__ );
 define( 'DBCM_DIR', plugin_dir_path( __FILE__ ) );
 define( 'DBCM_URL', plugin_dir_url( __FILE__ ) );
@@ -131,10 +149,10 @@ if ( ! class_exists( 'DBCM_Plugin' ) ) {
 			// Step 7 — Shortcode [dbcm_preferences].
 			require_once DBCM_DIR . 'inc/class-shortcode.php';
 
-			// Privacy declarations: si aggancia al filter
-			// dbseo_processing_register del DB SEO Manager per dichiarare
-			// i propri trattamenti nel registro privacy unificato.
-			// Inerte se il SEO Manager non è installato.
+			// Privacy declarations: dichiara i trattamenti al registro privacy
+			// unificato di DB Privacy Hub (dbph_processing_register, + filter
+			// legacy dbseo_processing_register del SEO Manager 1.2.x) e i
+			// destinatari (dbph_policy_destinatari). Inerte senza Hub/SEO.
 			require_once DBCM_DIR . 'inc/class-privacy-declarations.php';
 		}
 
@@ -148,6 +166,16 @@ if ( ! class_exists( 'DBCM_Plugin' ) ) {
 
 			// Translations (per future estensioni i18n; oggi il banner è multilingua interno).
 			add_action( 'init', array( $this, 'load_textdomain' ) );
+
+			// 3.8.0 — Cron di retention: fino alla 3.7.1 era schedulato solo
+			// all'attivazione, quindi mancava su aggiornamenti via file,
+			// attivazioni di rete multisite e dopo un reset di WP-Cron → la
+			// cancellazione automatica dei consensi (art. 5.1.e) non girava.
+			add_action( 'init', array( __CLASS__, 'ensure_cron' ) );
+
+			// 3.8.0 — Multisite: nuovi siti creati con il plugin attivo in
+			// rete ricevono subito tabelle e cron.
+			add_action( 'wp_initialize_site', array( __CLASS__, 'on_initialize_site' ), 20 );
 
 			// Activation / deactivation.
 			register_activation_hook( DBCM_FILE, array( __CLASS__, 'on_activation' ) );
@@ -210,9 +238,10 @@ if ( ! class_exists( 'DBCM_Plugin' ) ) {
 			DBCM_Shortcode::init();
 
 			// Privacy declarations — dichiara i trattamenti del Cookie
-			// Manager al registro privacy del DB SEO Manager via filter
-			// dbseo_processing_register. Inerte se il SEO Manager non è
-			// installato.
+			// Manager al registro di DB Privacy Hub (dbph_processing_register;
+			// legacy dbseo_processing_register per SEO Manager 1.2.x) e il
+			// destinatario Meta quando il Meta Pixel è attivo
+			// (dbph_policy_destinatari). Inerte se Hub/SEO non installati.
 			DBCM_Privacy_Declarations::init();
 		}
 
@@ -261,6 +290,44 @@ if ( ! class_exists( 'DBCM_Plugin' ) ) {
 			if ( class_exists( 'DBCM_Scanner' ) ) {
 				DBCM_Scanner::create_table();
 			}
+		}
+
+		/**
+		 * Garantisce che il cron giornaliero di pulizia sia schedulato.
+		 * Costo: una lettura dell'array cron (già in cache) per richiesta.
+		 *
+		 * @since 3.8.0
+		 * @return void
+		 */
+		public static function ensure_cron() {
+			if ( ! wp_next_scheduled( 'dbcm_daily_cleanup' ) ) {
+				wp_schedule_event( time() + HOUR_IN_SECONDS, 'daily', 'dbcm_daily_cleanup' );
+			}
+		}
+
+		/**
+		 * Multisite: prepara un nuovo sito se il plugin è attivo in rete.
+		 *
+		 * @since 3.8.0
+		 * @param WP_Site $site Nuovo sito.
+		 * @return void
+		 */
+		public static function on_initialize_site( $site ) {
+			if ( ! function_exists( 'is_plugin_active_for_network' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/plugin.php';
+			}
+			if ( ! is_plugin_active_for_network( DBCM_BASENAME ) ) {
+				return;
+			}
+			switch_to_blog( (int) $site->blog_id );
+			self::ensure_cron();
+			if ( class_exists( 'DBCM_Consent_Log' ) ) {
+				DBCM_Consent_Log::create_table();
+			}
+			if ( class_exists( 'DBCM_Scanner' ) ) {
+				DBCM_Scanner::create_table();
+			}
+			restore_current_blog();
 		}
 
 		/**

@@ -201,6 +201,12 @@ function dbcm_test_reset_consent() {
 	$GLOBALS['__dbcm_is_admin'] = false;
 	dbcm_test_set_consent_api( false );
 	unset( $_COOKIE[ DBCM_Settings::COOKIE_NAME ] );
+	// Cookie wp_consent_* allineati da propagate_consent() (3.8.0).
+	foreach ( array_keys( $_COOKIE ) as $name ) {
+		if ( 0 === strpos( (string) $name, 'wp_consent_' ) ) {
+			unset( $_COOKIE[ $name ] );
+		}
+	}
 }
 
 /**

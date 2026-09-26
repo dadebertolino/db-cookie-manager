@@ -119,6 +119,10 @@ if ( ! class_exists( 'DBCM_Consent_API' ) ) {
 					? 'allow'
 					: ( ! empty( $consent[ $category ] ) ? 'allow' : 'deny' );
 				wp_set_consent( $category, $value );
+				// wp_set_consent() scrive il cookie per le richieste FUTURE;
+				// allineiamo $_COOKIE così wp_has_consent() risponde già in
+				// questa richiesta (3.8.0).
+				$_COOKIE[ self::wp_consent_cookie_name( $category ) ] = $value;
 			}
 
 			/**
@@ -127,6 +131,20 @@ if ( ! class_exists( 'DBCM_Consent_API' ) ) {
 			 * @param array $consent
 			 */
 			do_action( 'dbcm_consent_propagated', $consent );
+		}
+
+		/**
+		 * Nome del cookie con cui la WP Consent API memorizza una categoria
+		 * (prefisso filtrabile 'wp_consent_cookie_prefix', default 'wp_consent').
+		 *
+		 * @since 3.8.0
+		 * @param string $category
+		 * @return string
+		 */
+		private static function wp_consent_cookie_name( $category ) {
+			// Filtro della WP Consent API (non nostro): stesso prefisso che usa lei.
+			$prefix = (string) apply_filters( 'wp_consent_cookie_prefix', 'wp_consent' ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
+			return $prefix . '_' . $category;
 		}
 
 		/**
@@ -177,9 +195,11 @@ if ( ! class_exists( 'DBCM_Consent_API' ) ) {
 		/**
 		 * Numero massimo di richieste dbcm_set_consent per IP nella finestra
 		 * di RATE_WINDOW secondi (visitatori anonimi). Filtrabile via
-		 * 'dbcm_consent_rate_limit'.
+		 * 'dbcm_consent_rate_limit'. 3.8.0: 20 → 60, perché dietro NAT/proxy
+		 * condivisi (scuole, aziende, reti mobili) molti visitatori reali
+		 * condividono lo stesso IP: un 429 = consenso perso dal registro.
 		 */
-		const RATE_LIMIT  = 20;
+		const RATE_LIMIT  = 60;
 		const RATE_WINDOW = 600;
 
 		/**
@@ -258,7 +278,12 @@ if ( ! class_exists( 'DBCM_Consent_API' ) ) {
 		 * @return bool True se la richiesta supera il limite.
 		 */
 		private static function is_rate_limited() {
-			$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? filter_var( wp_unslash( $_SERVER['REMOTE_ADDR'] ), FILTER_VALIDATE_IP ) : false;
+			// Stessa risoluzione dell'IP del registro consensi (3.8.0): con il
+			// filtro dbcm_trust_proxy_headers attivo usa l'IP del client reale
+			// invece di quello del proxy/CDN, uguale per tutti i visitatori.
+			$ip = class_exists( 'DBCM_Consent_Log' )
+				? DBCM_Consent_Log::get_client_ip()
+				: ( isset( $_SERVER['REMOTE_ADDR'] ) ? filter_var( wp_unslash( $_SERVER['REMOTE_ADDR'] ), FILTER_VALIDATE_IP ) : false ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- validato da FILTER_VALIDATE_IP.
 			if ( ! $ip ) {
 				return false;
 			}
@@ -310,10 +335,17 @@ if ( ! class_exists( 'DBCM_Consent_API' ) ) {
 		 * Restituisce true se l'utente ha concesso la categoria indicata.
 		 *
 		 * Strategia di fallback in ordine di priorità:
+		 *   0. Cookie dbcm_consent assente, malformato o con versione del
+		 *      consenso superata → false (3.8.0). I cookie wp_consent_* della
+		 *      WP Consent API sono un derivato del nostro e sopravvivono a un
+		 *      bump di versione o alla cancellazione del cookie DBCM: fidarsi
+		 *      di loro terrebbe vivo un consenso che non copre più i
+		 *      trattamenti correnti.
 		 *   1. wp_has_consent() se disponibile (sorgente di verità unica
 		 *      quando la WP Consent API è installata).
 		 *   2. Cookie dbcm_consent (parsing diretto del JSON).
 		 *   3. false (default GDPR-compliant: nessun consenso = nego).
+		 * 'functional' resta sempre concessa (tecnici, nessun consenso).
 		 *
 		 * @param string $category Una delle 5 categorie standard.
 		 * @return bool
@@ -328,16 +360,19 @@ if ( ! class_exists( 'DBCM_Consent_API' ) ) {
 				return true;
 			}
 
+			// Strada 0: nessuna scelta DBCM valida per la versione corrente →
+			// nego, qualunque cosa dicano i cookie wp_consent_* (3.8.0).
+			$cookie = self::read_cookie();
+			if ( null === $cookie ) {
+				return false;
+			}
+
 			// Strada 1: WP Consent API.
 			if ( function_exists( 'wp_has_consent' ) ) {
 				return (bool) wp_has_consent( $category );
 			}
 
 			// Strada 2: cookie del banner (fallback).
-			$cookie = self::read_cookie();
-			if ( null === $cookie ) {
-				return false;
-			}
 			return ! empty( $cookie[ $category ] );
 		}
 
@@ -448,6 +483,11 @@ if ( ! class_exists( 'DBCM_Consent_API' ) ) {
 		 *
 		 * Eseguito su 'init' priorità 5 così è disponibile prima del
 		 * normale priority 10 dove la maggior parte dei plugin hooka.
+		 *
+		 * 3.8.0: propaga SOLO le categorie il cui cookie wp_consent_* differisce
+		 * dal valore atteso. Prima riscriveva 5 cookie a ogni pagina vista:
+		 * header Set-Cookie inutili, e molte cache di pagina non memorizzano
+		 * (o peggio, memorizzano) risposte con Set-Cookie.
 		 */
 		public static function hydrate_consent_from_cookie() {
 			if ( is_admin() ) {
@@ -472,11 +512,43 @@ if ( ! class_exists( 'DBCM_Consent_API' ) ) {
 				foreach ( DBCM_Settings::categories() as $category ) {
 					$deny[ $category ] = ( 'functional' === $category );
 				}
-				self::propagate_consent( $deny );
+				self::propagate_changed( $deny );
 				return;
 			}
 
-			self::propagate_consent( self::normalize_categories( $decoded ) );
+			self::propagate_changed( self::normalize_categories( $decoded ) );
+		}
+
+		/**
+		 * Come propagate_consent(), ma chiama wp_set_consent() solo per le
+		 * categorie il cui cookie wp_consent_* non ha già il valore atteso.
+		 * Se nulla cambia, nessun Set-Cookie e nessuna action.
+		 *
+		 * @since 3.8.0
+		 * @param array $consent Mappa categoria → bool.
+		 * @return void
+		 */
+		private static function propagate_changed( $consent ) {
+			$changed = false;
+			foreach ( DBCM_Settings::categories() as $category ) {
+				$value = ( 'functional' === $category )
+					? 'allow'
+					: ( ! empty( $consent[ $category ] ) ? 'allow' : 'deny' );
+				$name  = self::wp_consent_cookie_name( $category );
+				// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- confrontato in modo stretto con 'allow'/'deny'.
+				$current = isset( $_COOKIE[ $name ] ) ? (string) wp_unslash( $_COOKIE[ $name ] ) : '';
+				if ( $current === $value ) {
+					continue;
+				}
+				wp_set_consent( $category, $value );
+				$_COOKIE[ $name ] = $value;
+				$changed          = true;
+			}
+
+			if ( $changed ) {
+				/** Documentato in propagate_consent(). */
+				do_action( 'dbcm_consent_propagated', $consent );
+			}
 		}
 	}
 }

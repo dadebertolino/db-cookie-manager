@@ -14,7 +14,9 @@
  *
  *  - Transients:
  *      tutti i transient con prefix _transient_dbcm_ e _transient_timeout_dbcm_
- *      (incluso il transient del GitHub Updater dbgu_<md5(basename)>)
+ *      + il SOLO transient del GitHub Updater di questo plugin,
+ *      dbgu_<md5(basename)> (3.8.0: prima cancellava i dbgu_* di TUTTI i
+ *      plugin DB installati, azzerando la loro cache degli aggiornamenti)
  *
  *  - Eventi cron:
  *      dbcm_cleanup_consent_log  (cron 2.x retrocompatibile)
@@ -24,6 +26,13 @@
  *      tutte le meta_key che iniziano con dbcm_
  *
  * Su multisite la pulizia viene eseguita per ogni sito della rete.
+ *
+ * Conservazione dati (3.8.0): se in Avanzate → Disinstallazione è attivo
+ * "Conserva i dati alla disinstallazione" (setting preserve_data_on_uninstall
+ * dentro l'option dbcm_settings), il sito viene saltato: registro consensi
+ * (prova art. 7.1 GDPR), cookie scansionati e impostazioni restano intatti.
+ * Vengono comunque rimossi il cron (il plugin non c'è più a eseguirlo) e il
+ * transient dell'updater. Su multisite la scelta vale sito per sito.
  *
  * @package DBCM
  */
@@ -48,6 +57,20 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 function dbcm_uninstall_cleanup_site() {
 	global $wpdb;
+
+	/* ---------------------------------------------------------------------
+	 * 0. Pulizia minima sempre eseguita (anche con conservazione dati):
+	 *    cron e transient dell'updater non servono senza il plugin.
+	 * ------------------------------------------------------------------ */
+	dbcm_uninstall_clear_cron();
+
+	// Chiave costruita come in DB_GitHub_Updater: 'dbgu_' . md5( plugin_basename ).
+	// WP_UNINSTALL_PLUGIN contiene proprio il basename del plugin.
+	delete_transient( 'dbgu_' . md5( WP_UNINSTALL_PLUGIN ) );
+
+	if ( dbcm_uninstall_preserve_data() ) {
+		return;
+	}
 
 	/* ---------------------------------------------------------------------
 	 * 1. Drop tabelle del plugin
@@ -77,25 +100,20 @@ function dbcm_uninstall_cleanup_site() {
 	);
 
 	/* ---------------------------------------------------------------------
-	 * 3. Cancella i transient del plugin (incluso GitHub Updater)
+	 * 3. Cancella i transient del plugin (dbcm_*)
 	 *
 	 * I transient sono in wp_options con prefix _transient_<name> e
-	 * _transient_timeout_<name>. Ne cancelliamo due famiglie:
-	 *  - dbcm_*  : transient del plugin
-	 *  - dbgu_*  : transient del GitHub Updater (chiave: 'dbgu_' . md5(basename))
-	 *
-	 * Su site_options (multisite) usiamo lo stesso pattern con sitemeta.
+	 * _transient_timeout_<name>. Il transient del GitHub Updater è già stato
+	 * rimosso per chiave esatta al passo 0: NON usiamo più il LIKE 'dbgu_%',
+	 * che cancellava la cache aggiornamenti di tutti gli altri plugin DB.
 	 * ------------------------------------------------------------------ */
-	$transient_patterns = array( 'dbcm_', 'dbgu_' );
-	foreach ( $transient_patterns as $prefix ) {
-		$wpdb->query(
-			$wpdb->prepare(
-				"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
-				'_transient_' . $wpdb->esc_like( $prefix ) . '%',
-				'_transient_timeout_' . $wpdb->esc_like( $prefix ) . '%'
-			)
-		);
-	}
+	$wpdb->query(
+		$wpdb->prepare(
+			"DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
+			'_transient_' . $wpdb->esc_like( 'dbcm_' ) . '%',
+			'_transient_timeout_' . $wpdb->esc_like( 'dbcm_' ) . '%'
+		)
+	);
 
 	/* ---------------------------------------------------------------------
 	 * 4. Cancella user meta (precauzione futura)
@@ -110,13 +128,27 @@ function dbcm_uninstall_cleanup_site() {
 			$wpdb->esc_like( 'dbcm_' ) . '%'
 		)
 	);
+}
 
-	/* ---------------------------------------------------------------------
-	 * 5. Rimuovi gli eventi cron
-	 *
-	 * Sia il nome usato da 2.x (dbcm_cleanup_consent_log) sia il nuovo
-	 * 3.x (dbcm_daily_cleanup) per coprire upgrade da versioni precedenti.
-	 * ------------------------------------------------------------------ */
+/**
+ * True se l'admin del sito corrente ha scelto di conservare i dati.
+ *
+ * @return bool
+ */
+function dbcm_uninstall_preserve_data() {
+	$settings = get_option( 'dbcm_settings', array() );
+	return is_array( $settings ) && ! empty( $settings['preserve_data_on_uninstall'] );
+}
+
+/**
+ * Rimuove gli eventi cron del plugin.
+ *
+ * Sia il nome usato da 2.x (dbcm_cleanup_consent_log) sia il nuovo
+ * 3.x (dbcm_daily_cleanup) per coprire upgrade da versioni precedenti.
+ *
+ * @return void
+ */
+function dbcm_uninstall_clear_cron() {
 	$cron_events = array(
 		'dbcm_cleanup_consent_log',
 		'dbcm_daily_cleanup',

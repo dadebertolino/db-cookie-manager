@@ -63,6 +63,11 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 		 * Le chiavi dell'array sono identificatori stabili (NON cambiare
 		 * tra versioni minor) — l'Hub si basa su queste per la composizione.
 		 *
+		 * 3.8.0: i titoli <h3> non hanno più la numerazione fissa ("1.", "2.",
+		 * ...): annidati nella Privacy Policy dell'Hub producevano numerazioni
+		 * doppie/incoerenti, e con la sezione "Servizi esterni" assente la
+		 * sequenza saltava un numero anche nella Cookie Policy standalone.
+		 *
 		 * @return array<string,string> Associativa key=>html.
 		 */
 		public static function get_sections() {
@@ -146,7 +151,7 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 		}
 
 		private static function section_what_are_cookies() {
-			$html  = '<h3>' . esc_html__( '1. Cosa sono i cookie', 'db-cookie-manager' ) . '</h3>';
+			$html  = '<h3>' . esc_html__( 'Cosa sono i cookie', 'db-cookie-manager' ) . '</h3>';
 			$html .= '<p>' . esc_html__(
 				'I cookie sono piccoli file di testo che i siti web visitati inviano al browser dell\'utente, dove vengono memorizzati per essere ritrasmessi agli stessi siti alla visita successiva. Tecnologie simili come i pixel, i web beacon e gli identificatori del browser svolgono funzioni analoghe e sono soggetti alle stesse regole.',
 				'db-cookie-manager'
@@ -156,7 +161,7 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 		}
 
 		private static function section_cookies_used( $context ) {
-			$html = '<h3>' . esc_html__( '2. Cookie utilizzati su questo sito', 'db-cookie-manager' ) . '</h3>';
+			$html = '<h3>' . esc_html__( 'Cookie utilizzati su questo sito', 'db-cookie-manager' ) . '</h3>';
 
 			if ( ! $context['has_scan'] ) {
 				$html .= self::fallback_no_scan();
@@ -324,7 +329,8 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 			$html .= '<td style="border:1px solid #ddd;padding:8px"><code>dbcm_consent</code></td>';
 			$html .= '<td style="border:1px solid #ddd;padding:8px">DB Cookie Manager</td>';
 			$html .= '<td style="border:1px solid #ddd;padding:8px">' . esc_html__( 'Memorizza la scelta dell\'utente sui cookie (accetta / rifiuta / personalizza).', 'db-cookie-manager' ) . '</td>';
-			$html .= '<td style="border:1px solid #ddd;padding:8px">365 ' . esc_html__( 'giorni', 'db-cookie-manager' ) . '</td>';
+			// Durata reale configurata (3.8.0; prima fissa a 365).
+			$html .= '<td style="border:1px solid #ddd;padding:8px">' . esc_html( (string) max( 1, (int) DBCM_Settings::get( 'consent_duration', 365 ) ) ) . ' ' . esc_html__( 'giorni', 'db-cookie-manager' ) . '</td>';
 			$html .= '<td style="border:1px solid #ddd;padding:8px">' . esc_html__( 'UE/SEE', 'db-cookie-manager' ) . '</td>';
 			$html .= '</tr></tbody></table>';
 
@@ -336,7 +342,7 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 				return '';
 			}
 
-			$html  = '<h3>' . esc_html__( '3. Servizi esterni senza cookie', 'db-cookie-manager' ) . '</h3>';
+			$html  = '<h3>' . esc_html__( 'Servizi esterni senza cookie', 'db-cookie-manager' ) . '</h3>';
 			$html .= '<p>' . esc_html__(
 				'Il sito utilizza alcuni servizi di terze parti che non installano cookie ma comportano comunque una connessione a server esterni. Questi servizi possono raccogliere dati tecnici (come l\'indirizzo IP) durante il caricamento.',
 				'db-cookie-manager'
@@ -359,7 +365,7 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 		}
 
 		private static function section_browser_management() {
-			$html  = '<h3>' . esc_html__( '4. Come gestire i cookie', 'db-cookie-manager' ) . '</h3>';
+			$html  = '<h3>' . esc_html__( 'Come gestire i cookie', 'db-cookie-manager' ) . '</h3>';
 			$html .= '<p>' . esc_html__(
 				'Le preferenze sui cookie possono essere modificate in qualsiasi momento attraverso il banner cookie o il pulsante "Modifica preferenze" presente sul sito. È inoltre possibile gestire i cookie direttamente dalle impostazioni del proprio browser:',
 				'db-cookie-manager'
@@ -378,7 +384,7 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 		}
 
 		private static function section_data_controller( $context ) {
-			$html = '<h3>' . esc_html__( '5. Titolare del trattamento', 'db-cookie-manager' ) . '</h3>';
+			$html = '<h3>' . esc_html__( 'Titolare del trattamento', 'db-cookie-manager' ) . '</h3>';
 
 			// Legge i dati del titolare dalle option pubblicate dal DB Privacy
 			// Hub. Se l'Hub non è installato (o l'admin non ha ancora compilato
@@ -401,7 +407,8 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 				if ( $piva !== '' ) {
 					$html .= '<br>' . esc_html__( 'P.IVA / C.F.:', 'db-cookie-manager' ) . ' ' . esc_html( $piva );
 				}
-				$contact_email = $email !== '' ? $email : esc_html( $context['admin_email'] );
+				// Escape una sola volta, in output (3.8.0: prima doppio escape).
+				$contact_email = $email !== '' ? $email : (string) $context['admin_email'];
 				$html         .= '<br>' . esc_html__( 'Email:', 'db-cookie-manager' ) . ' ' . esc_html( $contact_email );
 				if ( $pec !== '' ) {
 					$html .= '<br>' . esc_html__( 'PEC:', 'db-cookie-manager' ) . ' ' . esc_html( $pec );
@@ -422,14 +429,20 @@ if ( ! class_exists( 'DBCM_Policy_Generator' ) ) {
 		}
 
 		private static function section_updates( $context ) {
-			$html  = '<h3>' . esc_html__( '6. Aggiornamenti', 'db-cookie-manager' ) . '</h3>';
+			$html  = '<h3>' . esc_html__( 'Aggiornamenti', 'db-cookie-manager' ) . '</h3>';
 			$html .= '<p>' . esc_html__( 'La presente Cookie Policy può essere soggetta a modifiche. La data dell\'ultimo aggiornamento è indicata in alto. Si raccomanda di consultare periodicamente questa pagina.', 'db-cookie-manager' ) . '</p>';
 
 			return apply_filters( 'dbcm_policy_section_updates', $html, $context );
 		}
 
 		private static function section_footer( $context ) {
-			$date = esc_html( $context['date'] );
+			// Data dell'ultima scansione (3.8.0): il testo dice "in base alla
+			// scansione del …", quindi la data di generazione era fuorviante.
+			// Fallback: oggi, se nessuna scansione è ancora stata eseguita.
+			$date = ! empty( $context['last_scan'] )
+				? mysql2date( get_option( 'date_format' ), $context['last_scan'] )
+				: $context['date'];
+			$date = esc_html( (string) $date );
 
 			$html  = '<hr>';
 			$html .= '<p style="font-size:0.85em;color:#666"><em>';

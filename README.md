@@ -25,7 +25,7 @@ Sviluppato da **Davide Bertolino** per uso personale e professionale, rilasciato
 - **API JavaScript pubblica** `window.DBCM` per integrazioni custom
 - **Integrazione WP Consent API**: `wp_has_consent('statistics')` risponde correttamente in base al consenso del visitatore
 - **Segnali browser opzionali**: rispetta Do Not Track (DNT) e Global Privacy Control (GPC)
-- **Geo-targeting opzionale**: mostra il banner solo a visitatori UE/EEA/UK
+- **Geo-targeting opzionale**: mostra il banner solo a visitatori UE/EEA/UK — ⚠️ incompatibile con la cache di pagina completa, salvo cache che varia per paese (vedi FAQ)
 - **Google Consent Mode v2** *(opt-in)*: comunica il consenso ai tag Google con default negato nel `<head>` e update al consenso; mapping personalizzabile via `dbcm_gcm_mapping`
 - **Localizzazione Google Fonts** *(opt-in)*: rimuove i riferimenti remoti a Google Fonts così l'IP dell'utente non viene trasmesso a Google
 - **Cancellazione reattiva dei cookie**: rimuove dal browser i cookie delle categorie non concesse, rendendo effettiva la revoca del consenso
@@ -125,6 +125,7 @@ document.addEventListener('dbcm:ready', function() {
 | `dbcm_banner_translations`    | filter  | Aggiungi/sovrascrivi traduzioni                           |
 | `dbcm_visitor_country_code`   | filter  | Fornisci il codice paese ISO-3166 alpha-2                 |
 | `dbcm_eu_country_codes`       | filter  | Personalizza la lista paesi UE/EEA per il geo-targeting   |
+| `dbcm_banner_inline_css`      | filter  | _(3.8.0)_ CSS inline generato da colori, tema auto e CSS personalizzato |
 
 #### Consent
 
@@ -133,7 +134,7 @@ document.addEventListener('dbcm:ready', function() {
 | `dbcm_consent_set`          | action  | Fired ad ogni cambio consenso — args: `$type, $consent`      |
 | `dbcm_consent_propagated`   | action  | Fired dopo la propagazione a `wp_set_consent()`              |
 | `dbcm_consent_type`         | filter  | Default `'optin'` — sovrascrivi il consent type WP API       |
-| `dbcm_consent_rate_limit`   | filter  | Default `20` — richieste di consenso per IP ogni 10 minuti (visitatori anonimi); `0` disattiva |
+| `dbcm_consent_rate_limit`   | filter  | Default `60` (dalla 3.8.0; prima `20`) — richieste di consenso per IP ogni 10 minuti (visitatori anonimi); `0` disattiva. L'IP segue `dbcm_trust_proxy_headers` |
 
 #### Blocker
 
@@ -142,6 +143,7 @@ document.addEventListener('dbcm:ready', function() {
 | `dbcm_blocker_patterns`           | filter | Aggiungi/rimuovi pattern di blocco           |
 | `dbcm_blocker_placeholder_text`   | filter | Testo del placeholder iframe (multilingua)   |
 | `dbcm_blocker_placeholder_btn_label` | filter | Label del pulsante del placeholder        |
+| `dbcm_blocker_server_side_decision` | filter | _(3.8.0)_ Default `true` solo per utenti loggati. Per gli anonimi l'HTML è sempre bloccato e la riattivazione è lato client (cache-safe). Forzarlo a `true` per tutti **solo** su siti senza cache di pagina |
 
 #### Scanner
 
@@ -163,7 +165,7 @@ document.addEventListener('dbcm:ready', function() {
 
 | Hook                      | Tipo   | Note                                                               |
 | ------------------------- | ------ | ------------------------------------------------------------------ |
-| `dbcm_trust_proxy_headers`| filter | Default `false` — fidati di `X-Forwarded-For` e simili per l'IP   |
+| `dbcm_trust_proxy_headers`| filter | Default `false`. Se `true` (sito dietro Cloudflare/reverse proxy fidato) l'IP del client è letto da `CF-Connecting-IP`, poi primo IP di `X-Forwarded-For`, poi `X-Real-IP` (validati), **prima** di `REMOTE_ADDR`. Vale per registro consensi e rate limit (3.8.0) |
 
 ---
 
@@ -248,6 +250,9 @@ No — solo uno alla volta. Disattiva l'altro prima.
 **Funziona in multisite?**
 Sì. Ogni sito ha le proprie option e il proprio log. La disinstallazione è multisite-aware.
 
+**Funziona con la cache di pagina (WP Rocket, LiteSpeed Cache, Cloudflare APO)?**
+Sì, dalla 3.8.0 l'HTML servito ai visitatori anonimi è identico per tutti: script e iframe traccianti sono sempre neutralizzati e `banner.js` li riattiva nel browser se il cookie di consenso lo consente; anche la decisione di mostrare il banner è presa lato client. Unica eccezione: il **geo-targeting**, deciso sul server dal paese del visitatore — con una cache di pagina completa la prima richiesta decide per tutti. Attivalo solo se la cache varia per paese (es. Cloudflare con `CF-IPCountry` nella chiave di cache) o se il sito non usa cache.
+
 **Il blocco preventivo rompe il mio sito?**
 Solo se il tema dipende esattamente da uno script di tracking bloccato (raro). Se hai problemi, disabilita "Blocco preventivo" nella pagina Scanner.
 
@@ -256,6 +261,38 @@ Hashing SHA256 dell'IP completo (v4 o v6) + salt site-specifico. Irreversibile i
 
 **Posso esportare il log per richieste GDPR?**
 Sì — **Registro consensi → Scarica CSV** o **Scarica JSON**, con filtri per tipo e data.
+
+---
+
+### Integrazione ecosistema DB privacy
+
+Quando uno o più plugin dell'ecosistema DB privacy (DB Privacy Hub, DB SEO Manager, DB Form Builder) sono installati, DB Cookie Manager li sfrutta automaticamente — senza configurazione. Ogni integrazione è opzionale: senza Hub il plugin funziona in modo identico.
+
+#### Consent gate per gli script di terzi
+DB Cookie Manager **è** il gate del consenso dell'ecosistema: è il consent manager della WP Consent API (`wp_get_consent_type` → `optin`), propaga le scelte con `wp_set_consent()` lato server e — dalla 3.8.0 — anche lato client (`window.wp_set_consent`, che emette `wp_listen_for_consent_change` per gli script degli altri plugin senza ricaricare la pagina). Gli script e gli iframe riconosciuti sono neutralizzati nell'HTML e riattivati nel browser solo per le categorie concesse. Il Meta Pixel nativo (opt-in) è gated by-design sulla categoria Marketing.
+
+#### Dichiarazione trattamenti al registro privacy unificato
+Quando **DB Privacy Hub 1.0.0+** è installato, DB Cookie Manager dichiara fino a 4 trattamenti nel pannello "Privacy → Registro trattamenti" (filter `dbph_processing_register`; per compatibilità anche il legacy `dbseo_processing_register` del SEO Manager 1.2.x).
+
+| ID | Quando appare |
+|---|---|
+| `dbcm_consent_collection` | sempre (raccolta del consenso tramite banner) |
+| `dbcm_consent_log` | registro consensi attivo (default) |
+| `dbcm_cookie_scanner` | sempre (metadati dei cookie del sito, nessun dato degli utenti) |
+| `dbcm_meta_pixel` | Meta Pixel nativo attivo con Pixel ID valido |
+
+Inoltre:
+- **Registro consensi** (`dbph_consents_register`, Hub 1.3.0+): i consensi cookie compaiono in "Privacy → Registro consensi" con data/ora locale del sito, filtri per data e limite righe rispettati (fino a 50.000 per l'export).
+- **Destinatari** (`dbph_policy_destinatari`, 3.8.0): con Meta Pixel attivo, *Meta Platforms Ireland Ltd (Meta Pixel)* è aggiunto ai destinatari della Privacy Policy generata dall'Hub (contitolare per la raccolta via pixel, autonomo titolare per i trattamenti successivi; SCC + DPF per i trasferimenti verso Meta Platforms Inc., USA).
+- **Servizi dichiarati** (`dbcm_declared_services_register`): gli embed e i tracker gated rilevati dal blocker sono disponibili all'Hub.
+- **Sezioni Cookie Policy** (`DBCM_Policy_Generator::get_sections()`): l'Hub importa le sezioni nella Privacy Policy; dalla 3.8.0 i titoli non hanno numerazione fissa, così si annidano senza doppie numerazioni.
+- **Versione della Privacy Policy**: ogni consenso registra l'ID dello snapshot in vigore (`DBPH_Policy_Archive::get_current_version_id()`, 0 se Hub assente).
+
+#### DSAR routing via Privacy Hub
+Non supportato, per scelta: il registro consensi conserva solo l'**hash salato dell'IP** (mai l'IP in chiaro, nessuna email, nessun account). Una richiesta di accesso o cancellazione (artt. 15/17) identificata da un'email non può essere ricondotta a nessuna riga, quindi il plugin non registra exporter/eraser presso l'Hub né presso gli strumenti privacy di WordPress.
+
+#### Marker `DBCM_DSAR_AVAILABLE`
+**Non definito.** Il blocco "Privacy capabilities" in testa a `db-cookie-manager.php` documenta la scelta (DSAR-aware: NO, Hub-aware: YES): la Privacy Policy dell'Hub non menziona una procedura DSAR semplificata per i dati del Cookie Manager.
 
 ---
 
@@ -274,6 +311,45 @@ Cookie scritti dal plugin:
 ### Changelog
 
 
+
+#### 3.8.0 — Blocco cache-safe, IP dietro proxy, WP Consent API lato client e allineamento con l'Hub _(2026)_
+
+Release di correzioni da audit. Il punto critico: con una cache di pagina completa il blocco preventivo poteva servire **tracker attivi a visitatori che non avevano dato il consenso** (Art. 6.1.a, Art. 122 Codice Privacy). Nessuna migrazione di schema, nessun breaking change nelle API pubbliche.
+
+**Blocco preventivo indipendente dalla cache (critico):**
+- Il blocker decideva lato server leggendo il cookie del visitatore: la pagina generata per chi aveva accettato finiva in cache e veniva servita a tutti con script e iframe attivi. Ora per i visitatori **anonimi** ogni script/iframe riconosciuto è **sempre** neutralizzato e `banner.js` lo riattiva nel browser (boot/commit) solo se il cookie di quel browser concede la categoria. Decisione server-side mantenuta solo per gli utenti loggati (pagine non cachate); nuovo filtro `dbcm_blocker_server_side_decision`.
+- Riattivazione client-side resa fedele: gli iframe ripristinati recuperano gli attributi originali (`title`, `allow`, `class`, ...; esclusi `src`/`srcdoc`/`on*`), gli script esterni mantengono l'ordine di esecuzione (`async=false` se non dichiarato) e un `type` non classico (es. `module`) è conservato in `data-dbcm-type`.
+- `autoOpen` del banner non dipende più dal cookie del visitatore (lo verifica `banner.js`): HTML identico per tutti. Il **geo-targeting** resta server-side ed è ora dichiarato in admin e README **incompatibile con la cache di pagina completa** salvo cache che varia per paese.
+- Hydrate WP Consent API: `wp_set_consent()` solo per le categorie il cui cookie `wp_consent_*` è diverso dal valore atteso (prima 5 `Set-Cookie` a ogni pagina vista); `$_COOKIE` allineato per l'effetto nella stessa richiesta.
+
+**Consenso e WP Consent API:**
+- `has_consent()`: se il cookie `dbcm_consent` manca, è malformato o ha una versione del consenso superata, restituisce `false` **prima** di consultare `wp_has_consent()` — i cookie `wp_consent_*` stantii non tengono più vivo un consenso pre-bump (Art. 4.11, 7). `functional` resta sempre concessa.
+- `banner.js` chiama `window.wp_set_consent()` per ogni categoria (`allow`/`deny`) se la WP Consent API è presente: gli altri plugin ricevono `wp_listen_for_consent_change` senza ricaricare la pagina.
+- DNT/GPC: rimosso il doppio pulsante "Riapri preferenze" (lo disegna già `commit()` → `close()`); errori di rete della sincronizzazione ora segnalati con `console.warn`.
+
+**Registro consensi (Art. 7.1) e rate limit:**
+- `dbcm_trust_proxy_headers` non aveva effetto (gli header venivano letti solo con `REMOTE_ADDR` vuoto). Ora, se `true`, l'IP è letto **prima** da `CF-Connecting-IP`, poi primo IP di `X-Forwarded-For`, poi `X-Real-IP` (validati con `FILTER_VALIDATE_IP`); la stessa funzione alimenta il rate limit, che prima usava sempre l'IP del proxy (tutti i visitatori nello stesso contatore → 429 → consensi persi).
+- Rate limit anonimi portato da 20 a **60 richieste / 10 minuti** per IP (NAT scolastici e aziendali), sempre filtrabile con `dbcm_consent_rate_limit`.
+- Retention del registro vincolata a **≥ durata del cookie di consenso** (0 = illimitata resta ammesso): un valore inferiore viene alzato al salvataggio con avviso — la prova del consenso deve sopravvivere al consenso stesso.
+- Cron `dbcm_daily_cleanup` ora garantito su `init` (prima solo all'attivazione: mancava dopo aggiornamenti via file, attivazioni di rete, reset di WP-Cron → retention Art. 5.1.e non applicata).
+- Multisite: schema del registro verificato anche su `init` (confronto di option, nessuna query se aggiornato) e tabelle/cron creati su `wp_initialize_site` per i nuovi siti con attivazione di rete.
+- Date: `consent_date` (TIMESTAMP, UTC interno, restituito nel fuso della sessione MySQL) era confrontata con stringhe PHP (`gmdate`) → scarti di ore a seconda dell'hosting. Confronti ora via epoch (`FROM_UNIXTIME`/`UNIX_TIMESTAMP`) nella pulizia e nei filtri data (giorni interpretati nel fuso di WordPress); output in ora locale WP in admin, export e Registro consensi dell'Hub. Nessuna migrazione dello schema (scelta conservativa su dati di accountability).
+- Export CSV protetto da CSV/formula injection (celle che iniziano con `=`, `+`, `-`, `@`, tab, CR prefissate da `'`); export JSON con campo `timezone`.
+- Registro consensi dell'Hub: rispettato `$args['limit']` passato dall'Hub (prima era letto solo `_internal_limit` → sempre 1000 righe), clamp 1–50.000; le chiavi meta (`v`, `cv`) non compaiono più tra le "categorie accettate".
+
+**Integrazione DB Privacy Hub:**
+- Nuovo destinatario via `dbph_policy_destinatari` quando il Meta Pixel è attivo: *Meta Platforms Ireland Ltd (Meta Pixel)*, contitolare/autonomo titolare, Irlanda con possibili trasferimenti verso Meta Platforms Inc. (USA) su SCC + DPF (Art. 13.1.e-f, 26, 44 ss.).
+- Blocco "Privacy capabilities" nel file principale (DSAR-aware: NO — solo hash dell'IP, non collegabile a un'email; Hub-aware: YES). `DBCM_DSAR_AVAILABLE` volutamente non definita. Nuova sezione README "Integrazione ecosistema DB privacy".
+- Cookie Policy: titoli di sezione senza numerazione fissa (si annidano nella Privacy Policy dell'Hub e non saltano più un numero se "Servizi esterni" è assente), durata del cookie `dbcm_consent` letta da `consent_duration` (prima fissa a 365), data del footer = ultima scansione (fallback oggi), email del titolare non più doppiamente escapata.
+
+**Aspetto del banner:**
+- Colori (`banner_color_*`), tema **auto** (`prefers-color-scheme: dark`) e **CSS personalizzato** erano salvati ma mai applicati: ora emessi con `wp_add_inline_style()` sulle variabili `--dbcm-*` (filtro `dbcm_banner_inline_css`). Sfondo/testo personalizzati valgono per il tema chiaro e per "auto" in modalità chiara.
+- Credit "Powered by DB Cookie Manager" ora effettivamente mostrato quando attivo; default portato a **disattivo** per non comparire all'improvviso sui siti che non l'hanno mai scelto.
+
+**Pulizie:**
+- Rimosso dal blocker il pattern di test `sa.davidebertolino.it`.
+- `uninstall.php` cancella solo il transient dell'updater di questo plugin (`dbgu_` + md5 del basename) invece di tutti i `dbgu_*` (azzerava la cache aggiornamenti degli altri plugin DB). Nuova opzione **"Conserva i dati alla disinstallazione"** (Avanzate, default off): se attiva, registro consensi, cookie scansionati e impostazioni sopravvivono alla disinstallazione (come `dbph_preserve_data_on_uninstall` del Privacy Hub).
+- Test: +8 unit (172 totali).
 
 #### 3.7.1 — Consensi registrati anche con cache di pagina _(2026)_
 
@@ -485,7 +561,7 @@ Developed by **Davide Bertolino** for personal and professional use, released as
 - **Public JavaScript API** `window.DBCM` for custom integrations
 - **WP Consent API integration**: `wp_has_consent('statistics')` responds correctly based on visitor consent
 - **Optional browser signals**: respects Do Not Track (DNT) and Global Privacy Control (GPC)
-- **Optional geo-targeting**: shows banner only to EU/EEA/UK visitors
+- **Optional geo-targeting**: shows banner only to EU/EEA/UK visitors — ⚠️ not compatible with full-page caching unless the cache varies by country
 - **Google Consent Mode v2** *(opt-in)*: signals consent to Google tags with a denied default in `<head>` and update on consent; mapping customisable via `dbcm_gcm_mapping`
 - **Google Fonts localisation** *(opt-in)*: strips remote Google Fonts references so the user's IP is not sent to Google
 - **Reactive cookie cleanup**: removes cookies of non-granted categories from the browser, making consent withdrawal effective
@@ -593,7 +669,7 @@ document.addEventListener('dbcm:ready', function() {
 | `dbcm_consent_set`          | action  | Fired on every consent change — args: `$type, $consent`         |
 | `dbcm_consent_propagated`   | action  | Fired after propagation to `wp_set_consent()`                   |
 | `dbcm_consent_type`         | filter  | Default `'optin'` — override WP API consent type                |
-| `dbcm_consent_rate_limit`   | filter  | Default `20` — consent requests per IP every 10 minutes (anonymous visitors); `0` disables |
+| `dbcm_consent_rate_limit`   | filter  | Default `60` (since 3.8.0; was `20`) — consent requests per IP every 10 minutes (anonymous visitors); `0` disables. IP follows `dbcm_trust_proxy_headers` |
 
 #### Blocker
 
@@ -602,6 +678,7 @@ document.addEventListener('dbcm:ready', function() {
 | `dbcm_blocker_patterns`               | filter | Add/remove blocking patterns               |
 | `dbcm_blocker_placeholder_text`       | filter | Iframe placeholder text (multilingual)     |
 | `dbcm_blocker_placeholder_btn_label`  | filter | Placeholder button label                   |
+| `dbcm_blocker_server_side_decision`   | filter | _(3.8.0)_ Default `true` for logged-in users only; anonymous HTML is always blocked and re-enabled client-side (cache-safe) |
 
 #### Scanner
 
@@ -623,7 +700,7 @@ document.addEventListener('dbcm:ready', function() {
 
 | Hook                       | Type   | Notes                                                                  |
 | -------------------------- | ------ | ---------------------------------------------------------------------- |
-| `dbcm_trust_proxy_headers` | filter | Default `false` — trust `X-Forwarded-For` and similar headers for IP   |
+| `dbcm_trust_proxy_headers` | filter | Default `false`. When `true`, the client IP is read from `CF-Connecting-IP`, then first `X-Forwarded-For` IP, then `X-Real-IP` (validated) **before** `REMOTE_ADDR`; used by the consent log and the rate limit (3.8.0) |
 
 ---
 
@@ -732,6 +809,15 @@ Cookies written by the plugin:
 ---
 
 ### Changelog
+
+#### 3.8.0 — Cache-safe blocking, proxy-aware IP, client-side WP Consent API, Hub alignment _(2026)_
+
+- **Critical — cache-safe blocking**: anonymous visitors now always receive neutralized scripts/iframes; `banner.js` re-enables them client-side from the visitor's own cookie. Previously a page cached for a consenting visitor served live trackers to everyone. Banner `autoOpen` no longer reads the cookie server-side; geo-targeting is documented as incompatible with full-page caching. Faithful client-side restore (iframe attributes, script order, `type="module"`).
+- **Consent**: `has_consent()` returns `false` when the `dbcm_consent` cookie is missing/stale before trusting `wp_consent_*`; `banner.js` calls `window.wp_set_consent()`; hydrate only rewrites changed `wp_consent_*` cookies; duplicate DNT/GPC reopen button removed; network errors logged.
+- **Consent log**: `dbcm_trust_proxy_headers` now actually works (trusted headers first) and drives the rate limit too; default rate limit 60/10 min; retention forced ≥ consent duration; daily cron ensured on `init`; multisite schema/cron for new sites; epoch-based date handling with WP-local output (no schema migration); CSV injection protection; Hub `limit` honoured (up to 50,000).
+- **Privacy Hub**: Meta Platforms Ireland declared via `dbph_policy_destinatari` when Meta Pixel is active; "Privacy capabilities" header (DSAR-aware NO, Hub-aware YES); unnumbered policy section titles, real cookie duration, last-scan footer date, single-escaped email.
+- **Appearance**: colours, auto theme and custom CSS finally applied (`dbcm_banner_inline_css`); credits shown when enabled (default now off).
+- **Cleanup**: test pattern `sa.davidebertolino.it` removed; uninstall deletes only this plugin's updater transient; new "Keep data on uninstall" option.
 
 #### 3.7.1 — Consents recorded even with page caching _(2026)_
 

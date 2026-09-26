@@ -170,11 +170,38 @@ final class ConsentApiTest extends TestCase {
 	 */
 	public function test_wp_consent_api_is_source_of_truth(): void {
 		dbcm_test_set_consent_api( true );
+		// 3.8.0: serve una scelta DBCM valida perché la WP Consent API conti.
+		dbcm_test_set_consent_cookie( array( 'statistics' => false ) );
 		wp_set_consent( 'statistics', 'allow' );
 		wp_set_consent( 'marketing', 'deny' );
 
 		$this->assertTrue( DBCM_Consent_API::has_consent( 'statistics' ) );
 		$this->assertFalse( DBCM_Consent_API::has_consent( 'marketing' ) );
+	}
+
+	/**
+	 * 3.8.0 — Senza cookie DBCM, i cookie wp_consent_* (derivati, magari
+	 * rimasti da una sessione precedente) NON concedono nulla.
+	 */
+	public function test_wp_consent_api_ignored_without_dbcm_cookie(): void {
+		dbcm_test_set_consent_api( true );
+		wp_set_consent( 'statistics', 'allow' );
+
+		$this->assertFalse( DBCM_Consent_API::has_consent( 'statistics' ), 'Nessuna scelta DBCM = nego, anche se wp_consent_statistics=allow.' );
+		$this->assertTrue( DBCM_Consent_API::has_consent( 'functional' ), 'functional resta sempre concessa.' );
+	}
+
+	/**
+	 * 3.8.0 — Dopo un bump della versione del consenso, i cookie wp_consent_*
+	 * stantii non devono tenere vivo il vecchio consenso.
+	 */
+	public function test_wp_consent_api_ignored_with_stale_version(): void {
+		dbcm_test_set_consent_api( true );
+		update_option( DBCM_Settings::OPTION_KEY, array( 'consent_version' => 2 ) );
+		dbcm_test_set_consent_cookie( array( 'statistics' => true, 'cv' => 1 ) );
+		wp_set_consent( 'statistics', 'allow' );
+
+		$this->assertFalse( DBCM_Consent_API::has_consent( 'statistics' ) );
 	}
 
 	/**
@@ -309,6 +336,39 @@ final class ConsentApiTest extends TestCase {
 
 		$this->assertTrue( wp_has_consent( 'statistics' ) );
 		$this->assertFalse( wp_has_consent( 'marketing' ) );
+	}
+
+	/**
+	 * 3.8.0 — HYDRATE idempotente: se i cookie wp_consent_* hanno già i
+	 * valori attesi, wp_set_consent() non viene richiamata (niente Set-Cookie
+	 * a ogni pagina vista).
+	 */
+	public function test_hydrate_skips_unchanged_categories(): void {
+		dbcm_test_set_consent_api( true );
+		dbcm_test_set_consent_cookie( array( 'statistics' => true ) );
+		foreach ( DBCM_Settings::categories() as $cat ) {
+			$_COOKIE[ 'wp_consent_' . $cat ] = ( 'functional' === $cat || 'statistics' === $cat ) ? 'allow' : 'deny';
+		}
+
+		DBCM_Consent_API::hydrate_consent_from_cookie();
+
+		$this->assertSame( array(), $GLOBALS['__dbcm_wp_consent_store'], 'Nessuna categoria cambiata → nessuna chiamata a wp_set_consent().' );
+	}
+
+	/**
+	 * 3.8.0 — HYDRATE aggiorna solo le categorie divergenti e allinea $_COOKIE.
+	 */
+	public function test_hydrate_updates_only_changed_categories(): void {
+		dbcm_test_set_consent_api( true );
+		dbcm_test_set_consent_cookie( array( 'statistics' => true ) );
+		foreach ( DBCM_Settings::categories() as $cat ) {
+			$_COOKIE[ 'wp_consent_' . $cat ] = ( 'functional' === $cat ) ? 'allow' : 'deny';
+		}
+
+		DBCM_Consent_API::hydrate_consent_from_cookie();
+
+		$this->assertSame( array( 'statistics' => 'allow' ), $GLOBALS['__dbcm_wp_consent_store'] );
+		$this->assertSame( 'allow', $_COOKIE['wp_consent_statistics'], '$_COOKIE allineato per la stessa richiesta.' );
 	}
 
 	/**

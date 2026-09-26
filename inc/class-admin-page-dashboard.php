@@ -80,7 +80,7 @@ if ( ! class_exists( 'DBCM_Admin_Page_Dashboard' ) ) {
 			if ( class_exists( 'DBCM_Consent_Log' ) ) {
 				$consents_30d = DBCM_Consent_Log::count(
 					array(
-						'date_from' => gmdate( 'Y-m-d', time() - ( 30 * DAY_IN_SECONDS ) ),
+						'date_from' => wp_date( 'Y-m-d', time() - ( 30 * DAY_IN_SECONDS ) ),
 					)
 				);
 			}

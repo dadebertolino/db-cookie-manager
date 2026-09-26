@@ -94,6 +94,20 @@
 }
 .dbcm-banner__policy a:hover { color: var(--dbcm-primary-h); }
 
+/* Credit opzionale (setting banner_credits, 3.8.0) */
+.dbcm-banner__credits {
+    margin: 12px 0 0;
+    font-size: 11px;
+    text-align: right;
+    color: var(--dbcm-muted);
+}
+.dbcm-banner__credits a {
+    color: inherit;
+    text-decoration: none;
+}
+.dbcm-banner__credits a:hover,
+.dbcm-banner__credits a:focus-visible { text-decoration: underline; }
+
 .dbcm-banner__actions {
     display: flex;
     flex-wrap: wrap;

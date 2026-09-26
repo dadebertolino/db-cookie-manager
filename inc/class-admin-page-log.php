@@ -68,7 +68,7 @@ if ( ! class_exists( 'DBCM_Admin_Page_Log' ) ) {
 		 */
 		private static function render_log_status_card( $total ) {
 			// Breakdown per type negli ultimi 30 giorni.
-			$since  = gmdate( 'Y-m-d', time() - ( 30 * DAY_IN_SECONDS ) );
+			$since  = wp_date( 'Y-m-d', time() - ( 30 * DAY_IN_SECONDS ) ); // giorno locale WP (3.8.0).
 			$accept = DBCM_Consent_Log::count(
 				array(
 					'type' => 'accept_all',
@@ -171,7 +171,11 @@ if ( ! class_exists( 'DBCM_Admin_Page_Log' ) ) {
 						'consent_log_retention',
 						(int) $s['consent_log_retention'],
 						__( 'Conserva per (giorni)', 'db-cookie-manager' ),
-						__( 'I consensi più vecchi vengono cancellati automaticamente dal cron giornaliero. Imposta a 0 per disattivare la cancellazione automatica. Default: 365 giorni.', 'db-cookie-manager' ),
+						sprintf(
+							/* translators: %d: durata del cookie di consenso in giorni */
+							__( 'I consensi più vecchi vengono cancellati automaticamente dal cron giornaliero. Imposta a 0 per disattivare la cancellazione automatica. Default: 365 giorni. Non può essere inferiore alla durata del cookie di consenso (%d giorni): un valore più basso viene alzato automaticamente al salvataggio.', 'db-cookie-manager' ),
+							(int) $s['consent_duration']
+						),
 						0,
 						3650
 					);
@@ -314,7 +318,7 @@ if ( ! class_exists( 'DBCM_Admin_Page_Log' ) ) {
 							<tbody>
 								<?php foreach ( $rows as $row ) : ?>
 									<tr>
-										<td style="white-space:nowrap"><?php echo esc_html( $row->consent_date ); ?></td>
+										<td style="white-space:nowrap"><?php echo esc_html( DBCM_Consent_Log::local_datetime( $row ) ); ?></td>
 										<td><?php echo self::format_consent_type_badge( $row->consent_type ); // phpcs:ignore WordPress.Security.EscapeOutput ?></td>
 										<td><?php echo self::format_consent_data( $row->consent_data ); // phpcs:ignore WordPress.Security.EscapeOutput ?></td>
 										<td><?php echo esc_html( $row->ua_summary ?: '—' ); ?></td>

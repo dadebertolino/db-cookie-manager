@@ -301,9 +301,24 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 			foreach ( $sanitized as $k => $v ) {
 				$current[ $k ] = $v;
 			}
+
+			// 3.8.0 — Coerenza retention/durata: il registro deve conservare
+			// la prova del consenso (art. 7.1) almeno finché quel consenso è
+			// valido nel browser, altrimenti un cookie ancora attivo non ha
+			// più alcun record che lo dimostri. 0 = conservazione illimitata,
+			// sempre compatibile. Controllato a ogni salvataggio perché i due
+			// campi vivono in form diversi (Banner → durata, Log → retention).
+			$msg       = 'saved';
+			$retention = (int) $current['consent_log_retention'];
+			$duration  = (int) $current['consent_duration'];
+			if ( $retention > 0 && $retention < $duration ) {
+				$current['consent_log_retention'] = $duration;
+				$msg                              = 'retention_adjusted';
+			}
+
 			DBCM_Settings::replace_all( $current );
 
-			wp_safe_redirect( add_query_arg( 'dbcm_msg', 'saved', $redirect ) );
+			wp_safe_redirect( add_query_arg( 'dbcm_msg', $msg, $redirect ) );
 			exit;
 		}
 
@@ -404,6 +419,7 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 					'meta_pixel_enabled'      => 'bool',
 					'meta_pixel_id'           => 'pixel_id',
 					'meta_pixel_capi_handoff' => 'bool',
+					'preserve_data_on_uninstall' => 'bool',
 				),
 			);
 		}
@@ -518,6 +534,7 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 
 			$messages = array(
 				'saved'           => array( 'success', __( 'Impostazioni salvate.', 'db-cookie-manager' ) ),
+				'retention_adjusted' => array( 'warning', __( 'Impostazioni salvate. La conservazione del registro consensi è stata portata alla durata del cookie di consenso: la prova del consenso (art. 7.1 GDPR) deve restare disponibile almeno finché il consenso è valido.', 'db-cookie-manager' ) ),
 				'invalid_section' => array( 'error', __( 'Sezione non valida.', 'db-cookie-manager' ) ),
 				'scan_done'       => array( 'success', __( 'Scansione completata.', 'db-cookie-manager' ) ),
 				'policy_created'  => array( 'success', __( 'Pagina della Cookie Policy creata e collegata al banner.', 'db-cookie-manager' ) ),

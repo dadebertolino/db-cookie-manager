@@ -51,6 +51,38 @@ if ( ! class_exists( 'DBCM_Privacy_Declarations' ) ) {
 		public static function init() {
 			add_filter( 'dbph_processing_register', array( __CLASS__, 'declare' ), 10, 1 );
 			add_filter( 'dbseo_processing_register', array( __CLASS__, 'declare' ), 10, 1 );
+
+			// 3.8.0: destinatari della Privacy Policy generata dall'Hub
+			// (sezione "Destinatari"). Priorità 20 come i bridge dell'Hub.
+			add_filter( 'dbph_policy_destinatari', array( __CLASS__, 'declare_destinatari' ), 20 );
+		}
+
+		/**
+		 * Dichiara i destinatari dei dati alla Privacy Policy dell'Hub.
+		 *
+		 * Oggi solo Meta, quando il Meta Pixel nativo è attivo: il registro
+		 * trattamenti già lo dichiarava (voce dbcm_meta_pixel), ma la
+		 * Privacy Policy generata non lo elencava tra i destinatari
+		 * (art. 13.1.e-f GDPR). Contratto del filter: name/description/country.
+		 *
+		 * @since 3.8.0
+		 * @param array $destinatari
+		 * @return array
+		 */
+		public static function declare_destinatari( $destinatari ) {
+			if ( ! is_array( $destinatari ) ) {
+				$destinatari = array();
+			}
+
+			if ( class_exists( 'DBCM_Meta_Pixel' ) && DBCM_Meta_Pixel::is_active() ) {
+				$destinatari[] = array(
+					'name'        => 'Meta Platforms Ireland Ltd (Meta Pixel)',
+					'description' => __( 'Riceve indirizzo IP, user agent, identificatori del browser (cookie _fbp, _fbc) ed eventi di navigazione raccolti dal Meta Pixel, caricato solo dopo il consenso alla categoria Marketing. Opera come contitolare del trattamento per la raccolta e trasmissione dei dati tramite il pixel (art. 26 GDPR, CGUE C-40/17 Fashion ID) e come autonomo titolare per i trattamenti successivi svolti per proprie finalità (misurazione, remarketing, profilazione pubblicitaria).', 'db-cookie-manager' ),
+					'country'     => __( 'Irlanda (UE); possibili trasferimenti verso Meta Platforms Inc., Stati Uniti (extra-UE) — garanzie: SCC + DPF.', 'db-cookie-manager' ),
+				);
+			}
+
+			return $destinatari;
 		}
 
 		/**

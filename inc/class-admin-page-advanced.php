@@ -95,6 +95,18 @@ if ( ! class_exists( 'DBCM_Admin_Page_Advanced' ) ) {
 						?>
 						</span>
 					</div>
+
+					<div class="db-ui-alert db-ui-alert-warning" style="margin-top:10px">
+						<span class="db-ui-alert-icon" aria-hidden="true">⚠️</span>
+						<span>
+						<?php
+						esc_html_e(
+							'Incompatibile con la cache di pagina completa (WP Rocket, LiteSpeed Cache, Cloudflare APO, cache dell\'hosting): la decisione sul paese viene presa sul server e salvata nell\'HTML, quindi la pagina in cache mostrerebbe (o nasconderebbe) il banner a tutti in base al primo visitatore. Attivalo solo se la cache varia per paese (es. Cloudflare con CF-IPCountry nella chiave di cache) oppure se il sito non usa cache di pagina.',
+							'db-cookie-manager'
+						);
+						?>
+						</span>
+					</div>
 				</div>
 			</div>
 
@@ -197,6 +209,20 @@ if ( ! class_exists( 'DBCM_Admin_Page_Advanced' ) ) {
 						<span class="db-ui-alert-icon" aria-hidden="true">ℹ️</span>
 						<span><?php esc_html_e( 'Conformità: l\'uso del Meta Pixel comporta contitolarità con Meta (art. 26 GDPR) e trasferimento verso gli USA in Data Privacy Framework. Il plugin dichiara automaticamente cookie e trattamento nella Cookie Policy e, via DB Privacy Hub, nella Privacy Policy; verifica di aver accettato le Condizioni per gli strumenti business di Meta.', 'db-cookie-manager' ); ?></span>
 					</div>
+				</div>
+			</div>
+
+			<div class="db-ui-card">
+				<div class="db-ui-card-header"><h3><?php esc_html_e( 'Disinstallazione', 'db-cookie-manager' ); ?></h3></div>
+				<div class="db-ui-card-body">
+					<?php
+					DBCM_Admin::field_checkbox(
+						'preserve_data_on_uninstall',
+						! empty( $s['preserve_data_on_uninstall'] ),
+						__( 'Conserva i dati alla disinstallazione', 'db-cookie-manager' ),
+						__( 'Se attivo, eliminando il plugin non vengono cancellati il registro consensi, i cookie scansionati e le impostazioni: alla reinstallazione li ritrovi intatti. Utile perché il registro consensi è la prova richiesta dall\'art. 7.1 GDPR. Se disattivo (default), la disinstallazione rimuove tutti i dati del plugin.', 'db-cookie-manager' )
+					);
+					?>
 				</div>
 			</div>
 

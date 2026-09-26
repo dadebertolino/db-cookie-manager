@@ -116,6 +116,15 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 		 */
 		public static function maybe_upgrade_schema() {
 			global $wpdb;
+
+			// 3.8.0: chiamata anche su 'init' (frontend incluso) → prima un
+			// confronto sull'option (autoload, nessuna query): SHOW TABLES solo
+			// se lo schema registrato è vecchio o assente. Copre i sottositi
+			// multisite creati/attivati senza passare dall'admin.
+			if ( (int) get_option( self::SCHEMA_OPTION, 0 ) >= self::SCHEMA_VERSION ) {
+				return;
+			}
+
 			$table = self::table_name();
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			$exists    = $wpdb->get_var( "SHOW TABLES LIKE '{$table}'" ) === $table;
@@ -140,8 +149,13 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 			// Export CSV/JSON: gestito su admin_init prima dell'output.
 			add_action( 'admin_init', array( __CLASS__, 'handle_export' ) );
 
-			// Schema check (just-in-time, una volta per request).
+			// Schema check (just-in-time, una volta per request). 3.8.0: anche su
+			// 'init' — costa un get_option già in cache quando lo schema è
+			// aggiornato — così i sottositi multisite (attivazione di rete,
+			// nuovi siti) hanno la tabella prima del primo consenso, anche
+			// se nessuno apre la loro bacheca.
 			add_action( 'admin_init', array( __CLASS__, 'maybe_upgrade_schema' ) );
+			add_action( 'init', array( __CLASS__, 'maybe_upgrade_schema' ), 20 );
 
 			// 3.2.0: dichiara la fonte consensi al Privacy Hub via filter pubblico.
 			// Inerte se l'Hub non è installato (il filter non viene applicato).
@@ -198,10 +212,12 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 			$table                            = self::table_name();
 			list( $where_sql, $where_params ) = self::build_hub_where( $args );
 
-			$limit = isset( $args['_internal_limit'] ) ? (int) $args['_internal_limit'] : 1000;
+			// 3.8.0: il Registro consensi dell'Hub passa $args['limit'] (contratto
+			// del filter); '_internal_limit' resta per retrocompatibilità.
+			$limit = (int) ( $args['limit'] ?? $args['_internal_limit'] ?? 1000 );
 			$limit = max( 1, min( 50000, $limit ) );
 
-			$sql  = "SELECT * FROM {$table} {$where_sql} ORDER BY consent_date DESC LIMIT {$limit}";
+			$sql  = "SELECT *, UNIX_TIMESTAMP(consent_date) AS consent_ts FROM {$table} {$where_sql} ORDER BY consent_date DESC LIMIT {$limit}";
 			$rows = ! empty( $where_params )
 				? $wpdb->get_results( $wpdb->prepare( $sql, $where_params ) )
 				: $wpdb->get_results( $sql );
@@ -210,7 +226,9 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 			foreach ( (array) $rows as $r ) {
 				$out[] = array(
 					'id'             => 'dbcm-' . (int) $r->id,
-					'timestamp'      => $r->consent_date,
+					// Ora locale WP (come le altre fonti dell'Hub, es. Form Builder):
+					// l'Hub unisce e ordina le righe di tutte le fonti per stringa.
+					'timestamp'      => self::local_datetime( $r ),
 					'subject'        => 'IP-hash:' . substr( $r->ip_hash, 0, 12 ) . '…',
 					'consent_type'   => 'cookie:' . $r->consent_type,
 					'consent_text'   => self::format_consent_data_for_display( $r->consent_data, $r->consent_type ),
@@ -236,14 +254,7 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 			$where  = array();
 			$params = array();
 
-			if ( ! empty( $args['date_from'] ) ) {
-				$where[]  = 'consent_date >= %s';
-				$params[] = $args['date_from'] . ' 00:00:00';
-			}
-			if ( ! empty( $args['date_to'] ) ) {
-				$where[]  = 'consent_date <= %s';
-				$params[] = $args['date_to'] . ' 23:59:59';
-			}
+			self::add_date_conditions( $args, $where, $params );
 			if ( ! empty( $args['subject'] ) ) {
 				// Il "subject" lato cookie è IP-hash:abc…; permettiamo match parziale sul prefisso hash.
 				$where[]  = 'ip_hash LIKE %s';
@@ -270,12 +281,11 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 				return __( 'Configurazione personalizzata', 'db-cookie-manager' );
 			}
 
+			// Solo le categorie standard: le chiavi meta (v, cv, ...) non sono
+			// categorie e non vanno elencate come "accettate".
 			$accepted = array();
-			foreach ( $data as $cat => $val ) {
-				if ( $cat === 'v' ) {
-					continue;
-				}
-				if ( $val ) {
+			foreach ( DBCM_Settings::categories() as $cat ) {
+				if ( ! empty( $data[ $cat ] ) ) {
 					$accepted[] = $cat;
 				}
 			}
@@ -384,38 +394,49 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 		/**
 		 * Recupera l'IP client tenendo conto di proxy/CDN.
 		 *
-		 * Ordine di priorità: REMOTE_ADDR (più affidabile), poi gli header
-		 * di forwarding. Se più di un IP è presente in X-Forwarded-For,
-		 * prendiamo il primo (l'origine reale del client).
+		 * Default: solo REMOTE_ADDR (gli header di forwarding sono falsificabili
+		 * dal client se il sito non è davvero dietro un proxy).
 		 *
-		 * Il valore restituito non viene mai salvato in chiaro: passa sempre
-		 * per hash_ip() prima dell'INSERT.
+		 * Con il filtro 'dbcm_trust_proxy_headers' a true (sito dietro
+		 * Cloudflare / reverse proxy fidato) gli header vengono letti PRIMA di
+		 * REMOTE_ADDR — che in quel caso è l'IP del proxy, uguale per tutti:
+		 *   1. CF-Connecting-IP (Cloudflare)
+		 *   2. primo IP di X-Forwarded-For (il client originale)
+		 *   3. X-Real-IP
+		 * Ogni candidato è validato con FILTER_VALIDATE_IP. Fino alla 3.7.1 gli
+		 * header erano consultati solo con REMOTE_ADDR vuoto (mai, in pratica):
+		 * il filtro non aveva effetto.
 		 *
-		 * @return string
+		 * Pubblico dalla 3.8.0: la stessa funzione alimenta il rate limit
+		 * dell'endpoint di consenso (DBCM_Consent_API). Il valore restituito
+		 * non viene mai salvato in chiaro: passa sempre per un hash salato.
+		 *
+		 * @return string IP valido o stringa vuota.
 		 */
-		private static function get_client_ip() {
-			// REMOTE_ADDR è quello a cui il server risponde direttamente.
+		public static function get_client_ip() {
+			// phpcs:disable WordPress.Security.ValidatedSanitizedInput -- ogni valore è validato da sanitize_ip() (FILTER_VALIDATE_IP).
+			if ( apply_filters( 'dbcm_trust_proxy_headers', false ) ) {
+				$candidates = array( 'HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP' );
+				foreach ( $candidates as $header ) {
+					if ( empty( $_SERVER[ $header ] ) ) {
+						continue;
+					}
+					$first = trim( explode( ',', (string) wp_unslash( $_SERVER[ $header ] ) )[0] );
+					$ip    = self::sanitize_ip( $first );
+					if ( $ip ) {
+						return $ip;
+					}
+				}
+			}
+
+			// REMOTE_ADDR: l'host a cui il server risponde direttamente.
 			if ( ! empty( $_SERVER['REMOTE_ADDR'] ) ) {
-				$ip = self::sanitize_ip( $_SERVER['REMOTE_ADDR'] );
+				$ip = self::sanitize_ip( wp_unslash( $_SERVER['REMOTE_ADDR'] ) );
 				if ( $ip ) {
 					return $ip;
 				}
 			}
-
-			// Fallback proxy/CDN headers — solo se l'admin ha esplicitamente
-			// dichiarato di stare dietro a un proxy fidato (filtro).
-			if ( apply_filters( 'dbcm_trust_proxy_headers', false ) ) {
-				$candidates = array( 'HTTP_X_FORWARDED_FOR', 'HTTP_CF_CONNECTING_IP', 'HTTP_X_REAL_IP' );
-				foreach ( $candidates as $header ) {
-					if ( ! empty( $_SERVER[ $header ] ) ) {
-						$first = trim( explode( ',', (string) $_SERVER[ $header ] )[0] );
-						$ip    = self::sanitize_ip( $first );
-						if ( $ip ) {
-							return $ip;
-						}
-					}
-				}
-			}
+			// phpcs:enable
 
 			return '';
 		}
@@ -569,7 +590,8 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 			$table = self::table_name();
 
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-			$sql = "SELECT id, ip_hash, consent_data, consent_type, ua_summary, policy_version, consent_version, consent_date
+			$sql = "SELECT id, ip_hash, consent_data, consent_type, ua_summary, policy_version, consent_version, consent_date,
+			               UNIX_TIMESTAMP(consent_date) AS consent_ts
 			        FROM {$table}
 			        {$where['sql']}
 			        ORDER BY consent_date {$order}, id {$order}
@@ -597,20 +619,83 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 				$conditions[] = 'consent_type = %s';
 				$params[]     = $type;
 			}
-			if ( ! empty( $args['date_from'] ) ) {
-				$conditions[] = 'consent_date >= %s';
-				$params[]     = sanitize_text_field( $args['date_from'] ) . ' 00:00:00';
-			}
-			if ( ! empty( $args['date_to'] ) ) {
-				$conditions[] = 'consent_date <= %s';
-				$params[]     = sanitize_text_field( $args['date_to'] ) . ' 23:59:59';
-			}
+			self::add_date_conditions( $args, $conditions, $params );
 
 			$sql = empty( $conditions ) ? '' : 'WHERE ' . implode( ' AND ', $conditions );
 			return array(
 				'sql' => $sql,
 				'params' => $params,
 			);
+		}
+
+		/* =====================================================================
+		 * DATE E FUSI ORARI (3.8.0)
+		 *
+		 * consent_date è una colonna TIMESTAMP con DEFAULT CURRENT_TIMESTAMP:
+		 * MySQL la conserva in UTC e la restituisce nel fuso della SESSIONE
+		 * (quello del server MySQL: WordPress non lo imposta). Confrontarla con
+		 * stringhe costruite in PHP (gmdate, date locali) dava scarti di ore a
+		 * seconda dell'hosting. Scelta: nessuna migrazione dello schema (il
+		 * rischio su dati di accountability non vale il beneficio); i confronti
+		 * passano per epoch (FROM_UNIXTIME / UNIX_TIMESTAMP), che MySQL converte
+		 * coerentemente nel fuso di sessione, e l'output è in ora locale WP.
+		 * ================================================================== */
+
+		/**
+		 * Aggiunge le condizioni date_from / date_to (YYYY-MM-DD, giorni nel
+		 * fuso orario di WordPress, estremi inclusi) come confronti su epoch.
+		 *
+		 * @param array $args       Argomenti con date_from/date_to opzionali.
+		 * @param array $conditions Condizioni SQL (per riferimento).
+		 * @param array $params     Parametri di prepare (per riferimento).
+		 * @return void
+		 */
+		private static function add_date_conditions( $args, &$conditions, &$params ) {
+			if ( ! empty( $args['date_from'] ) ) {
+				$from = self::local_day_start_ts( (string) $args['date_from'] );
+				if ( null !== $from ) {
+					$conditions[] = 'consent_date >= FROM_UNIXTIME(%d)';
+					$params[]     = $from;
+				}
+			}
+			if ( ! empty( $args['date_to'] ) ) {
+				$to = self::local_day_start_ts( (string) $args['date_to'] );
+				if ( null !== $to ) {
+					$conditions[] = 'consent_date < FROM_UNIXTIME(%d)';
+					$params[]     = $to + DAY_IN_SECONDS;
+				}
+			}
+		}
+
+		/**
+		 * Epoch della mezzanotte locale (fuso WP) di un giorno YYYY-MM-DD.
+		 *
+		 * @param string $ymd
+		 * @return int|null Null se la data non è valida.
+		 */
+		private static function local_day_start_ts( $ymd ) {
+			$ymd = substr( sanitize_text_field( $ymd ), 0, 10 );
+			if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $ymd ) ) {
+				return null;
+			}
+			$dt = DateTimeImmutable::createFromFormat( '!Y-m-d', $ymd, wp_timezone() );
+			return $dt ? $dt->getTimestamp() : null;
+		}
+
+		/**
+		 * Data/ora locale WP (Y-m-d H:i:s) di una riga del log.
+		 *
+		 * Usa consent_ts (UNIX_TIMESTAMP della colonna, indipendente dal fuso
+		 * di sessione); fallback sul valore grezzo se la query non lo espone.
+		 *
+		 * @param object $row
+		 * @return string
+		 */
+		public static function local_datetime( $row ) {
+			if ( isset( $row->consent_ts ) && is_numeric( $row->consent_ts ) && (int) $row->consent_ts > 0 ) {
+				return wp_date( 'Y-m-d H:i:s', (int) $row->consent_ts );
+			}
+			return isset( $row->consent_date ) ? (string) $row->consent_date : '';
 		}
 
 		/* =====================================================================
@@ -630,12 +715,15 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 				return 0; // 0 = nessuna scadenza.
 			}
 			$table  = self::table_name();
-			$cutoff = gmdate( 'Y-m-d H:i:s', time() - ( $days * DAY_IN_SECONDS ) );
+			$cutoff = time() - ( $days * DAY_IN_SECONDS );
 
+			// Confronto su epoch (3.8.0): FROM_UNIXTIME produce il valore nel
+			// fuso di sessione MySQL, lo stesso con cui è letta la colonna
+			// TIMESTAMP → corretto su qualunque configurazione del server.
 			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 			return (int) $wpdb->query(
 				$wpdb->prepare(
-					"DELETE FROM {$table} WHERE consent_date < %s",
+					"DELETE FROM {$table} WHERE consent_date < FROM_UNIXTIME(%d)",
 					$cutoff
 				)
 			);
@@ -712,15 +800,18 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 				foreach ( $rows as $row ) {
 					fputcsv(
 						$out,
-						array(
-							$row->id,
-							$row->consent_date,
-							$row->consent_type,
-							$row->consent_data,
-							$row->ua_summary,
-							$row->ip_hash,
-							isset( $row->policy_version ) ? (int) $row->policy_version : 0,
-							isset( $row->consent_version ) ? (int) $row->consent_version : 0,
+						array_map(
+							array( __CLASS__, 'csv_safe_cell' ),
+							array(
+								$row->id,
+								self::local_datetime( $row ),
+								$row->consent_type,
+								$row->consent_data,
+								$row->ua_summary,
+								$row->ip_hash,
+								isset( $row->policy_version ) ? (int) $row->policy_version : 0,
+								isset( $row->consent_version ) ? (int) $row->consent_version : 0,
+							)
 						)
 					);
 				}
@@ -729,6 +820,26 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 
 			fclose( $out );
 			exit;
+		}
+
+		/**
+		 * Neutralizza la CSV/formula injection: una cella testuale che inizia
+		 * con = + - @ (o tab / CR) verrebbe interpretata come formula da
+		 * Excel/LibreOffice. Prefisso con apice singolo (OWASP). I numeri
+		 * restano invariati. ua_summary in modalità "full" è testo del client.
+		 *
+		 * @since 3.8.0
+		 * @param mixed $value
+		 * @return mixed
+		 */
+		public static function csv_safe_cell( $value ) {
+			if ( ! is_string( $value ) || '' === $value ) {
+				return $value;
+			}
+			if ( false !== strpos( "=+-@\t\r", $value[0] ) ) {
+				return "'" . $value;
+			}
+			return $value;
 		}
 
 		/**
@@ -757,7 +868,7 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 					$decoded     = json_decode( (string) $row->consent_data, true );
 					$collected[] = array(
 						'id'              => (int) $row->id,
-						'date'            => $row->consent_date,
+						'date'            => self::local_datetime( $row ),
 						'type'            => $row->consent_type,
 						'consent'         => is_array( $decoded ) ? $decoded : null,
 						'ua_summary'      => $row->ua_summary,
@@ -771,6 +882,7 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 
 			$envelope = array(
 				'exported_at'    => gmdate( 'c' ),
+				'timezone'       => wp_timezone_string(), // fuso delle date 'date' (3.8.0).
 				'plugin_version' => DBCM_VERSION,
 				'schema'         => self::SCHEMA_VERSION,
 				'count'          => count( $collected ),
