@@ -27,7 +27,10 @@
     }
 
     var COOKIE_NAME     = C.cookieName;
-    var COOKIE_SCHEMA   = C.cookieSchema || 3;
+    // wp_localize_script passa gli scalari come stringhe ("3"): confronto
+    // numerico, così i cookie con v:"3" (scritti fino alla 3.8.0) e v:3
+    // restano entrambi validi.
+    var COOKIE_SCHEMA   = parseInt(C.cookieSchema, 10) || 3;
     var CONSENT_VERSION = parseInt(C.consentVersion, 10) || 1;
     var ALL_CATEGORIES = C.categories || ['functional', 'preferences', 'statistics', 'statistics-anonymous', 'marketing'];
     var OPT_CATEGORIES = C.categoriesOptional || ['preferences', 'statistics', 'statistics-anonymous', 'marketing'];
@@ -69,7 +72,7 @@
         if (!match) return null;
         try {
             var data = JSON.parse(decodeURIComponent(match[2]));
-            if (!data || data.v !== COOKIE_SCHEMA) return null;
+            if (!data || parseInt(data.v, 10) !== COOKIE_SCHEMA) return null;
             if ((parseInt(data.cv, 10) || 1) !== CONSENT_VERSION) return null;
             return normalize(data);
         } catch (e) {

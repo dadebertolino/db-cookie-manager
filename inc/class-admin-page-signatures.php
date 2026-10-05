@@ -417,10 +417,13 @@ if ( ! class_exists( 'DBCM_Admin_Page_Signatures' ) ) {
 			$redirect = add_query_arg( 'page', DBCM_Admin::MENU_SLUG . '-signatures', admin_url( 'admin.php' ) );
 
 			$rows = DBCM_Signatures::get_custom_raw();
-			if ( isset( $rows[ $idx ] ) ) {
-				unset( $rows[ $idx ] );
-				DBCM_Signatures::save_custom( array_values( $rows ) );
+			// 3.8.1: indice inesistente → errore (prima "eliminata" comunque).
+			if ( ! isset( $rows[ $idx ] ) ) {
+				wp_safe_redirect( add_query_arg( 'dbcm_msg', 'sig_not_found', $redirect ) );
+				exit;
 			}
+			unset( $rows[ $idx ] );
+			DBCM_Signatures::save_custom( array_values( $rows ) );
 
 			wp_safe_redirect( add_query_arg( 'dbcm_msg', 'sig_deleted', $redirect ) );
 			exit;

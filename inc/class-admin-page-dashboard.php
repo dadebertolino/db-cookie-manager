@@ -176,6 +176,8 @@ if ( ! class_exists( 'DBCM_Admin_Page_Dashboard' ) ) {
 			$desc = array(
 				'banner'   => __( 'Aspetto, posizione, lingue, durata cookie e default delle categorie.', 'db-cookie-manager' ),
 				'scanner'  => __( 'Scansione automatica dei cookie del sito e classificazione.', 'db-cookie-manager' ),
+				'signatures' => __( 'Firme personalizzate: servizi, cookie e regole di blocco specifici del sito.', 'db-cookie-manager' ),
+				'declared' => __( 'Servizi attivi previo consenso da dichiarare nella Cookie Policy.', 'db-cookie-manager' ),
 				'policy'   => __( 'Genera la Cookie Policy basata sui cookie rilevati.', 'db-cookie-manager' ),
 				'log'      => __( 'Registro dei consensi raccolti, con export CSV e JSON.', 'db-cookie-manager' ),
 				'advanced' => __( 'Segnali browser (DNT, GPC), geo-targeting e altre opzioni.', 'db-cookie-manager' ),

@@ -137,7 +137,7 @@ if ( ! class_exists( 'DBCM_Admin_Page_Banner' ) ) {
 						'show_reopen_btn',
 						$s['show_reopen_btn'],
 						__( 'Mostra il pulsante flottante "Modifica preferenze"', 'db-cookie-manager' ),
-						__( 'Permette all\'utente di riaprire il banner in qualsiasi momento. Lo step 7 aggiungerà uno shortcode per posizionarlo dove vuoi (es. nel footer).', 'db-cookie-manager' )
+						__( 'Permette all\'utente di riaprire il banner in qualsiasi momento. Per un pulsante in un punto preciso (es. nel footer) usa lo shortcode [dbcm_preferences].', 'db-cookie-manager' )
 					);
 
 					DBCM_Admin::field_select(

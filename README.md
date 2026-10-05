@@ -310,7 +310,27 @@ Cookie scritti dal plugin:
 
 ### Changelog
 
+#### 3.8.1 — Correzioni emerse dalla nuova suite E2E _(2026)_
 
+Release di sole correzioni. Nessuna migrazione, nessun cambio nelle API pubbliche, nessuna nuova richiesta di consenso ai visitatori.
+
+**Banner:**
+- Lo schema del cookie `dbcm_consent` è confrontato come numero: `wp_localize_script` lo passa come stringa (`"3"`), quindi un cookie scritto con `v:3` numerico veniva scartato. I cookie esistenti restano validi.
+
+**Registro consensi:**
+- I link "Scarica CSV/JSON" puntavano alla pagina inesistente `dbcm-consent-log`; con nonce scaduto l'export finiva su una pagina di errore generica. Ora puntano a `dbcm-log` e un nonce non valido mostra un messaggio chiaro.
+- "Consensi totali" mostra l'intero registro, non il conteggio filtrato; un filtro con tipo sconosciuto non trova righe (prima mostrava i "personalizzati"); descrizione dell'envelope JSON allineata alle chiavi reali.
+
+**Scanner:**
+- Una sola richiesta HTTP per URL invece di due identiche: scansione in circa metà del tempo.
+- La durata di `dbcm_consent` nei risultati segue l'impostazione "Durata del consenso" (prima fissa a 365 giorni).
+- Cambio categoria ed eliminazione di un cookie inesistente restituiscono un errore (prima "successo"); testi di avanzamento ed errori traducibili; al termine compare l'avviso "Scansione completata.".
+
+**Admin:**
+- Eliminare una firma o un servizio dichiarato inesistente mostra un errore specifico (prima "eliminata" o "nome obbligatorio").
+- La pagina Servizi dichiarati senza permessi mostra l'errore standard invece di una pagina vuota.
+- La lingua predefinita del banner è sempre una delle lingue attive.
+- Id del nonce non più duplicato nella pagina Banner; descrizioni delle card Firme e Servizi dichiarati nella Dashboard; rimossi i testi di sviluppo "step 7".
 
 #### 3.8.0 — Blocco cache-safe, IP dietro proxy, WP Consent API lato client e allineamento con l'Hub _(2026)_
 
@@ -809,6 +829,13 @@ Cookies written by the plugin:
 ---
 
 ### Changelog
+
+#### 3.8.1 — Fixes found by the new E2E suite _(2026)_
+
+- **Banner**: cookie schema compared numerically (`wp_localize_script` passes `"3"` as a string); existing cookies stay valid, no re-consent.
+- **Consent log**: CSV/JSON export links pointed to the non-existent `dbcm-consent-log` page; expired nonce now shows a clear error; "Total consents" counts the whole log; unknown type filter returns no rows; JSON envelope description fixed.
+- **Scanner**: one HTTP request per URL instead of two; `dbcm_consent` duration follows the configured consent duration; override/delete of missing cookies return an error; translatable progress/error strings; "Scan completed." notice.
+- **Admin**: specific errors when deleting missing signatures/declared services; Declared services page dies with the standard permission error; default banner language forced among active languages; unique nonce id on the Banner page; dashboard card descriptions; stale "step 7" texts removed.
 
 #### 3.8.0 — Cache-safe blocking, proxy-aware IP, client-side WP Consent API, Hub alignment _(2026)_
 

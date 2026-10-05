@@ -180,6 +180,10 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 				wp_send_json_error( 'Invalid input', 400 );
 			}
 
+			if ( ! self::cookie_exists( $id ) ) {
+				wp_send_json_error( 'Not found', 404 );
+			}
+
 			global $wpdb;
 			$table   = self::table_name();
 			$updated = $wpdb->update(
@@ -227,8 +231,34 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 			if ( false === $deleted ) {
 				wp_send_json_error( 'DB error', 500 );
 			}
+			// 3.8.1: prima rispondeva successo anche per id inesistenti.
+			if ( 0 === $deleted ) {
+				wp_send_json_error( 'Not found', 404 );
+			}
 
 			wp_send_json_success( array( 'id' => $id ) );
+		}
+
+		/**
+		 * True se esiste una riga con l'id indicato.
+		 *
+		 * Per l'override non basta contare le righe aggiornate: $wpdb->update()
+		 * restituisce 0 anche quando la categoria è già quella richiesta.
+		 *
+		 * @since 3.8.1
+		 * @param int $id
+		 * @return bool
+		 */
+		private static function cookie_exists( $id ) {
+			global $wpdb;
+			$table = self::table_name();
+			return (bool) $wpdb->get_var(
+				$wpdb->prepare(
+					// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+					"SELECT 1 FROM {$table} WHERE id = %d",
+					$id
+				)
+			);
 		}
 
 		/* =====================================================================
@@ -333,8 +363,24 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 
 			$collected = array();
 
+			// Una sola richiesta per URL (3.8.1; prima due identiche, una per
+			// gli header e una per l'HTML): stessa risposta per entrambe le
+			// analisi, metà del tempo di scansione.
+			$response = wp_remote_get(
+				$url,
+				array(
+					'timeout'    => 8,
+					'sslverify'  => false, // localhost / dev environments.
+					'cookies'    => array(),
+					'user-agent' => 'DBCookieManager/' . DBCM_VERSION . ' (+self-scanner)',
+				)
+			);
+			if ( is_wp_error( $response ) ) {
+				return 0;
+			}
+
 			// Cookie da Set-Cookie header.
-			foreach ( self::scan_url_headers( $url ) as $cookie ) {
+			foreach ( self::scan_url_headers( $response ) as $cookie ) {
 				$cookie['found_on'] = $url;
 				$key                = $cookie['name'] . '|' . $cookie['domain'];
 				if ( ! isset( $collected[ $key ] ) ) {
@@ -343,7 +389,7 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 			}
 
 			// Cookie inferiti dal contenuto HTML (script di terze parti).
-			foreach ( self::detect_from_html( $url ) as $cookie ) {
+			foreach ( self::detect_from_html( $url, $response ) as $cookie ) {
 				$key = $cookie['name'] . '|' . $cookie['domain'];
 				if ( ! isset( $collected[ $key ] ) ) {
 					$collected[ $key ] = $cookie;
@@ -379,27 +425,13 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 		}
 
 		/**
-		 * Esegue una richiesta HTTP all'URL e estrae i cookie dai
-		 * Set-Cookie header e dall'oggetto WP_HTTP_Cookie.
+		 * Estrae i cookie dai Set-Cookie header e dall'oggetto WP_HTTP_Cookie.
 		 *
-		 * @param string $url
+		 * @param array $response Risultato di wp_remote_get.
 		 * @return array<array>
 		 */
-		private static function scan_url_headers( $url ) {
+		private static function scan_url_headers( $response ) {
 			$cookies = array();
-
-			$response = wp_remote_get(
-				$url,
-				array(
-					'timeout'    => 8,
-					'sslverify'  => false, // localhost / dev environments.
-					'cookies'    => array(),
-					'user-agent' => 'DBCookieManager/' . DBCM_VERSION . ' (+self-scanner)',
-				)
-			);
-			if ( is_wp_error( $response ) ) {
-				return $cookies;
-			}
 
 			$set_cookies = self::extract_set_cookie_headers( $response );
 			foreach ( $set_cookies as $header ) {
@@ -529,24 +561,13 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 		 * per coerenza: quello che il blocker neutralizza, lo scanner lo
 		 * rileva qui per documentarlo nella policy.
 		 *
-		 * @param string $url
+		 * @param string $url      URL scansionata (per found_on).
+		 * @param array  $response Risultato di wp_remote_get.
 		 * @return array<array>
 		 */
-		private static function detect_from_html( $url ) {
+		private static function detect_from_html( $url, $response ) {
 			$cookies   = array();
 			$site_host = wp_parse_url( home_url(), PHP_URL_HOST );
-
-			$response = wp_remote_get(
-				$url,
-				array(
-					'timeout'    => 8,
-					'sslverify'  => false,
-					'user-agent' => 'DBCookieManager/' . DBCM_VERSION . ' (+self-scanner)',
-				)
-			);
-			if ( is_wp_error( $response ) ) {
-				return $cookies;
-			}
 
 			$html = (string) wp_remote_retrieve_body( $response );
 
@@ -849,7 +870,9 @@ if ( ! class_exists( 'DBCM_Scanner' ) ) {
 					'name'     => 'dbcm_consent',
 					'category' => 'functional',
 					'desc'     => __( 'Memorizza la scelta dell\'utente sul consenso ai cookie.', 'db-cookie-manager' ),
-					'duration' => '365 giorni',
+					// Durata reale configurata (3.8.1; prima fissa a 365,
+					// in contrasto con la policy che usa consent_duration).
+					'duration' => max( 1, (int) DBCM_Settings::get( 'consent_duration', 365 ) ) . ' ' . __( 'giorni', 'db-cookie-manager' ),
 					'provider' => 'DB Cookie Manager',
 					'samesite' => 'Lax',
 					'httponly' => 0,

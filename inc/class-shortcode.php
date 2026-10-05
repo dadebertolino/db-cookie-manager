@@ -59,8 +59,8 @@ if ( ! class_exists( 'DBCM_Shortcode' ) ) {
 
 			// Sanitizzazione di tutto l'input utente.
 			$label = sanitize_text_field( $atts['label'] );
-			$class = sanitize_html_class( $atts['class'] ); // sanitize_html_class accetta solo singola classe
-			// Per più classi facciamo manualmente: split su spazi + sanitize ognuna.
+			// sanitize_html_class accetta una sola classe: split su spazi +
+			// sanitize di ognuna.
 			$classes = array();
 			if ( ! empty( $atts['class'] ) ) {
 				foreach ( preg_split( '/\s+/', (string) $atts['class'] ) as $c ) {

@@ -242,6 +242,10 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 						'scanInProgress'  => __( 'Scansione in corso…', 'db-cookie-manager' ),
 						'scanComplete'    => __( 'Scansione completata.', 'db-cookie-manager' ),
 						'scanError'       => __( 'Errore durante la scansione.', 'db-cookie-manager' ),
+						/* translators: 1: URL scansionate, 2: URL totali, 3: URL corrente. */
+						'scanProgress'    => __( 'Scansione %1$d/%2$d (%3$s)', 'db-cookie-manager' ),
+						'overrideError'   => __( 'Errore nell\'aggiornamento della categoria.', 'db-cookie-manager' ),
+						'deleteError'     => __( 'Eliminazione non riuscita: il cookie non esiste più. Ricarica la pagina.', 'db-cookie-manager' ),
 						'copied'          => __( 'Copiato negli appunti.', 'db-cookie-manager' ),
 					),
 				)
@@ -314,6 +318,13 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 			if ( $retention > 0 && $retention < $duration ) {
 				$current['consent_log_retention'] = $duration;
 				$msg                              = 'retention_adjusted';
+			}
+
+			// 3.8.1 — La lingua predefinita deve essere fra quelle attive,
+			// altrimenti banner.js ripiega su testi di una lingua disattivata.
+			$langs = array_values( (array) $current['banner_languages'] );
+			if ( ! empty( $langs ) && ! in_array( $current['banner_default_lang'], $langs, true ) ) {
+				$current['banner_default_lang'] = $langs[0];
 			}
 
 			DBCM_Settings::replace_all( $current );
@@ -544,9 +555,11 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 				'sig_deleted'     => array( 'success', __( 'Firma personalizzata eliminata.', 'db-cookie-manager' ) ),
 				'sig_imported'    => array( 'success', __( 'Firme importate con successo.', 'db-cookie-manager' ) ),
 				'sig_error'       => array( 'error', __( 'Dati della firma non validi. Controlla i campi e riprova.', 'db-cookie-manager' ) ),
+				'sig_not_found'    => array( 'error', __( 'Firma non trovata: potrebbe essere già stata eliminata.', 'db-cookie-manager' ) ),
 				'sig_import_error' => array( 'error', __( 'Import fallito: JSON non valido o struttura non riconosciuta.', 'db-cookie-manager' ) ),
 				'declared_added'   => array( 'success', __( 'Servizio dichiarato aggiunto: comparirà nella Cookie Policy alla prossima generazione.', 'db-cookie-manager' ) ),
 				'declared_deleted' => array( 'success', __( 'Voce dichiarata eliminata.', 'db-cookie-manager' ) ),
+				'declared_delete_error' => array( 'error', __( 'Eliminazione non riuscita: la voce non esiste più o non è manuale.', 'db-cookie-manager' ) ),
 				'declared_error'   => array( 'error', __( 'Operazione non riuscita: il nome del servizio è obbligatorio.', 'db-cookie-manager' ) ),
 				'consent_version_bumped' => array( 'success', __( 'Versione del consenso incrementata: tutti i visitatori vedranno di nuovo il banner alla prossima visita.', 'db-cookie-manager' ) ),
 			);
@@ -609,7 +622,8 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="<?php echo esc_attr( $css_class ); ?>">
 				<input type="hidden" name="action"  value="<?php echo esc_attr( self::SAVE_ACTION ); ?>">
 				<input type="hidden" name="section" value="<?php echo esc_attr( $section ); ?>">
-				<?php wp_nonce_field( self::NONCE_ACTION, self::NONCE_FIELD ); ?>
+				<input type="hidden" name="<?php echo esc_attr( self::NONCE_FIELD ); ?>" value="<?php echo esc_attr( wp_create_nonce( self::NONCE_ACTION ) ); ?>">
+				<?php wp_referer_field(); ?>
 			<?php
 		}
 

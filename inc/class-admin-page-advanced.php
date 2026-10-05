@@ -51,7 +51,7 @@ if ( ! class_exists( 'DBCM_Admin_Page_Advanced' ) ) {
 				<div class="db-ui-card-header"><h3><?php esc_html_e( 'Segnali del browser', 'db-cookie-manager' ); ?></h3></div>
 				<div class="db-ui-card-body">
 					<p style="margin:0 0 14px;font-size:13px;color:var(--db-text-muted)">
-						<?php esc_html_e( 'Quando il browser invia un segnale di rifiuto del tracking, il banner può rispettarlo automaticamente senza chiedere all\'utente. L\'implementazione completa di questi segnali sarà attivata nello step 7.', 'db-cookie-manager' ); ?>
+						<?php esc_html_e( 'Quando il browser invia un segnale di rifiuto del tracking, il banner può rispettarlo automaticamente: registra un rifiuto delle categorie opzionali senza mostrare il banner, e l\'utente può comunque cambiare idea dal pulsante "Modifica preferenze".', 'db-cookie-manager' ); ?>
 					</p>
 
 					<?php

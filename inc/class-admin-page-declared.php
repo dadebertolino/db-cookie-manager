@@ -27,7 +27,7 @@ if ( ! class_exists( 'DBCM_Admin_Page_Declared' ) ) {
 		 */
 		public static function render_declared() {
 			if ( ! current_user_can( DBCM_Admin::CAP ) ) {
-				return;
+				wp_die( esc_html__( 'Permessi insufficienti.', 'db-cookie-manager' ), '', array( 'response' => 403 ) );
 			}
 
 			DBCM_Admin::open_wrap(
@@ -278,7 +278,7 @@ if ( ! class_exists( 'DBCM_Admin_Page_Declared' ) ) {
 			// phpcs:enable
 			$ok = DBCM_Declared_Services::delete_manual( $id );
 
-			self::redirect( $ok ? 'declared_deleted' : 'declared_error' );
+			self::redirect( $ok ? 'declared_deleted' : 'declared_delete_error' );
 		}
 
 		/**
