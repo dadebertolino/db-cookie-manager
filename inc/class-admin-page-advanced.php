@@ -128,6 +128,18 @@ if ( ! class_exists( 'DBCM_Admin_Page_Advanced' ) ) {
 						<span class="db-ui-alert-icon" aria-hidden="true">ℹ️</span>
 						<span><?php esc_html_e( 'Se già gestisci Consent Mode tramite Google Tag Manager, lascia questa opzione disattivata per evitare doppie inizializzazioni.', 'db-cookie-manager' ); ?></span>
 					</div>
+					<?php
+					DBCM_Admin::field_checkbox(
+						'gcm_advanced',
+						$s['gcm_advanced'],
+						__( 'Modalità avanzata: carica i tag Google prima del consenso', 'db-cookie-manager' ),
+						__( 'Di default (modalità base) gtag.js e Google Tag Manager restano bloccati finché il visitatore non concede le Statistiche. In modalità avanzata si caricano subito con tutti i segnali negati: Google stima le conversioni senza cookie. Vale solo con Consent Mode attivo; gli altri tracker (es. Meta Pixel) restano comunque bloccati.', 'db-cookie-manager' )
+					);
+					?>
+					<div class="db-ui-alert db-ui-alert-warning" style="margin-top:14px">
+						<span class="db-ui-alert-icon" aria-hidden="true">⚠️</span>
+						<span><?php esc_html_e( 'Con la modalità avanzata Google riceve dati della visita (indirizzo IP, pagina, user agent) anche da chi non ha ancora scelto o ha rifiutato. Il Garante e l\'EDPB considerano questa trasmissione a rischio senza consenso: attivala solo dopo una valutazione del titolare del trattamento.', 'db-cookie-manager' ); ?></span>
+					</div>
 				</div>
 			</div>
 

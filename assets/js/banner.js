@@ -491,6 +491,7 @@
         restoreBlockedIframes(written);
         reactiveCleanup(written); // Revoca: rimuove i cookie delle categorie non concesse.
         sendGcmUpdate(written);   // Google Consent Mode v2: update dei segnali.
+        pushDataLayerEvent(written, 'choice'); // Trigger per GTM.
         sendUetUpdate(written);   // Microsoft UET: update ad_storage.
         sendClarityUpdate(written); // Microsoft Clarity: update ConsentV2.
         dispatchConsentEvent(written, type);
@@ -567,6 +568,27 @@
         });
 
         return update;
+    }
+
+    /**
+     * Evento GTM 'dbcm_consent_update' (3.9.0): utilizzabile come trigger in
+     * Google Tag Manager (Evento personalizzato) per i tag che devono partire
+     * solo dopo il consenso. Inviato alla scelta (source 'choice') e al
+     * caricamento con consenso salvato ('saved').
+     *
+     * Solo se Consent Mode è attivo o il dataLayer esiste già: sui siti senza
+     * tag Google non crea variabili globali inutili.
+     */
+    function pushDataLayerEvent(consent, source) {
+        if (!consent) return;
+        if (!C.gcmEnabled && !Array.isArray(window.dataLayer)) return;
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({
+            event: 'dbcm_consent_update',
+            dbcm_consent: stripMeta(consent),
+            dbcm_consent_type: consent.type || 'custom',
+            dbcm_consent_source: source
+        });
     }
 
     /**
@@ -991,6 +1013,7 @@
             restoreBlockedIframes(existing);
             reactiveCleanup(existing); // Pulisce i cookie delle categorie non concesse.
             sendGcmUpdate(existing);   // GCM: riallinea i segnali al consenso salvato.
+            pushDataLayerEvent(existing, 'saved');
             sendUetUpdate(existing);   // UET: idem.
             sendClarityUpdate(existing); // Clarity: idem.
             // Già ha un cookie → non mostriamo il banner; il signal DNT/GPC

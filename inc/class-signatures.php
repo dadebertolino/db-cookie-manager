@@ -148,11 +148,16 @@ if ( ! class_exists( 'DBCM_Signatures' ) ) {
 
 				$is_regex = ! empty( $row['block_is_regex'] );
 				$source   = isset( $row['block_source'] ) ? trim( (string) $row['block_source'] ) : '';
-
-				// Una fonte regex malformata farebbe fallire preg_match su OGNI
-				// pagina: la validiamo qui e la degradiamo a substring se rotta.
-				if ( $is_regex && '' !== $source && ! self::is_valid_regex( $source ) ) {
-					$is_regex = false;
+				if ( $is_regex && '' !== $source ) {
+					$pattern = self::regex_from_source( $source );
+					// Una fonte regex malformata farebbe fallire preg_match su
+					// OGNI pagina: se rotta, resta il testo originale come
+					// sottostringa.
+					if ( self::is_valid_regex( $pattern ) ) {
+						$source = $pattern;
+					} else {
+						$is_regex = false;
+					}
 				}
 
 				$script_patterns = array();
@@ -624,6 +629,34 @@ if ( ! class_exists( 'DBCM_Signatures' ) ) {
 		 * Verifica che una stringa sia una regex PHP valida (con delimitatori).
 		 * Non fatalizza su regex rotta: preg_match() restituisce false (non 0)
 		 * quando il pattern è malformato, e noi lo trattiamo come "non valida".
+		 *
+		 * @param string $pattern
+		 * @return bool
+		 */
+		/**
+		 * Converte la fonte regex scritta dall'admin in un pattern PHP.
+		 *
+		 * L'interfaccia la valida come regex JavaScript, senza delimitatori
+		 * (es. ^https://pixel\.example\.); PHP li richiede. Una fonte già
+		 * scritta come /.../flag valida resta invariata; altrimenti viene
+		 * racchiusa in #...#i (case-insensitive, come il confronto di
+		 * sottostringa). Fino alla 3.8.x la fonte senza delimitatori era
+		 * giudicata non valida e degradata a testo letterale.
+		 *
+		 * @since 3.9.0
+		 * @param string $source
+		 * @return string
+		 */
+		public static function regex_from_source( $source ) {
+			$source = (string) $source;
+			if ( preg_match( '~^/.*/[imsxuU]*$~s', $source ) && self::is_valid_regex( $source ) ) {
+				return $source;
+			}
+			return '#' . str_replace( '#', '\\#', $source ) . '#i';
+		}
+
+		/**
+		 * Verifica che una regex sia sintatticamente valida per preg_match.
 		 *
 		 * @param string $pattern
 		 * @return bool

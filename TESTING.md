@@ -64,6 +64,7 @@ sessione admin): se fallisce, i risultati degli altri spec non sono attendibili.
 | Registro consensi dal banner all'admin, export | `consent-log` |
 | GPC, DNT, geo-targeting | `browser-signals` |
 | Google Consent Mode v2, Microsoft UET e Clarity | `consent-modes` |
+| Consent Mode base e avanzato con GTM, evento `dbcm_consent_update`, revoca dal footer | `consent-mode-advanced` |
 | Meta Pixel nativo | `meta-pixel` |
 | Versione del consenso | `consent-version` |
 | Admin: salvataggi, clamp, coerenze, sicurezza del dispatcher | `admin-settings` |

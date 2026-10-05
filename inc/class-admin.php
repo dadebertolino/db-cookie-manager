@@ -424,6 +424,7 @@ if ( ! class_exists( 'DBCM_Admin' ) ) {
 					'respect_gpc'    => 'bool',
 					'geo_targeting'  => 'bool',
 					'gcm_enabled'    => 'bool',
+					'gcm_advanced'   => 'bool',
 					'uet_enabled'    => 'bool',
 					'clarity_enabled' => 'bool',
 					'localize_google_fonts' => 'bool',

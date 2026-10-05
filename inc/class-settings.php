@@ -176,6 +176,15 @@ if ( ! class_exists( 'DBCM_Settings' ) ) {
 				 * tutti i segnali (privacy by default, Art. 25). */
 				'gcm_enabled'            => false,
 
+				/* ---- Consent Mode v2, modalità avanzata (3.9.0, opt-in) ----
+				 * OFF di default: con la modalità base (default) i tag Google
+				 * restano bloccati fino al consenso. In modalità avanzata
+				 * gtag.js e gtm.js si caricano subito con i segnali 'denied'
+				 * e Google riceve ping senza cookie (IP, pagina) già prima
+				 * della scelta: trasmissione che Garante ed EDPB considerano
+				 * a rischio senza consenso. Vale solo con gcm_enabled. */
+				'gcm_advanced'           => false,
+
 				/* ---- Microsoft UET Consent Mode (opt-in) ----
 				 * OFF di default, come GCM: serve solo a chi usa tag UET
 				 * (Microsoft Advertising / Bing Ads). Quando ON, il default
