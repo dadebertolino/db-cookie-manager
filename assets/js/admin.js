@@ -138,9 +138,12 @@
                             if (!r2 || !r2.success) return fail();
                             if (status) status.textContent = t('scanComplete');
                             if (bar)    bar.style.width = '100%';
-                            // Reload per mostrare i risultati nella stessa pagina.
+                            // Ricarica con l'avviso "Scansione completata." per
+                            // mostrare i risultati nella stessa pagina.
                             setTimeout(function () {
-                                window.location.reload();
+                                var next = new URL(window.location.href);
+                                next.searchParams.set('dbcm_msg', 'scan_done');
+                                window.location.href = next.toString();
                             }, 600);
                         }).catch(function () { fail(); });
                     }
@@ -152,7 +155,12 @@
                         done++;
                         var pct = Math.round((done / total) * 100);
                         if (bar) bar.style.width = pct + '%';
-                        if (status) status.textContent = 'Scansionando ' + done + '/' + total + ' (' + url + ')';
+                        if (status) {
+                            status.textContent = t('scanProgress')
+                                .replace('%1$d', done)
+                                .replace('%2$d', total)
+                                .replace('%3$s', url);
+                        }
                         next();
                     }).catch(function () {
                         done++;
@@ -180,10 +188,12 @@
             sel.disabled = false;
             if (!res || !res.success) {
                 // eslint-disable-next-line no-alert
-                window.alert('Errore nell\'aggiornamento della categoria.');
+                window.alert(t('overrideError'));
             }
         }).catch(function () {
             sel.disabled = false;
+            // eslint-disable-next-line no-alert
+            window.alert(t('overrideError'));
         });
     });
 
@@ -207,9 +217,13 @@
                 if (row && row.parentNode) row.parentNode.removeChild(row);
             } else {
                 btn.disabled = false;
+                // eslint-disable-next-line no-alert
+                window.alert(t('deleteError'));
             }
         }).catch(function () {
             btn.disabled = false;
+            // eslint-disable-next-line no-alert
+            window.alert(t('deleteError'));
         });
     });
 

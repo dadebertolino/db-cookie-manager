@@ -52,7 +52,9 @@ if ( ! class_exists( 'DBCM_Admin_Page_Log' ) ) {
 				__( 'Storico dei consensi raccolti dal banner. IP hashato (irreversibile), user-agent aggregato per default.', 'db-cookie-manager' )
 			);
 
-			self::render_log_status_card( $total );
+			// Il totale della card Stato è sull'intero registro (3.8.1; prima
+			// mostrava il conteggio filtrato). Il filtrato è nella tabella.
+			self::render_log_status_card( DBCM_Consent_Log::count() );
 			self::render_log_settings_form( $s );
 			self::render_log_filters_and_export( $filters );
 			self::render_log_table( $rows, $total, $paged, $per_page, $filters );
@@ -248,7 +250,7 @@ if ( ! class_exists( 'DBCM_Admin_Page_Log' ) ) {
 					<hr style="margin:16px 0;border:none;border-top:1px solid var(--db-border)">
 
 					<p style="margin:0 0 8px;font-size:13px;color:var(--db-text-muted)">
-						<?php esc_html_e( 'Esporta il log filtrato. CSV per Excel/Numbers (BOM UTF-8), JSON con envelope (exported_at, version, schema, count).', 'db-cookie-manager' ); ?>
+						<?php esc_html_e( 'Esporta il log filtrato. CSV per Excel/Numbers (BOM UTF-8), JSON con envelope (exported_at, timezone, plugin_version, schema, count, records).', 'db-cookie-manager' ); ?>
 					</p>
 					<p style="display:flex;gap:8px;margin:0">
 						<a class="db-ui-btn" href="<?php echo esc_url( $csv_url ); ?>"><?php esc_html_e( 'Scarica CSV', 'db-cookie-manager' ); ?></a>

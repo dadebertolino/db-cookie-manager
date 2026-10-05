@@ -16,3 +16,6 @@ FIX-*.txt
 TEST-*.txt
 INSTALL*.txt
 .phpunit.result.cache
+
+# Sessione admin salvata dagli E2E
+tests/e2e/.auth/

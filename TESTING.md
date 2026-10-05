@@ -26,26 +26,39 @@ errori che i job leggeri avrebbero già intercettato.
 ## Fixture E2E builtin
 
 Nessuna dipendenza da siti esterni. Il mu-plugin `tests/fixtures/dbcm-e2e-fixture.php`
-(montato solo in wp-env) crea una pagina `/dbcm-test/` con embed YouTube, iframe
-Maps e link WhatsApp, e inietta uno snippet GA4 **fittizio** (measurement ID
-finto, nessun dato reale). È lo scenario deterministico su cui girano le
-asserzioni. Non fa parte del pacchetto distribuito.
+(montato solo in wp-env, non fa parte del pacchetto distribuito) fornisce:
 
-## Test "da implementare" (TDD)
+| Risorsa | A cosa serve |
+|---------|--------------|
+| `/?dbcm_e2e=1` | Pagina **grezza** con embed YouTube, iframe Maps, link WhatsApp, GA4 **fittizio** e Google Fonts. Niente `wp_head`/`wp_footer`: `banner.js` riceve una config minima (banner chiuso). Isola la logica client: blocco, riattivazione, click-to-load, cancellazione reattiva. |
+| `/?dbcm_e2e=wp` | Stesso contenuto, ma passa da `wp_head()`/`wp_footer()`: config reale del banner, CSS inline, snippet GCM/UET/Clarity, gate Meta Pixel, GA4 accodato con `wp_enqueue_script` (copre `script_loader_tag`), shortcode `[dbcm_preferences id="fixture-prefs"]`. |
+| `POST /?rest_route=/dbcm-e2e/v1/reset` | Riporta il plugin allo stato **baseline**: impostazioni di default + `localize_google_fonts`, firma custom `_mypix` (marketing, cancellazione reattiva), registro consensi e scanner vuoti, servizi dichiarati e rate limit azzerati. Accetta `settings`, `signatures`, `rate_limit`, `seed_log`. |
 
-`tests/e2e/pending-features.spec.js` contiene test marcati `test.skip` per
-feature non ancora sviluppate (placeholder click-to-load §3/§9.4, navigazione
-da tastiera §9.8, cancellazione reattiva). Sono la specifica scritta come test
-eseguibile: quando si implementa la feature, si rimuove lo `.skip`
-corrispondente. La CI resta verde e il debito è tracciato invece di essere un
-test rosso ignorato.
+Lo stato baseline si imposta **solo** con il reset (da `bin/setup-e2e.sh` e dai
+`beforeEach` degli spec, tramite `resetState()` in `tests/e2e/helpers.js`): le
+opzioni salvate dai test admin non vengono più sovrascritte a ogni richiesta.
+Il rate limit dell'endpoint di consenso è disattivato in baseline, perché tutti
+i test arrivano dallo stesso IP; chi lo testa passa `rate_limit`.
 
-Coperti invece adesso: blocco GA4 e assenza richieste terze parti (§9.1),
-neutralizzazione script, link WhatsApp libero (§9.3), carrello WooCommerce che
-sopravvive al rifiuto (§9.1, §9.2).
+## Progetti Playwright
 
-Non coperti in CI per natura: localizzazione Google Fonts (§9.5, arriverà con
-la feature) e checkout PayPal reale (§9.6, richiede sandbox con credenziali).
+- **setup** (`tests/e2e/auth.setup.js`): reset baseline + login admin
+  (`admin`/`password` di wp-env, sovrascrivibili con `WP_ADMIN_USER` /
+  `WP_ADMIN_PASS`). Salva la sessione in `tests/e2e/.auth/admin.json`
+  (ignorata da git).
+- **chromium**: tutti gli spec, dopo `setup`. Gli spec admin usano
+  `test.use( { storageState: ADMIN_STATE } )`.
+
+`tests/e2e/infra.spec.js` verifica l'infrastruttura stessa (reset, pagina `wp`,
+sessione admin): se fallisce, i risultati degli altri spec non sono attendibili.
+
+Coperti adesso: blocco GA4 e assenza richieste terze parti (§9.1),
+neutralizzazione script, Google Fonts rimossi (§4), link WhatsApp libero (§9.3),
+placeholder click-to-load accessibile da tastiera (§3, §9.4, §9.8),
+cancellazione reattiva, carrello WooCommerce che sopravvive al rifiuto (§9.1, §9.2).
+
+Non coperti in CI per natura: checkout PayPal reale (§9.6, richiede sandbox con
+credenziali), disinstallazione (in wp-env il plugin è montato dalla working copy).
 
 ## Eseguire in locale
 

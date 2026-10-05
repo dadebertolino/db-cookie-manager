@@ -34,6 +34,12 @@ echo "  WooCommerce attivo."
 echo "→ Impostazioni base WooCommerce"
 run option update woocommerce_default_country 'IT:TO'
 run option update woocommerce_currency 'EUR'
+# Negozio aperto e niente procedura guidata: il primo accesso a wp-admin
+# (login degli E2E) altrimenti apre l'onboarding e mette il negozio in
+# "Coming soon", nascondendo prodotti e carrello ai visitatori.
+run option update woocommerce_coming_soon 'no'
+run option update woocommerce_onboarding_profile '{"skipped":true}' --format=json
+run transient delete _wc_activation_redirect || true
 run wc --user=admin tool run install_pages || run wc tool run install_pages --user=admin || true
 
 echo "→ Prodotto di test acquistabile (SKU dbcm-test-prod)"
@@ -56,9 +62,10 @@ if [ -z "${PID}" ]; then
 fi
 echo "  Prodotto ID: ${PID}"
 
-echo "→ Flush rewrite finale + endpoint fixture"
+echo "→ Flush rewrite finale"
 run rewrite flush --hard
-run eval 'delete_option("dbcm_e2e_rewrite_flushed"); do_action("init");' || true
-run rewrite flush --hard
+
+echo "→ Stato baseline DBCM (impostazioni, firma _mypix, registro vuoto)"
+run eval 'dbcm_e2e_reset_state();'
 
 echo "Setup E2E completato."

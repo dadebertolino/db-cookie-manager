@@ -615,9 +615,15 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 			$params     = array();
 
 			if ( ! empty( $args['type'] ) ) {
-				$type         = self::sanitize_type( $args['type'] );
-				$conditions[] = 'consent_type = %s';
-				$params[]     = $type;
+				// 3.8.1: un tipo sconosciuto non trova righe. Prima veniva
+				// convertito in 'custom' e il filtro mostrava i personalizzati.
+				$type = sanitize_key( $args['type'] );
+				if ( ! in_array( $type, array( 'accept_all', 'reject_all', 'custom' ), true ) ) {
+					$conditions[] = '1 = 0';
+				} else {
+					$conditions[] = 'consent_type = %s';
+					$params[]     = $type;
+				}
 			}
 			self::add_date_conditions( $args, $conditions, $params );
 
@@ -745,12 +751,14 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 			if ( empty( $_GET['dbcm_export'] ) ) {
 				return;
 			}
+			// 3.8.1: errore esplicito invece di un ritorno silenzioso, che
+			// lasciava WordPress su una pagina inesistente.
 			if ( ! current_user_can( 'manage_options' ) ) {
-				return;
+				wp_die( esc_html__( 'Permessi insufficienti.', 'db-cookie-manager' ), '', array( 'response' => 403 ) );
 			}
 			$nonce = isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : '';
 			if ( ! wp_verify_nonce( $nonce, 'dbcm_export_log' ) ) {
-				return;
+				wp_die( esc_html__( 'Token di sicurezza scaduto. Ricarica la pagina e riprova.', 'db-cookie-manager' ), '', array( 'response' => 403 ) );
 			}
 
 			$format = sanitize_key( wp_unslash( $_GET['dbcm_export'] ) );
@@ -904,7 +912,7 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 			$base = add_query_arg(
 				array_filter(
 					array(
-						'page'        => 'dbcm-consent-log',
+						'page'        => 'dbcm-log',
 						'dbcm_export' => $format,
 						'type'        => $args['type'] ?? '',
 						'date_from'   => $args['date_from'] ?? '',
