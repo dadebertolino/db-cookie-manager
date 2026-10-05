@@ -127,7 +127,9 @@ function dbcm_e2e_reset_state( $args = array() ) {
 	if ( ! empty( $args['seed_log'] ) && is_array( $args['seed_log'] ) ) {
 		foreach ( $args['seed_log'] as $seed ) {
 			$type     = isset( $seed['type'] ) ? (string) $seed['type'] : 'custom';
-			$consent  = isset( $seed['consent'] ) && is_array( $seed['consent'] ) ? $seed['consent'] : array( 'functional' => true );
+			$consent  = isset( $seed['consent'] ) && is_array( $seed['consent'] ) ? $seed['consent'] : array();
+			// Come nel flusso reale: ajax_set_consent() forza functional.
+			$consent['functional'] = true;
 			$count    = isset( $seed['count'] ) ? max( 1, (int) $seed['count'] ) : 1;
 			$days_ago = isset( $seed['days_ago'] ) ? max( 0, (int) $seed['days_ago'] ) : 0;
 			for ( $i = 0; $i < $count; $i++ ) {
