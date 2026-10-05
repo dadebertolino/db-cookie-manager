@@ -151,11 +151,11 @@ test.describe( 'Geo-targeting', () => {
 	} );
 
 	// Regressione 3.8.2: Cloudflare usa XX (sconosciuto) e T1 (Tor), che
-	// venivano trattati come paesi extra UE. Accept-Language senza regione,
-	// così nessun altro indizio decide al posto dell'header.
+	// venivano trattati come paesi extra UE e nascondevano il banner. Ora
+	// valgono come "non rilevato" e si ripiega su Accept-Language (it-IT).
 	for ( const code of [ 'XX', 'T1' ] ) {
 		test.describe( `paese non rilevabile (CF-IPCountry: ${ code })`, () => {
-			test.use( { extraHTTPHeaders: { 'CF-IPCountry': code, 'Accept-Language': 'it' } } );
+			test.use( { locale: 'it-IT', extraHTTPHeaders: { 'CF-IPCountry': code } } );
 
 			test( 'nel dubbio il banner si apre', async ( { page } ) => {
 				await page.goto( FIXTURE_WP );
