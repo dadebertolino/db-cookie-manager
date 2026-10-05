@@ -24,9 +24,15 @@ module.exports = defineConfig( {
 	},
 
 	projects: [
+		// Baseline del plugin + login admin (sessione in tests/e2e/.auth/).
+		{
+			name: 'setup',
+			testMatch: /.*\.setup\.js/,
+		},
 		{
 			name: 'chromium',
 			use: { ...devices[ 'Desktop Chrome' ] },
+			dependencies: [ 'setup' ],
 		},
 	],
 } );

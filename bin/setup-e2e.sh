@@ -56,9 +56,10 @@ if [ -z "${PID}" ]; then
 fi
 echo "  Prodotto ID: ${PID}"
 
-echo "→ Flush rewrite finale + endpoint fixture"
+echo "→ Flush rewrite finale"
 run rewrite flush --hard
-run eval 'delete_option("dbcm_e2e_rewrite_flushed"); do_action("init");' || true
-run rewrite flush --hard
+
+echo "→ Stato baseline DBCM (impostazioni, firma _mypix, registro vuoto)"
+run eval 'dbcm_e2e_reset_state();'
 
 echo "Setup E2E completato."

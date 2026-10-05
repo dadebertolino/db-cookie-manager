@@ -1,6 +1,6 @@
 // @ts-check
 const { test, expect } = require( '@playwright/test' );
-const { hasCookiePrefix } = require( './helpers' );
+const { hasCookiePrefix, resetState } = require( './helpers' );
 
 /**
  * WooCommerce funzionante con consenso NEGATO — spec §9.1, §9.2.
@@ -10,7 +10,8 @@ const { hasCookiePrefix } = require( './helpers' );
  */
 test.describe( 'WooCommerce sopravvive al rifiuto del consenso', () => {
 
-	test.beforeEach( async ( { context } ) => {
+	test.beforeEach( async ( { context, request } ) => {
+		await resetState( request );
 		await context.clearCookies();
 	} );
 

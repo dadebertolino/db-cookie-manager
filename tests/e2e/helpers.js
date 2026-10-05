@@ -2,6 +2,22 @@
 /**
  * Helper condivisi per gli E2E di DB Cookie Manager.
  */
+const path = require( 'path' );
+
+/**
+ * Pagine della fixture (tests/fixtures/dbcm-e2e-fixture.php). Query var
+ * dirette: non dipendono dalle rewrite rule.
+ *  - RAW: HTML grezzo, banner.js con config minima (banner chiuso).
+ *  - WP:  passa da wp_head()/wp_footer(), config reale del banner.
+ */
+const FIXTURE_RAW = '/?dbcm_e2e=1';
+const FIXTURE_WP = '/?dbcm_e2e=wp';
+
+/**
+ * Sessione admin salvata da auth.setup.js. Da usare negli spec admin con
+ * test.use( { storageState: ADMIN_STATE } ).
+ */
+const ADMIN_STATE = path.join( __dirname, '.auth', 'admin.json' );
 
 /**
  * Domini di terze parti che NON devono ricevere richieste quando il consenso
@@ -68,4 +84,30 @@ async function hasCookiePrefix( context, prefix ) {
 	return cookies.some( ( c ) => c.name.startsWith( prefix ) );
 }
 
-module.exports = { THIRD_PARTY_HOSTS, trackThirdParty, getConsentCookie, hasCookiePrefix };
+/**
+ * Riporta il plugin allo stato baseline via endpoint REST della fixture.
+ * Opzioni: settings, signatures, rate_limit, seed_log (vedi
+ * dbcm_e2e_reset_state() nella fixture).
+ *
+ * @param {import('@playwright/test').APIRequestContext} request
+ * @param {object} [opts]
+ * @returns {Promise<{settings: object, log: number}>}
+ */
+async function resetState( request, opts = {} ) {
+	const res = await request.post( '/?rest_route=/dbcm-e2e/v1/reset', { data: opts } );
+	if ( ! res.ok() ) {
+		throw new Error( `Reset E2E fallito (HTTP ${ res.status() }): ${ await res.text() }` );
+	}
+	return res.json();
+}
+
+module.exports = {
+	FIXTURE_RAW,
+	FIXTURE_WP,
+	ADMIN_STATE,
+	THIRD_PARTY_HOSTS,
+	trackThirdParty,
+	getConsentCookie,
+	hasCookiePrefix,
+	resetState,
+};
