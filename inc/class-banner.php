@@ -97,9 +97,14 @@ if ( ! class_exists( 'DBCM_Banner' ) ) {
 		private static function is_eu_visitor() {
 			$country = '';
 
-			// 1. Cloudflare.
+			// 1. Cloudflare. 'XX' (paese sconosciuto) e 'T1' (rete Tor) non
+			// sono paesi: valgono come "non rilevato" (3.8.2; prima nascondevano
+			// il banner come a un visitatore extra UE).
 			if ( ! empty( $_SERVER['HTTP_CF_IPCOUNTRY'] ) ) {
 				$country = strtoupper( substr( sanitize_text_field( wp_unslash( $_SERVER['HTTP_CF_IPCOUNTRY'] ) ), 0, 2 ) );
+				if ( in_array( $country, array( 'XX', 'T1' ), true ) ) {
+					$country = '';
+				}
 			}
 
 			// 2. CloudFront.

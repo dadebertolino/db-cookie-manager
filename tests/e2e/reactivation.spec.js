@@ -1,6 +1,6 @@
 // @ts-check
 const { test, expect } = require( '@playwright/test' );
-const { FIXTURE_WP, resetState } = require( './helpers' );
+const { BASE_URL, FIXTURE_WP, resetState, interceptThirdParty, setConsentCookie } = require( './helpers' );
 
 /**
  * Riattivazione lato client (3.8.0, cache-safe): per i visitatori anonimi
@@ -8,48 +8,7 @@ const { FIXTURE_WP, resetState } = require( './helpers' );
  * browser, al commit della scelta o al boot se il consenso è già salvato.
  */
 
-const BASE_URL = process.env.WP_BASE_URL || 'http://localhost:8888';
 const GA4 = 'googletagmanager.com/gtag/js';
-
-/**
- * Intercetta ogni richiesta verso terze parti: la registra e risponde con un
- * corpo vuoto, così nulla esce dalla CI ma si vede cosa il browser ha chiesto.
- *
- * @param {import('@playwright/test').Page} page
- * @returns {Promise<string[]>} URL richieste (si riempie durante il test).
- */
-async function interceptThirdParty( page ) {
-	const hits = [];
-	await page.route( ( url ) => ! url.href.startsWith( BASE_URL ), ( route ) => {
-		hits.push( route.request().url() );
-		return route.fulfill( { status: 200, body: '' } );
-	} );
-	return hits;
-}
-
-/**
- * @param {import('@playwright/test').BrowserContext} context
- * @param {object} categories
- */
-async function setConsentCookie( context, categories ) {
-	const data = {
-		v: 3,
-		cv: 1,
-		ts: Date.now(),
-		type: 'custom',
-		functional: true,
-		preferences: false,
-		statistics: false,
-		'statistics-anonymous': false,
-		marketing: false,
-		...categories,
-	};
-	await context.addCookies( [ {
-		name: 'dbcm_consent',
-		value: encodeURIComponent( JSON.stringify( data ) ),
-		url: BASE_URL,
-	} ] );
-}
 
 test.beforeEach( async ( { context, request } ) => {
 	await resetState( request );
