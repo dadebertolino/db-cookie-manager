@@ -254,6 +254,13 @@ function dbcm_e2e_print_body() {
 
 	echo '<h2>Contatti</h2>' . "\n";
 	echo '<a id="fixture-whatsapp" href="https://wa.me/393331234567">Scrivici su WhatsApp</a>' . "\n";
+
+	// Embed di un servizio sconosciuto alle firme di serie, solo su richiesta
+	// (&dbcm_widget=1): lo blocca una firma creata dall'admin nei test.
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	if ( isset( $_GET['dbcm_widget'] ) ) {
+		echo '<iframe id="fixture-widget" width="300" height="200" src="https://widget.example.test/embed/1" title="Widget"></iframe>' . "\n";
+	}
 }
 
 /**
