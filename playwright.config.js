@@ -33,6 +33,15 @@ module.exports = defineConfig( {
 			name: 'chromium',
 			use: { ...devices[ 'Desktop Chrome' ] },
 			dependencies: [ 'setup' ],
+			testIgnore: /mobile\.spec\.js/,
+		},
+		// Telefono Android (motore Chromium, già installato in CI): solo gli
+		// scenari pensati per il mobile.
+		{
+			name: 'mobile',
+			use: { ...devices[ 'Pixel 7' ] },
+			dependencies: [ 'setup' ],
+			testMatch: /mobile\.spec\.js/,
 		},
 	],
 } );

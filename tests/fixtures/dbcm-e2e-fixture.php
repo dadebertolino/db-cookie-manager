@@ -307,6 +307,9 @@ add_action( 'template_redirect', function () {
 	if ( 'wp' === $mode ) {
 		echo "<!DOCTYPE html>\n<html><head>\n";
 		echo '<meta charset="utf-8"><title>DBCM E2E (wp)</title>' . "\n";
+		// Come un tema reale: senza viewport i browser mobile impaginano a
+		// 980px e i test mobile non vedrebbero il layout responsive.
+		echo '<meta name="viewport" content="width=device-width, initial-scale=1">' . "\n";
 		wp_head();
 		dbcm_e2e_print_gtag_inline();
 		// Scenario Consent Mode (&dbcm_gtm=1): snippet ufficiale di Google

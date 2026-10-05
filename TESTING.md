@@ -46,8 +46,12 @@ i test arrivano dallo stesso IP; chi lo testa passa `rate_limit`.
   (`admin`/`password` di wp-env, sovrascrivibili con `WP_ADMIN_USER` /
   `WP_ADMIN_PASS`). Salva la sessione in `tests/e2e/.auth/admin.json`
   (ignorata da git).
-- **chromium**: tutti gli spec, dopo `setup`. Gli spec admin usano
-  `test.use( { storageState: ADMIN_STATE } )`.
+- **chromium**: tutti gli spec tranne `mobile`, dopo `setup`. Gli spec admin
+  usano `test.use( { storageState: ADMIN_STATE } )`.
+- **mobile**: solo `mobile.spec.js`, su un telefono Android emulato (Pixel 7,
+  motore Chromium, touch): banner, modal, placeholder e pulsante 🍪 dentro lo
+  schermo, bersagli al tocco, nessuno scroll orizzontale, verticale e
+  orizzontale.
 
 `tests/e2e/infra.spec.js` verifica l'infrastruttura stessa (reset, pagina `wp`,
 sessione admin): se fallisce, i risultati degli altri spec non sono attendibili.
@@ -74,6 +78,7 @@ sessione admin): se fallisce, i risultati degli altri spec non sono attendibili.
 | Admin: scanner | `admin-scanner` |
 | Integrazione con il plugin WP Consent API (attivato solo qui) | `consent-api` |
 | Accessibilità: axe-core WCAG 2.1 AA, tastiera, focus del modal | `a11y` |
+| Telefono: layout, tocco, bersagli, scroll orizzontale | `mobile` |
 | Carrello WooCommerce che sopravvive al rifiuto (§9.1, §9.2) | `woocommerce` |
 
 Lo scanner in wp-env non raggiunge il sito dal server (`localhost:8888` non è
