@@ -316,6 +316,7 @@ Release di sole correzioni. Nessuna migrazione, nessun cambio nelle API pubblich
 
 **Banner:**
 - Lo schema del cookie `dbcm_consent` è confrontato come numero: `wp_localize_script` lo passa come stringa (`"3"`), quindi un cookie scritto con `v:3` numerico veniva scartato. I cookie esistenti restano validi.
+- **Modal "Personalizza" con categorie pre-spuntate (conformità):** le categorie non concesse ricevevano l'attributo `checked="null"` e apparivano attive; "Salva preferenze" senza modifiche registrava un consenso a tutto. Ora partono disattivate, come richiesto dalle linee guida del Garante e dal GDPR (Art. 4.11, considerando 32).
 
 **Registro consensi:**
 - I link "Scarica CSV/JSON" puntavano alla pagina inesistente `dbcm-consent-log`; con nonce scaduto l'export finiva su una pagina di errore generica. Ora puntano a `dbcm-log` e un nonce non valido mostra un messaggio chiaro.
@@ -833,6 +834,7 @@ Cookies written by the plugin:
 #### 3.8.1 — Fixes found by the new E2E suite _(2026)_
 
 - **Banner**: cookie schema compared numerically (`wp_localize_script` passes `"3"` as a string); existing cookies stay valid, no re-consent.
+- **Banner (compliance)**: the "Customize" modal showed denied categories as pre-ticked (`checked="null"`), so saving without changes recorded full consent. Optional categories now start unticked.
 - **Consent log**: CSV/JSON export links pointed to the non-existent `dbcm-consent-log` page; expired nonce now shows a clear error; "Total consents" counts the whole log; unknown type filter returns no rows; JSON envelope description fixed.
 - **Scanner**: one HTTP request per URL instead of two; `dbcm_consent` duration follows the configured consent duration; override/delete of missing cookies return an error; translatable progress/error strings; "Scan completed." notice.
 - **Admin**: specific errors when deleting missing signatures/declared services; Declared services page dies with the standard permission error; default banner language forced among active languages; unique nonce id on the Banner page; dashboard card descriptions; stale "step 7" texts removed.
