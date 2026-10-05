@@ -43,6 +43,10 @@ test.beforeEach( async ( { page, context, request } ) => {
 } );
 
 test.describe( 'Analisi axe-core (WCAG 2.1 A/AA)', () => {
+	// Senza animazioni di entrata: durante la dissolvenza il contrasto
+	// misurato è più basso di quello reale. banner.css le disattiva con
+	// prefers-reduced-motion.
+	test.use( { reducedMotion: 'reduce' } );
 
 	test( 'banner', async ( { page } ) => {
 		await page.goto( FIXTURE_WP );
@@ -85,9 +89,11 @@ test.describe( 'Tastiera', () => {
 		await page.goto( FIXTURE_WP );
 		await page.locator( `${ BANNER } .dbcm-btn--ghost` ).click();
 
-		// Browser in inglese (locale di default di Playwright).
+		// Browser in inglese (locale di default di Playwright). L'input è
+		// visivamente nascosto dietro lo slider: si verifica che esista per
+		// nome accessibile, non che sia visibile.
 		for ( const name of [ 'Preferences', 'Statistics', 'Marketing' ] ) {
-			await expect( page.getByRole( 'checkbox', { name, exact: true } ) ).toBeVisible();
+			await expect( page.getByRole( 'checkbox', { name, exact: true } ) ).toHaveCount( 1 );
 		}
 	} );
 

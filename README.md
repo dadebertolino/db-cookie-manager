@@ -317,6 +317,7 @@ Correzioni emerse dai nuovi test di accessibilità (axe-core e tastiera), obiett
 - Le caselle delle categorie nel modal "Personalizza" non avevano un nome accessibile: uno screen reader leggeva "casella di controllo" senza dire quale categoria. Ora sono collegate a nome e descrizione della categoria (WCAG 4.1.2).
 - Il modal preferenze (`aria-modal="true"`) non gestiva il focus. Ora all'apertura il focus entra nel modal, Tab e Maiusc+Tab restano al suo interno, Esc lo chiude (torna al banner se il visitatore non ha ancora scelto) e alla chiusura il focus torna all'elemento che lo aveva aperto o al pulsante 🍪 (WCAG 2.4.3, 2.1.1).
 - Dopo una scelta fatta da tastiera il focus va sul pulsante 🍪 invece di perdersi sulla pagina.
+- Tema scuro: "Personalizza" e il link alla Cookie Policy usavano il blu primario sul fondo scuro (contrasto circa 3,2:1). Ora usano un azzurro più chiaro (`--dbcm-link`, circa 6,8:1); nel tema chiaro non cambia nulla (WCAG 1.4.3).
 
 #### 3.8.2 — Geo-targeting: solo geolocalizzazione reale _(2026)_
 
@@ -851,6 +852,7 @@ Cookies written by the plugin:
 - Category checkboxes in the "Customize" modal had no accessible name; they are now labelled and described by the category text (WCAG 4.1.2).
 - The preferences modal (`aria-modal="true"`) now manages focus: focus moves in on open, Tab/Shift+Tab stay inside, Esc closes it (back to the banner if no choice was saved yet), and focus returns to the opener or the 🍪 button on close (WCAG 2.4.3, 2.1.1).
 - After a keyboard choice, focus moves to the 🍪 button instead of being lost.
+- Dark theme: "Customize" and the Cookie Policy link used the primary blue on the dark background (~3.2:1); they now use a lighter blue (`--dbcm-link`, ~6.8:1). Light theme unchanged (WCAG 1.4.3).
 
 #### 3.8.2 — Geo-targeting: real geolocation only _(2026)_
 

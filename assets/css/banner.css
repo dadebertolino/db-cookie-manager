@@ -19,6 +19,10 @@
     --dbcm-primary:   #2271b1;
     --dbcm-primary-h: #135e96;
     --dbcm-on-primary: #ffffff;
+    /* Testo-link (Personalizza, Cookie Policy): nel tema chiaro coincide col
+       primario; il tema scuro lo schiarisce per il contrasto AA (3.8.3). */
+    --dbcm-link:      var(--dbcm-primary);
+    --dbcm-link-h:    var(--dbcm-primary-h);
     --dbcm-radius:    10px;
     --dbcm-shadow:    0 8px 30px rgba(0, 0, 0, .15);
     --dbcm-z:         99999;
@@ -33,6 +37,8 @@
     --dbcm-text:   #f0f0f1;
     --dbcm-muted:  #a7aaad;
     --dbcm-border: #3c434a;
+    --dbcm-link:   #72aee6;
+    --dbcm-link-h: #9ec2e6;
 }
 
 /* =========================================================================
@@ -89,10 +95,10 @@
     font-size: 13px;
 }
 .dbcm-banner__policy a {
-    color: var(--dbcm-primary);
+    color: var(--dbcm-link);
     text-decoration: underline;
 }
-.dbcm-banner__policy a:hover { color: var(--dbcm-primary-h); }
+.dbcm-banner__policy a:hover { color: var(--dbcm-link-h); }
 
 /* Credit opzionale (setting banner_credits, 3.8.0) */
 .dbcm-banner__credits {
@@ -165,12 +171,12 @@
 .dbcm-btn--ghost {
     background: transparent;
     border-color: transparent;
-    color: var(--dbcm-primary);
+    color: var(--dbcm-link);
     text-decoration: underline;
 }
 .dbcm-btn--ghost:hover {
     background: transparent;
-    color: var(--dbcm-primary-h);
+    color: var(--dbcm-link-h);
 }
 
 /* =========================================================================
