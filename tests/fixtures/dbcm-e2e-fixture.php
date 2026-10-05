@@ -147,6 +147,35 @@ function dbcm_e2e_reset_state( $args = array() ) {
 }
 
 /**
+ * Stato corrente per le asserzioni lato server: impostazioni, numero di
+ * righe del registro consensi e ultima riga (tipo + consenso decodificato).
+ *
+ * @return array
+ */
+function dbcm_e2e_get_state() {
+	$last = null;
+	$rows = DBCM_Consent_Log::get_results(
+		array(
+			'page'     => 1,
+			'per_page' => 1,
+			'order'    => 'DESC',
+		)
+	);
+	if ( ! empty( $rows ) ) {
+		$last = array(
+			'type'            => $rows[0]->consent_type,
+			'consent'         => json_decode( $rows[0]->consent_data, true ),
+			'consent_version' => (int) $rows[0]->consent_version,
+		);
+	}
+	return array(
+		'settings' => DBCM_Settings::all(),
+		'log'      => DBCM_Consent_Log::count(),
+		'last_log' => $last,
+	);
+}
+
+/**
  * Endpoint REST di reset. Senza autenticazione di proposito: il mu-plugin è
  * montato solo da .wp-env.json e non esiste nel pacchetto distribuito.
  * Usare ?rest_route= nei test, così non dipende dai permalink.
@@ -160,6 +189,17 @@ add_action( 'rest_api_init', function () {
 			'permission_callback' => '__return_true',
 			'callback'            => function ( WP_REST_Request $request ) {
 				return rest_ensure_response( dbcm_e2e_reset_state( (array) $request->get_json_params() ) );
+			},
+		)
+	);
+	register_rest_route(
+		'dbcm-e2e/v1',
+		'/state',
+		array(
+			'methods'             => 'GET',
+			'permission_callback' => '__return_true',
+			'callback'            => function () {
+				return rest_ensure_response( dbcm_e2e_get_state() );
 			},
 		)
 	);

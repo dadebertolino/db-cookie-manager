@@ -208,6 +208,10 @@
         var n = document.createElement(tag);
         if (attrs) {
             Object.keys(attrs).forEach(function (k) {
+                // null/undefined/false = attributo assente. setAttribute(k, null)
+                // scriverebbe "null": su 'checked' le categorie negate
+                // apparivano spuntate nel modal preferenze (3.8.1).
+                if (attrs[k] === null || attrs[k] === undefined || attrs[k] === false) return;
                 if (k === 'className')      n.className = attrs[k];
                 else if (k === 'text')      n.textContent = attrs[k];
                 else if (k.indexOf('on') === 0) n.addEventListener(k.substring(2).toLowerCase(), attrs[k]);
