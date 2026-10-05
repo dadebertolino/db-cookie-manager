@@ -85,8 +85,11 @@ if ( ! class_exists( 'DBCM_Banner' ) ) {
 		 *  2. Header CloudFront-Viewer-Country (AWS) — affidabile.
 		 *  3. Filtro 'dbcm_visitor_country_code' — chi usa MaxMind o GeoIP locale
 		 *     può fornire il codice via filtro.
-		 *  4. Fallback debole su Accept-Language (es. "it-IT" → IT) — molto
-		 *     impreciso ma meglio di niente quando nessuna geolocation è disponibile.
+		 *
+		 * 3.8.2 — Accept-Language NON è più usato: indica la lingua di lettura,
+		 * non il paese (en-US è la lingua predefinita di moltissimi browser
+		 * europei) e nascondeva il banner a visitatori UE. Un indizio debole
+		 * non deve produrre la decisione rischiosa.
 		 *
 		 * Default in caso di rilevamento fallito: true (mostra il banner).
 		 * Meglio mostrare il banner a qualcuno fuori UE che nasconderlo a
@@ -97,9 +100,14 @@ if ( ! class_exists( 'DBCM_Banner' ) ) {
 		private static function is_eu_visitor() {
 			$country = '';
 
-			// 1. Cloudflare.
+			// 1. Cloudflare. 'XX' (paese sconosciuto) e 'T1' (rete Tor) non
+			// sono paesi: valgono come "non rilevato" (3.8.2; prima nascondevano
+			// il banner come a un visitatore extra UE).
 			if ( ! empty( $_SERVER['HTTP_CF_IPCOUNTRY'] ) ) {
 				$country = strtoupper( substr( sanitize_text_field( wp_unslash( $_SERVER['HTTP_CF_IPCOUNTRY'] ) ), 0, 2 ) );
+				if ( in_array( $country, array( 'XX', 'T1' ), true ) ) {
+					$country = '';
+				}
 			}
 
 			// 2. CloudFront.
@@ -110,14 +118,6 @@ if ( ! class_exists( 'DBCM_Banner' ) ) {
 			// 3. Filtro per integrazione GeoIP locale.
 			$country = (string) apply_filters( 'dbcm_visitor_country_code', $country );
 			$country = strtoupper( substr( $country, 0, 2 ) );
-
-			// 4. Fallback su Accept-Language (debole).
-			if ( '' === $country && ! empty( $_SERVER['HTTP_ACCEPT_LANGUAGE'] ) ) {
-				$lang = sanitize_text_field( wp_unslash( $_SERVER['HTTP_ACCEPT_LANGUAGE'] ) );
-				if ( preg_match( '/[a-z]{2}-([A-Z]{2})/', $lang, $m ) ) {
-					$country = strtoupper( $m[1] );
-				}
-			}
 
 			// Se ancora niente, default permissivo (mostra banner).
 			if ( '' === $country ) {

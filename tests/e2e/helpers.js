@@ -19,6 +19,8 @@ const FIXTURE_WP = '/?dbcm_e2e=wp';
  */
 const ADMIN_STATE = path.join( __dirname, '.auth', 'admin.json' );
 
+const BASE_URL = process.env.WP_BASE_URL || 'http://localhost:8888';
+
 /**
  * Domini di terze parti che NON devono ricevere richieste quando il consenso
  * è negato (spec §9.1). La lista è volutamente ristretta ai servizi presenti
@@ -115,7 +117,53 @@ async function getState( request ) {
 	return res.json();
 }
 
+/**
+ * Intercetta ogni richiesta verso terze parti: la registra e risponde con un
+ * corpo vuoto, così nulla esce dalla CI ma si vede cosa il browser ha chiesto.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @returns {Promise<string[]>} URL richieste (si riempie durante il test).
+ */
+async function interceptThirdParty( page ) {
+	const hits = [];
+	await page.route( ( url ) => ! url.href.startsWith( BASE_URL ), ( route ) => {
+		hits.push( route.request().url() );
+		return route.fulfill( { status: 200, body: '' } );
+	} );
+	return hits;
+}
+
+/**
+ * Scrive un cookie di consenso già espresso (schema 3), come lo troverebbe
+ * banner.js. Le categorie non indicate sono negate.
+ *
+ * @param {import('@playwright/test').BrowserContext} context
+ * @param {object} categories Es. { marketing: true }.
+ * @param {object} [meta]     Sovrascrive v, cv, type.
+ */
+async function setConsentCookie( context, categories, meta = {} ) {
+	const data = {
+		v: 3,
+		cv: 1,
+		ts: Date.now(),
+		type: 'custom',
+		functional: true,
+		preferences: false,
+		statistics: false,
+		'statistics-anonymous': false,
+		marketing: false,
+		...categories,
+		...meta,
+	};
+	await context.addCookies( [ {
+		name: 'dbcm_consent',
+		value: encodeURIComponent( JSON.stringify( data ) ),
+		url: BASE_URL,
+	} ] );
+}
+
 module.exports = {
+	BASE_URL,
 	FIXTURE_RAW,
 	FIXTURE_WP,
 	ADMIN_STATE,
@@ -125,4 +173,6 @@ module.exports = {
 	hasCookiePrefix,
 	resetState,
 	getState,
+	interceptThirdParty,
+	setConsentCookie,
 };

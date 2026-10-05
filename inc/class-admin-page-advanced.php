@@ -80,7 +80,7 @@ if ( ! class_exists( 'DBCM_Admin_Page_Advanced' ) ) {
 						'geo_targeting',
 						$s['geo_targeting'],
 						__( 'Mostra il banner solo ai visitatori dell\'Unione Europea', 'db-cookie-manager' ),
-						__( 'Quando attivo, il banner viene mostrato solo se il visitatore proviene da un paese UE/EEA o UK (rilevato tramite header Cloudflare CF-IPCountry o accept-language). Sconsigliato se il sito è italiano: meglio mostrare il banner a tutti per evitare incoerenze di esperienza.', 'db-cookie-manager' )
+						__( 'Quando attivo, il banner viene mostrato solo se il visitatore proviene da un paese UE/EEA o UK. Funziona solo con una geolocalizzazione reale: header Cloudflare CF-IPCountry, header CloudFront-Viewer-Country o filtro dbcm_visitor_country_code (es. database GeoIP). Senza, il paese non è rilevabile e il banner viene mostrato a tutti. La lingua del browser non è usata: non indica dove si trova il visitatore. Sconsigliato se il sito è italiano: meglio mostrare il banner a tutti per evitare incoerenze di esperienza.', 'db-cookie-manager' )
 					);
 					?>
 
