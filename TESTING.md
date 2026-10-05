@@ -52,10 +52,31 @@ i test arrivano dallo stesso IP; chi lo testa passa `rate_limit`.
 `tests/e2e/infra.spec.js` verifica l'infrastruttura stessa (reset, pagina `wp`,
 sessione admin): se fallisce, i risultati degli altri spec non sono attendibili.
 
-Coperti adesso: blocco GA4 e assenza richieste terze parti (§9.1),
-neutralizzazione script, Google Fonts rimossi (§4), link WhatsApp libero (§9.3),
-placeholder click-to-load accessibile da tastiera (§3, §9.4, §9.8),
-cancellazione reattiva, carrello WooCommerce che sopravvive al rifiuto (§9.1, §9.2).
+## Cosa copre la suite E2E
+
+| Area | Spec |
+|------|------|
+| Blocco preventivo, Google Fonts, placeholder accessibili, cancellazione reattiva (§3, §4, §9.1, §9.3, §9.4, §9.8) | `blocking` |
+| Banner reale: scelte, cookie, sync, riapertura, lingue | `banner` |
+| Riattivazione di script ed embed al commit e al caricamento, revoca | `reactivation` |
+| HTML identico per gli anonimi con o senza consenso (cache di pagina) | `cache-safe` |
+| Endpoint `dbcm_set_consent`: origine, rate limit, nonce, payload | `consent-ajax` |
+| Registro consensi dal banner all'admin, export | `consent-log` |
+| GPC, DNT, geo-targeting | `browser-signals` |
+| Google Consent Mode v2, Microsoft UET e Clarity | `consent-modes` |
+| Meta Pixel nativo | `meta-pixel` |
+| Versione del consenso | `consent-version` |
+| Admin: salvataggi, clamp, coerenze, sicurezza del dispatcher | `admin-settings` |
+| Admin: filtri e paginazione del registro | `admin-log` |
+| Admin: firme personalizzate, import/export, blocco sul sito | `admin-signatures` |
+| Admin: servizi dichiarati e Cookie Policy | `admin-declared-policy` |
+| Admin: scanner | `admin-scanner` |
+| Carrello WooCommerce che sopravvive al rifiuto (§9.1, §9.2) | `woocommerce` |
+
+Lo scanner in wp-env non raggiunge il sito dal server (`localhost:8888` non è
+visibile dal container): la scansione si completa con i soli cookie WordPress e
+del plugin, sufficienti per il flusso dell'interfaccia. Il rilevamento dei cookie
+reali è coperto dagli integration test.
 
 Non coperti in CI per natura: checkout PayPal reale (§9.6, richiede sandbox con
 credenziali), disinstallazione (in wp-env il plugin è montato dalla working copy).
