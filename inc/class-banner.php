@@ -264,7 +264,7 @@ if ( ! class_exists( 'DBCM_Banner' ) ) {
 
 			// Tema auto: palette scura quando il sistema la richiede. Stessa
 			// specificità del blocco sopra ma dichiarata dopo → vince.
-			$css .= '@media (prefers-color-scheme: dark){#dbcm-banner-root[data-theme="auto"]{--dbcm-bg:#1d2327;--dbcm-text:#f0f0f1;--dbcm-muted:#a7aaad;--dbcm-border:#3c434a;}}';
+			$css .= '@media (prefers-color-scheme: dark){#dbcm-banner-root[data-theme="auto"]{--dbcm-bg:#1d2327;--dbcm-text:#f0f0f1;--dbcm-muted:#a7aaad;--dbcm-border:#3c434a;--dbcm-link:#72aee6;--dbcm-link-h:#9ec2e6;}}';
 
 			$custom = trim( wp_strip_all_tags( (string) $s['banner_custom_css'] ) );
 			if ( '' !== $custom ) {

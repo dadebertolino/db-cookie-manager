@@ -70,11 +70,13 @@ function dbcm_e2e_baseline_settings() {
  *                      tutti i test arrivano dallo stesso IP).
  *  - country    string Paese restituito dal filtro dbcm_visitor_country_code
  *                      (simula una geolocalizzazione GeoIP; default nessuno).
+ *  - consent_api bool  Attiva il plugin WP Consent API (default disattivo:
+ *                      gli spec che non lo riguardano girano senza).
  *  - seed_log   array  Righe da inserire nel registro consensi:
  *                      [{type, consent:{cat:bool}, count, days_ago}].
  *
  * @param array $args
- * @return array Stato risultante (settings + conteggio log).
+ * @return array|WP_Error Stato risultante (settings + conteggio log).
  */
 function dbcm_e2e_reset_state( $args = array() ) {
 	global $wpdb;
@@ -88,6 +90,21 @@ function dbcm_e2e_reset_state( $args = array() ) {
 		isset( $args['settings'] ) && is_array( $args['settings'] ) ? $args['settings'] : array()
 	);
 	update_option( DBCM_Settings::OPTION_KEY, $settings );
+
+	// Plugin WP Consent API: installato da setup-e2e.sh, attivo solo su
+	// richiesta. L'attivazione vale dalla richiesta successiva.
+	require_once ABSPATH . 'wp-admin/includes/plugin.php';
+	$consent_api = 'wp-consent-api/wp-consent-api.php';
+	if ( ! empty( $args['consent_api'] ) ) {
+		if ( ! file_exists( WP_PLUGIN_DIR . '/' . $consent_api ) ) {
+			return new WP_Error( 'dbcm_e2e_no_consent_api', 'WP Consent API non installato: eseguire bin/setup-e2e.sh.', array( 'status' => 500 ) );
+		}
+		if ( ! is_plugin_active( $consent_api ) ) {
+			activate_plugin( $consent_api );
+		}
+	} elseif ( is_plugin_active( $consent_api ) ) {
+		deactivate_plugins( $consent_api, true );
+	}
 
 	// Firme custom.
 	$signatures = isset( $args['signatures'] ) && is_array( $args['signatures'] )
@@ -174,9 +191,11 @@ function dbcm_e2e_get_state() {
 		);
 	}
 	return array(
-		'settings' => DBCM_Settings::all(),
-		'log'      => DBCM_Consent_Log::count(),
-		'last_log' => $last,
+		'settings'     => DBCM_Settings::all(),
+		'log'          => DBCM_Consent_Log::count(),
+		'last_log'     => $last,
+		'consent_api'  => function_exists( 'wp_get_consent_type' ),
+		'consent_type' => function_exists( 'wp_get_consent_type' ) ? wp_get_consent_type() : null,
 	);
 }
 

@@ -71,6 +71,8 @@ sessione admin): se fallisce, i risultati degli altri spec non sono attendibili.
 | Admin: firme personalizzate, import/export, blocco sul sito | `admin-signatures` |
 | Admin: servizi dichiarati e Cookie Policy | `admin-declared-policy` |
 | Admin: scanner | `admin-scanner` |
+| Integrazione con il plugin WP Consent API (attivato solo qui) | `consent-api` |
+| Accessibilità: axe-core WCAG 2.1 AA, tastiera, focus del modal | `a11y` |
 | Carrello WooCommerce che sopravvive al rifiuto (§9.1, §9.2) | `woocommerce` |
 
 Lo scanner in wp-env non raggiunge il sito dal server (`localhost:8888` non è

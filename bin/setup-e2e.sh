@@ -62,6 +62,11 @@ if [ -z "${PID}" ]; then
 fi
 echo "  Prodotto ID: ${PID}"
 
+echo "→ WP Consent API: installato ma NON attivo (lo attivano gli spec che lo usano)"
+if ! run plugin is-installed wp-consent-api 2>/dev/null; then
+	run plugin install wp-consent-api
+fi
+
 echo "→ Flush rewrite finale"
 run rewrite flush --hard
 
