@@ -310,6 +310,14 @@ Cookie scritti dal plugin:
 
 ### Changelog
 
+#### 3.8.3 — Accessibilità del modal preferenze _(2026)_
+
+Correzioni emerse dai nuovi test di accessibilità (axe-core e tastiera), obiettivo WCAG 2.1 AA.
+
+- Le caselle delle categorie nel modal "Personalizza" non avevano un nome accessibile: uno screen reader leggeva "casella di controllo" senza dire quale categoria. Ora sono collegate a nome e descrizione della categoria (WCAG 4.1.2).
+- Il modal preferenze (`aria-modal="true"`) non gestiva il focus. Ora all'apertura il focus entra nel modal, Tab e Maiusc+Tab restano al suo interno, Esc lo chiude (torna al banner se il visitatore non ha ancora scelto) e alla chiusura il focus torna all'elemento che lo aveva aperto o al pulsante 🍪 (WCAG 2.4.3, 2.1.1).
+- Dopo una scelta fatta da tastiera il focus va sul pulsante 🍪 invece di perdersi sulla pagina.
+
 #### 3.8.2 — Geo-targeting: solo geolocalizzazione reale _(2026)_
 
 Due casi in cui il geo-targeting nascondeva il banner a visitatori potenzialmente UE. Il principio resta quello di sempre: nel dubbio il banner si mostra.
@@ -837,6 +845,12 @@ Cookies written by the plugin:
 ---
 
 ### Changelog
+
+#### 3.8.3 — Preferences modal accessibility _(2026)_
+
+- Category checkboxes in the "Customize" modal had no accessible name; they are now labelled and described by the category text (WCAG 4.1.2).
+- The preferences modal (`aria-modal="true"`) now manages focus: focus moves in on open, Tab/Shift+Tab stay inside, Esc closes it (back to the banner if no choice was saved yet), and focus returns to the opener or the 🍪 button on close (WCAG 2.4.3, 2.1.1).
+- After a keyboard choice, focus moves to the 🍪 button instead of being lost.
 
 #### 3.8.2 — Geo-targeting: real geolocation only _(2026)_
 

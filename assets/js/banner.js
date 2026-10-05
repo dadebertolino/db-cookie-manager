@@ -294,22 +294,34 @@
      * Modal preferenze (vista espansa con i toggle delle 4 categorie opzionali).
      */
     function renderPreferences(currentChoice) {
+        // Elemento da cui è stato aperto il modal: alla chiusura il focus
+        // torna lì (pulsante 🍪, shortcode, placeholder), se esiste ancora.
+        var active = document.activeElement;
+        if (active && active !== document.body && !getRoot().contains(active)) {
+            lastTrigger = active;
+        }
         clearRoot();
 
         var saved = currentChoice || readCookie() || (C.defaults || {});
 
         var rows = OPT_CATEGORIES.map(function (cat) {
             var checked = !!saved[cat];
+            // Nome e descrizione accessibili collegati alla casella (3.8.3):
+            // il <label> contiene solo lo slider grafico, senza testo.
+            var labelId = 'dbcm-pref-label-' + cat;
+            var descId  = 'dbcm-pref-desc-' + cat;
             return el('div', { className: 'dbcm-pref__row', 'data-category': cat }, [
                 el('div', { className: 'dbcm-pref__info' }, [
-                    el('div', { className: 'dbcm-pref__label', text: T('cat_' + cat) }),
-                    el('div', { className: 'dbcm-pref__desc',  text: T('cat_' + cat + '_desc') })
+                    el('div', { id: labelId, className: 'dbcm-pref__label', text: T('cat_' + cat) }),
+                    el('div', { id: descId, className: 'dbcm-pref__desc',  text: T('cat_' + cat + '_desc') })
                 ]),
                 el('label', { className: 'dbcm-toggle' }, [
                     el('input', {
                         type: 'checkbox',
                         className: 'dbcm-toggle__input',
                         'data-category': cat,
+                        'aria-labelledby': labelId,
+                        'aria-describedby': descId,
                         checked: checked ? 'checked' : null
                     }),
                     el('span', { className: 'dbcm-toggle__slider' })
@@ -323,7 +335,8 @@
                 el('div', { className: 'dbcm-pref__label', text: T('cat_functional') }),
                 el('div', { className: 'dbcm-pref__desc',  text: T('cat_functional_desc') })
             ]),
-            el('span', { className: 'dbcm-toggle dbcm-toggle--locked', 'aria-disabled': 'true' }, [
+            // Decorativo: lo stato "sempre attivi" è già nel testo della riga.
+            el('span', { className: 'dbcm-toggle dbcm-toggle--locked', 'aria-hidden': 'true' }, [
                 el('span', { className: 'dbcm-toggle__slider dbcm-toggle__slider--on' })
             ])
         ]);
@@ -332,7 +345,8 @@
             className: 'dbcm-banner dbcm-banner--preferences',
             role: 'dialog',
             'aria-modal': 'true',
-            'aria-labelledby': 'dbcm-pref-title'
+            'aria-labelledby': 'dbcm-pref-title',
+            onKeydown: handleModalKeydown
         }, [
             el('h2', { id: 'dbcm-pref-title', className: 'dbcm-banner__title', text: T('customize') }),
             el('div', { className: 'dbcm-pref__list' }, [functionalRow].concat(rows)),
@@ -354,11 +368,72 @@
 
         getRoot().appendChild(el('div', { className: 'dbcm-overlay' }));
         getRoot().appendChild(box);
+
+        // Modal (aria-modal): il focus entra nel dialogo (3.8.3).
+        var first = focusables(box)[0];
+        if (first) first.focus();
+    }
+
+    /* =========================================================================
+     * FOCUS — modal preferenze (WCAG 2.4.3, 2.1.1)
+     * ========================================================================= */
+
+    var lastTrigger = null;
+
+    function focusables(container) {
+        var nodes = container.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        return Array.prototype.filter.call(nodes, function (n) {
+            // getClientRects(): offsetParent è null anche per elementi
+            // visibili dentro contenitori position:fixed (il banner).
+            return !n.disabled && n.getClientRects().length > 0;
+        });
+    }
+
+    /**
+     * Tab resta dentro il modal; Esc lo chiude senza registrare una scelta:
+     * torna al banner se il visitatore non ha ancora scelto, altrimenti
+     * chiude e basta (la scelta salvata resta valida).
+     */
+    function handleModalKeydown(ev) {
+        if (ev.key === 'Escape') {
+            ev.preventDefault();
+            if (readCookie()) {
+                close();
+            } else {
+                renderBanner();
+                var firstBtn = focusables(getRoot())[0];
+                if (firstBtn) firstBtn.focus();
+            }
+            return;
+        }
+        if (ev.key !== 'Tab') return;
+        var items = focusables(ev.currentTarget);
+        if (!items.length) return;
+        var first = items[0];
+        var last  = items[items.length - 1];
+        if (ev.shiftKey && document.activeElement === first) {
+            ev.preventDefault();
+            last.focus();
+        } else if (!ev.shiftKey && document.activeElement === last) {
+            ev.preventDefault();
+            first.focus();
+        }
     }
 
     function close() {
+        // Se il focus era nel banner/modal, va ripristinato dopo la chiusura:
+        // altrimenti finisce sul <body> e chi usa la tastiera perde il punto.
+        var root     = getRoot();
+        var hadFocus = root.contains(document.activeElement);
         clearRoot();
-        if (C.showReopenBtn) renderReopenButton();
+        var reopen = C.showReopenBtn ? renderReopenButton() : null;
+        if (!hadFocus) return;
+        if (lastTrigger && document.contains(lastTrigger)) {
+            lastTrigger.focus();
+        } else if (reopen) {
+            reopen.focus();
+        }
+        lastTrigger = null;
     }
 
     function renderReopenButton() {
@@ -371,6 +446,7 @@
             onClick: openPreferences
         });
         getRoot().appendChild(btn);
+        return btn;
     }
 
     /* =========================================================================
