@@ -101,6 +101,20 @@ async function resetState( request, opts = {} ) {
 	return res.json();
 }
 
+/**
+ * Legge lo stato lato server (impostazioni, registro consensi).
+ *
+ * @param {import('@playwright/test').APIRequestContext} request
+ * @returns {Promise<{settings: object, log: number, last_log: ?{type: string, consent: object, consent_version: number}}>}
+ */
+async function getState( request ) {
+	const res = await request.get( '/?rest_route=/dbcm-e2e/v1/state' );
+	if ( ! res.ok() ) {
+		throw new Error( `Lettura stato E2E fallita (HTTP ${ res.status() }): ${ await res.text() }` );
+	}
+	return res.json();
+}
+
 module.exports = {
 	FIXTURE_RAW,
 	FIXTURE_WP,
@@ -110,4 +124,5 @@ module.exports = {
 	getConsentCookie,
 	hasCookiePrefix,
 	resetState,
+	getState,
 };

@@ -1,6 +1,6 @@
 // @ts-check
 const { test, expect } = require( '@playwright/test' );
-const { FIXTURE_WP, getConsentCookie, resetState } = require( './helpers' );
+const { FIXTURE_WP, getConsentCookie, resetState, getState } = require( './helpers' );
 
 /**
  * Banner reale (pagina fixture con wp_head/wp_footer): scelte del visitatore,
@@ -63,14 +63,18 @@ test.describe( 'Prima visita', () => {
 
 test.describe( 'Scelte del visitatore', () => {
 
-	test( '"Accetta tutto" concede ogni categoria, sincronizza e non ripropone il banner', async ( { page, context } ) => {
+	test( '"Accetta tutto" concede ogni categoria, sincronizza e non ripropone il banner', async ( { page, context, request } ) => {
 		await page.goto( FIXTURE_WP );
 
 		const sync = waitForConsentSync( page );
 		await page.locator( `${ BANNER } .dbcm-btn--primary` ).click();
-		const res = await sync;
-		expect( res.status() ).toBe( 200 );
-		expect( ( await res.json() ).success ).toBe( true );
+		expect( ( await sync ).status() ).toBe( 200 );
+
+		// Il server ha ricevuto la scelta: riga nel registro consensi.
+		const state = await getState( request );
+		expect( state.log ).toBe( 1 );
+		expect( state.last_log.type ).toBe( 'accept_all' );
+		expect( state.last_log.consent.marketing ).toBe( true );
 
 		await expect( page.locator( BANNER ) ).toHaveCount( 0 );
 		await expect( page.locator( '.dbcm-reopen' ) ).toBeVisible();
@@ -86,12 +90,16 @@ test.describe( 'Scelte del visitatore', () => {
 		await expect( page.locator( BANNER ) ).toHaveCount( 0 );
 	} );
 
-	test( '"Rifiuta" nega ogni categoria opzionale e non ripropone il banner', async ( { page, context } ) => {
+	test( '"Rifiuta" nega ogni categoria opzionale e non ripropone il banner', async ( { page, context, request } ) => {
 		await page.goto( FIXTURE_WP );
 
 		const sync = waitForConsentSync( page );
 		await page.locator( `${ BANNER } .dbcm-btn--secondary` ).click();
-		expect( ( await ( await sync ).json() ).success ).toBe( true );
+		expect( ( await sync ).status() ).toBe( 200 );
+
+		const state = await getState( request );
+		expect( state.last_log.type ).toBe( 'reject_all' );
+		expect( state.last_log.consent.marketing ).toBe( false );
 
 		const consent = await getConsentCookie( context );
 		expect( consent ).toMatchObject( { type: 'reject_all', functional: true } );
