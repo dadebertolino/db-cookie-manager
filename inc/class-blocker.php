@@ -265,28 +265,86 @@ if ( ! class_exists( 'DBCM_Blocker' ) ) {
 		 * ================================================================== */
 
 		/**
+		 * Loader dei tag Google lasciati passare con Consent Mode v2 in
+		 * modalità avanzata (gtag.js, Google Tag Manager).
+		 *
+		 * @since 3.9.0
+		 * @var string[]
+		 */
+		const GOOGLE_TAG_PATTERNS = array(
+			'googletagmanager.com/gtag',
+			'googletagmanager.com/gtm.js',
+		);
+
+		/**
+		 * True se il pattern di un gruppo corrisponde al testo. I gruppi con
+		 * 'is_regex' (fonte regex delle firme personalizzate) usano
+		 * preg_match; gli altri un confronto di sottostringa.
+		 *
+		 * 3.9.0: prima anche i pattern regex erano confrontati come testo
+		 * letterale, quindi una firma con fonte regex non bloccava nulla.
+		 *
+		 * @param array  $group
+		 * @param string $pattern
+		 * @param string $haystack
+		 * @return bool
+		 */
+		private static function pattern_matches( $group, $pattern, $haystack ) {
+			if ( ! empty( $group['is_regex'] ) ) {
+				// Regex già validata al salvataggio; @ per sicurezza su input legacy.
+				return 1 === @preg_match( $pattern, $haystack ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+			}
+			return false !== stripos( $haystack, $pattern );
+		}
+
+		/**
 		 * Restituisce la categoria di un URL/contenuto script, o null se
 		 * non c'è match.
 		 *
-		 * @param string $haystack URL src oppure contenuto inline.
+		 * Con Consent Mode v2 in modalità avanzata i loader dei tag Google
+		 * non contano come match (gli altri pattern sì: uno script che
+		 * contiene anche un pixel di terzi resta bloccato). In quel caso
+		 * $google_tag diventa true, così il chiamante può comunque
+		 * registrare il servizio come dichiarato.
+		 *
+		 * @param string $haystack   URL src oppure contenuto inline.
+		 * @param bool   $google_tag Out: true se è stato esentato un tag Google.
 		 * @return string|null
 		 */
-		private static function match_script( $haystack ) {
+		private static function match_script( $haystack, &$google_tag = false ) {
+			$google_tag = false;
 			if ( '' === $haystack || null === $haystack ) {
 				return null;
 			}
+			$exempt = self::google_tags_exempt();
 			foreach ( self::get_patterns() as $group ) {
 				$type = $group['type'] ?? 'script';
 				if ( 'iframe' === $type ) {
 					continue;
 				}
 				foreach ( $group['patterns'] as $pattern ) {
-					if ( false !== stripos( $haystack, $pattern ) ) {
-						return $group['category'];
+					if ( ! self::pattern_matches( $group, $pattern, $haystack ) ) {
+						continue;
 					}
+					if ( $exempt && empty( $group['is_regex'] ) && in_array( strtolower( $pattern ), self::GOOGLE_TAG_PATTERNS, true ) ) {
+						$google_tag = true;
+						continue;
+					}
+					return $group['category'];
 				}
 			}
 			return null;
+		}
+
+		/**
+		 * True se i tag Google vanno lasciati passare (Consent Mode v2 in
+		 * modalità avanzata).
+		 *
+		 * @since 3.9.0
+		 * @return bool
+		 */
+		private static function google_tags_exempt() {
+			return class_exists( 'DBCM_Consent_Signals' ) && DBCM_Consent_Signals::advanced_active();
 		}
 
 		/**
@@ -305,7 +363,7 @@ if ( ! class_exists( 'DBCM_Blocker' ) ) {
 					continue;
 				}
 				foreach ( $group['patterns'] as $pattern ) {
-					if ( false !== stripos( $src, $pattern ) ) {
+					if ( self::pattern_matches( $group, $pattern, $src ) ) {
 						return $group['category'];
 					}
 				}
@@ -391,8 +449,13 @@ if ( ! class_exists( 'DBCM_Blocker' ) ) {
 		 * @return string
 		 */
 		public static function filter_script_tag( $tag, $handle, $src ) {
-			$category = self::match_script( $src );
+			$category = self::match_script( $src, $google_tag );
 			if ( ! $category ) {
+				// Tag Google esentato (Consent Mode avanzato): resta attivo ma
+				// è comunque un servizio in uso da dichiarare nella policy.
+				if ( $google_tag ) {
+					self::record_declared_service( $src );
+				}
 				return $tag;
 			}
 			self::record_declared_service( $src );
@@ -567,15 +630,21 @@ if ( ! class_exists( 'DBCM_Blocker' ) ) {
 			}
 
 			// Determina la categoria: prima dal src, poi dal contenuto inline.
-			$category = null;
+			$category   = null;
+			$google_src = false;
 			if ( preg_match( '/\ssrc\s*=\s*["\']([^"\']+)["\']/i', $attrs, $src_match ) ) {
-				$category = self::match_script( $src_match[1] );
+				$category = self::match_script( $src_match[1], $google_src );
 			}
 			if ( ! $category && '' !== $content ) {
 				$category = self::match_script( $content );
 			}
 
 			if ( ! $category ) {
+				// Tag Google esentato (Consent Mode avanzato): attivo, ma
+				// dichiarato nella policy come servizio in uso.
+				if ( $google_src ) {
+					self::record_declared_service( $src_match[1] );
+				}
 				return $m[0];
 			}
 			if ( ! empty( $src_match[1] ) ) {

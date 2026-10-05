@@ -309,6 +309,13 @@ add_action( 'template_redirect', function () {
 		echo '<meta charset="utf-8"><title>DBCM E2E (wp)</title>' . "\n";
 		wp_head();
 		dbcm_e2e_print_gtag_inline();
+		// Scenario Consent Mode (&dbcm_gtm=1): snippet ufficiale di Google
+		// Tag Manager (ID finto) e un Meta Pixel incollato a mano nel tema.
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		if ( isset( $_GET['dbcm_gtm'] ) ) {
+			echo "<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-TEST000');</script>\n";
+			echo '<script id="fixture-third-party-pixel" async src="https://connect.facebook.net/en_US/fbevents.js"></script>' . "\n";
+		}
 		echo "</head><body>\n";
 		wp_body_open();
 		dbcm_e2e_print_body();

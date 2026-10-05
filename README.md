@@ -26,7 +26,7 @@ Sviluppato da **Davide Bertolino** per uso personale e professionale, rilasciato
 - **Integrazione WP Consent API**: `wp_has_consent('statistics')` risponde correttamente in base al consenso del visitatore
 - **Segnali browser opzionali**: rispetta Do Not Track (DNT) e Global Privacy Control (GPC)
 - **Geo-targeting opzionale**: mostra il banner solo a visitatori UE/EEA/UK — ⚠️ incompatibile con la cache di pagina completa, salvo cache che varia per paese (vedi FAQ)
-- **Google Consent Mode v2** *(opt-in)*: comunica il consenso ai tag Google con default negato nel `<head>` e update al consenso; mapping personalizzabile via `dbcm_gcm_mapping`
+- **Google Consent Mode v2** *(opt-in)*: comunica il consenso ai tag Google con default negato nel `<head>` e update al consenso; mapping personalizzabile via `dbcm_gcm_mapping`. Modalità base (default): gtag.js e Google Tag Manager restano bloccati fino al consenso; modalità avanzata *(opt-in, 3.9.0)*: si caricano subito con i segnali negati
 - **Localizzazione Google Fonts** *(opt-in)*: rimuove i riferimenti remoti a Google Fonts così l'IP dell'utente non viene trasmesso a Google
 - **Cancellazione reattiva dei cookie**: rimuove dal browser i cookie delle categorie non concesse, rendendo effettiva la revoca del consenso
 - **Placeholder click-to-load** accessibile per gli embed bloccati (consenso granulare per singolo contenuto)
@@ -112,6 +112,19 @@ document.addEventListener('dbcm:ready', function() {
     if (window.DBCM.hasConsent('marketing')) { /* ... */ }
 });
 ```
+
+Evento per Google Tag Manager *(3.9.0)*: con Consent Mode attivo, o se il `dataLayer` esiste già, ogni scelta (e ogni caricamento con consenso salvato) invia nel `dataLayer`:
+
+```js
+{
+    event: 'dbcm_consent_update',
+    dbcm_consent: { functional: true, preferences: false, statistics: true, 'statistics-anonymous': false, marketing: false },
+    dbcm_consent_type: 'custom',      // accept_all | reject_all | custom
+    dbcm_consent_source: 'choice'     // choice (scelta ora) | saved (consenso già salvato)
+}
+```
+
+In GTM: trigger *Evento personalizzato* `dbcm_consent_update`, con le variabili di livello dati `dbcm_consent.statistics` e simili.
 
 ---
 
@@ -309,6 +322,20 @@ Cookie scritti dal plugin:
 ---
 
 ### Changelog
+
+#### 3.9.0 — Consent Mode avanzato (opt-in), evento GTM, regex delle firme _(2026)_
+
+**Consent Mode v2, modalità base e avanzata:**
+- Resta il comportamento di sempre, ora chiamato **modalità base** e predefinito: con Consent Mode attivo, gtag.js e Google Tag Manager restano bloccati finché il visitatore non concede le Statistiche.
+- Nuova opzione **Modalità avanzata** (Avanzate → Google Consent Mode v2), **disattivata di default** e attiva solo insieme a Consent Mode: gtag.js e GTM si caricano subito con tutti i segnali negati, così Google può stimare le conversioni senza cookie. Gli altri tracker, compreso un Meta Pixel incollato nel tema, restano bloccati. I tag Google esentati restano comunque dichiarati nella Cookie Policy.
+- L'admin mostra un avviso: in modalità avanzata Google riceve dati della visita (IP, pagina, user agent) anche da chi non ha scelto o ha rifiutato, trasmissione che Garante ed EDPB considerano a rischio senza consenso.
+
+**Evento per Google Tag Manager:**
+- Nuovo evento `dbcm_consent_update` nel `dataLayer`, alla scelta e al caricamento con consenso salvato, utilizzabile come trigger in GTM. Inviato solo con Consent Mode attivo o se il `dataLayer` esiste già.
+
+**Firme personalizzate con fonte regex (correzione):**
+- Il blocker confrontava le fonti regex come testo letterale: una firma con "il pattern è un'espressione regolare" non bloccava nulla. Ora usa davvero la regex.
+- L'admin valida la regex come JavaScript, senza delimitatori (`^https://pixel\.example\.`), mentre PHP li richiedeva e la giudicava non valida. Ora una regex senza delimitatori viene racchiusa in automatico; quelle già scritte come `/.../flag` restano invariate. Una regex non valida ricade sul confronto di testo, come prima.
 
 #### 3.8.3 — Accessibilità del modal preferenze _(2026)_
 
@@ -600,7 +627,7 @@ Developed by **Davide Bertolino** for personal and professional use, released as
 - **WP Consent API integration**: `wp_has_consent('statistics')` responds correctly based on visitor consent
 - **Optional browser signals**: respects Do Not Track (DNT) and Global Privacy Control (GPC)
 - **Optional geo-targeting**: shows banner only to EU/EEA/UK visitors — ⚠️ not compatible with full-page caching unless the cache varies by country
-- **Google Consent Mode v2** *(opt-in)*: signals consent to Google tags with a denied default in `<head>` and update on consent; mapping customisable via `dbcm_gcm_mapping`
+- **Google Consent Mode v2** *(opt-in)*: signals consent to Google tags with a denied default in `<head>` and update on consent; mapping customisable via `dbcm_gcm_mapping`. Basic mode (default): gtag.js and Google Tag Manager stay blocked until consent; advanced mode *(opt-in, 3.9.0)*: they load immediately with denied signals
 - **Google Fonts localisation** *(opt-in)*: strips remote Google Fonts references so the user's IP is not sent to Google
 - **Reactive cookie cleanup**: removes cookies of non-granted categories from the browser, making consent withdrawal effective
 - **Accessible click-to-load placeholder** for blocked embeds (granular per-embed consent)
@@ -686,6 +713,8 @@ document.addEventListener('dbcm:ready', function() {
     if (window.DBCM.hasConsent('marketing')) { /* ... */ }
 });
 ```
+
+Google Tag Manager event *(3.9.0)*: with Consent Mode on, or when a `dataLayer` already exists, every choice (and every page load with saved consent) pushes `{ event: 'dbcm_consent_update', dbcm_consent: {…}, dbcm_consent_type, dbcm_consent_source: 'choice' | 'saved' }`. In GTM use a *Custom Event* trigger on `dbcm_consent_update`.
 
 ---
 
@@ -847,6 +876,12 @@ Cookies written by the plugin:
 ---
 
 ### Changelog
+
+#### 3.9.0 — Advanced Consent Mode (opt-in), GTM event, signature regex _(2026)_
+
+- **Consent Mode v2 basic mode (default, unchanged)**: gtag.js and Google Tag Manager stay blocked until Statistics consent. New **advanced mode** option (off by default, only with Consent Mode on): Google tags load immediately with denied signals; other trackers, including a Meta Pixel pasted in the theme, stay blocked; exempted Google tags are still declared in the Cookie Policy. The admin warns that Google receives visit data before consent in advanced mode.
+- **GTM event**: new `dbcm_consent_update` dataLayer event on choice and on load with saved consent.
+- **Custom signature regex (fix)**: the blocker matched regex sources as literal text, so regex signatures never blocked anything; JS-style patterns without delimiters were also rejected by PHP. Regex sources now work, with or without `/…/` delimiters.
 
 #### 3.8.3 — Preferences modal accessibility _(2026)_
 

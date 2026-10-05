@@ -98,6 +98,18 @@ if ( ! class_exists( 'DBCM_Consent_Signals' ) ) {
 		}
 
 		/**
+		 * True se Consent Mode v2 è attivo in modalità avanzata: i tag Google
+		 * (gtag.js, gtm.js) non vengono bloccati e partono con i segnali
+		 * 'denied'. Richiede GCM attivo.
+		 *
+		 * @since 3.9.0
+		 * @return bool
+		 */
+		public static function advanced_active() {
+			return self::is_enabled() && (bool) DBCM_Settings::get( 'gcm_advanced', false );
+		}
+
+		/**
 		 * True se Microsoft UET Consent Mode è attivo nelle impostazioni.
 		 *
 		 * @return bool
