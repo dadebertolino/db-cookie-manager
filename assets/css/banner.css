@@ -216,9 +216,9 @@
     padding: 14px 0;
     border-bottom: 1px solid var(--dbcm-border);
 }
-.dbcm-pref__row--locked .dbcm-pref__info {
-    opacity: .85;
-}
+/* 3.8.3: niente opacità sul testo della riga bloccata: sul grigio delle
+   descrizioni portava il contrasto sotto 4,5:1. Lo stato "sempre attivo"
+   lo comunicano il testo e lo slider attenuato (.dbcm-toggle--locked). */
 
 .dbcm-pref__info {
     flex: 1 1 auto;
