@@ -68,6 +68,8 @@ function dbcm_e2e_baseline_settings() {
  *  - signatures array  Firme custom (default: baseline).
  *  - rate_limit int    Limite dbcm_set_consent per IP (default 0 = disattivo:
  *                      tutti i test arrivano dallo stesso IP).
+ *  - country    string Paese restituito dal filtro dbcm_visitor_country_code
+ *                      (simula una geolocalizzazione GeoIP; default nessuno).
  *  - seed_log   array  Righe da inserire nel registro consensi:
  *                      [{type, consent:{cat:bool}, count, days_ago}].
  *
@@ -98,6 +100,7 @@ function dbcm_e2e_reset_state( $args = array() ) {
 		'dbcm_e2e_filters',
 		array(
 			'rate_limit' => isset( $args['rate_limit'] ) ? (int) $args['rate_limit'] : 0,
+			'country'    => isset( $args['country'] ) ? (string) $args['country'] : '',
 		)
 	);
 
@@ -213,6 +216,11 @@ add_action( 'rest_api_init', function () {
 add_filter( 'dbcm_consent_rate_limit', function ( $limit ) {
 	$filters = get_option( 'dbcm_e2e_filters', array() );
 	return isset( $filters['rate_limit'] ) ? (int) $filters['rate_limit'] : $limit;
+} );
+
+add_filter( 'dbcm_visitor_country_code', function ( $country ) {
+	$filters = get_option( 'dbcm_e2e_filters', array() );
+	return ! empty( $filters['country'] ) ? (string) $filters['country'] : $country;
 } );
 
 add_filter( 'query_vars', function ( $vars ) {

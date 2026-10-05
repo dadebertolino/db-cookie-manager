@@ -151,11 +151,11 @@ test.describe( 'Geo-targeting', () => {
 	} );
 
 	// Regressione 3.8.2: Cloudflare usa XX (sconosciuto) e T1 (Tor), che
-	// venivano trattati come paesi extra UE e nascondevano il banner. Ora
-	// valgono come "non rilevato" e si ripiega su Accept-Language (it-IT).
+	// venivano trattati come paesi extra UE e nascondevano il banner. Browser
+	// en-US di proposito: la lingua non deve decidere al posto dell'header.
 	for ( const code of [ 'XX', 'T1' ] ) {
 		test.describe( `paese non rilevabile (CF-IPCountry: ${ code })`, () => {
-			test.use( { locale: 'it-IT', extraHTTPHeaders: { 'CF-IPCountry': code } } );
+			test.use( { locale: 'en-US', extraHTTPHeaders: { 'CF-IPCountry': code } } );
 
 			test( 'nel dubbio il banner si apre', async ( { page } ) => {
 				await page.goto( FIXTURE_WP );
@@ -164,11 +164,35 @@ test.describe( 'Geo-targeting', () => {
 		} );
 	}
 
-	test.describe( 'senza header di geolocalizzazione', () => {
+	// Regressione 3.8.2: senza geolocalizzazione reale la lingua del browser
+	// non conta. Prima en-US (default di molti browser europei) nascondeva
+	// il banner.
+	for ( const locale of [ 'en-US', 'it-IT' ] ) {
+		test.describe( `senza header di geolocalizzazione, browser ${ locale }`, () => {
+			test.use( { locale } );
+
+			test( 'il banner si apre', async ( { page } ) => {
+				await page.goto( FIXTURE_WP );
+				await expect( page.locator( BANNER ) ).toBeVisible();
+			} );
+		} );
+	}
+
+	test.describe( 'paese fornito dal filtro dbcm_visitor_country_code (GeoIP)', () => {
 		test.use( { locale: 'it-IT' } );
 
-		test( 'ripiega sulla regione di Accept-Language (it-IT → UE)', async ( { page } ) => {
+		test( 'paese extra UE: il banner non si apre', async ( { page, request } ) => {
+			await resetState( request, { settings: { geo_targeting: true }, country: 'US' } );
 			await page.goto( FIXTURE_WP );
+
+			await expect( page.locator( '.dbcm-reopen' ) ).toBeVisible();
+			await expect( page.locator( BANNER ) ).toHaveCount( 0 );
+		} );
+
+		test( 'paese UE: il banner si apre', async ( { page, request } ) => {
+			await resetState( request, { settings: { geo_targeting: true }, country: 'DE' } );
+			await page.goto( FIXTURE_WP );
+
 			await expect( page.locator( BANNER ) ).toBeVisible();
 		} );
 	} );

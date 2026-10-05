@@ -310,9 +310,12 @@ Cookie scritti dal plugin:
 
 ### Changelog
 
-#### 3.8.2 — Geo-targeting: paese sconosciuto e Tor _(2026)_
+#### 3.8.2 — Geo-targeting: solo geolocalizzazione reale _(2026)_
 
-- Con il geo-targeting attivo, i valori `XX` (paese sconosciuto) e `T1` (rete Tor) dell'header `CF-IPCountry` di Cloudflare venivano trattati come paesi extra UE e **nascondevano il banner**. Ora valgono come "paese non rilevato" e, come previsto dal default permissivo, il banner viene mostrato.
+Due casi in cui il geo-targeting nascondeva il banner a visitatori potenzialmente UE. Il principio resta quello di sempre: nel dubbio il banner si mostra.
+
+- I valori `XX` (paese sconosciuto) e `T1` (rete Tor) dell'header `CF-IPCountry` di Cloudflare venivano trattati come paesi extra UE. Ora valgono come "paese non rilevato".
+- **Rimosso il ripiego su `Accept-Language`.** La lingua del browser non indica dove si trova il visitatore: un italiano con il browser in inglese (`en-US`) non vedeva il banner. Ora il geo-targeting usa solo Cloudflare, CloudFront o il filtro `dbcm_visitor_country_code`; **senza una di queste fonti il banner viene mostrato a tutti**. Chi usa il geo-targeting senza CDN né GeoIP vedrà il banner anche per i visitatori extra UE.
 
 #### 3.8.1 — Correzioni emerse dalla nuova suite E2E _(2026)_
 
@@ -835,9 +838,10 @@ Cookies written by the plugin:
 
 ### Changelog
 
-#### 3.8.2 — Geo-targeting: unknown country and Tor _(2026)_
+#### 3.8.2 — Geo-targeting: real geolocation only _(2026)_
 
-- With geo-targeting on, Cloudflare's `CF-IPCountry` values `XX` (unknown) and `T1` (Tor) were treated as non-EU countries and **hid the banner**. They now count as "country not detected" and the banner is shown, as the permissive default intends.
+- Cloudflare's `CF-IPCountry` values `XX` (unknown) and `T1` (Tor) were treated as non-EU countries and hid the banner; they now count as "country not detected".
+- **`Accept-Language` fallback removed**: browser language does not tell where the visitor is (an Italian with an English browser sent `en-US` and got no banner). Geo-targeting now relies only on Cloudflare, CloudFront or the `dbcm_visitor_country_code` filter; **without one of them the banner is shown to everyone**.
 
 #### 3.8.1 — Fixes found by the new E2E suite _(2026)_
 

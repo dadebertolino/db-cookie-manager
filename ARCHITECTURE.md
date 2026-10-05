@@ -242,7 +242,7 @@ Dichiarati esplicitamente nel README come API pubblica.
 
 ### Default permissivo se geolocation fallisce
 
-Se nessuna delle 4 strategie (CF-IPCountry, CloudFront, filtro custom, Accept-Language) riesce, mostra il banner.
+Se nessuna delle 3 fonti (CF-IPCountry, CloudFront, filtro custom) fornisce un paese, mostra il banner. I valori Cloudflare `XX` (sconosciuto) e `T1` (Tor) contano come "non rilevato".
 
 **Motivazione**: il rischio legale è asimmetrico. Mostrare il banner a un visitatore extra-UE non viola alcuna legge. Nasconderlo a un utente UE viola il GDPR. Default conservativo nella direzione della compliance.
 
@@ -250,14 +250,17 @@ Se nessuna delle 4 strategie (CF-IPCountry, CloudFront, filtro custom, Accept-La
 
 Lista esplicita filtrabile via `dbcm_eu_country_codes`. UK incluso (GDPR-equivalent post-Brexit). Svizzera esclusa di default (può essere aggiunta via filtro).
 
-### Strategia a 4 livelli per detection
+### Strategia a 3 livelli per detection
 
 1. Cloudflare `CF-IPCountry` (più affidabile)
 2. CloudFront `CloudFront-Viewer-Country` (AWS)
 3. Filtro `dbcm_visitor_country_code` (per MaxMind/GeoIP locali)
-4. `Accept-Language` come fallback debole
 
 **Approccio difensivo**: ognuno è opzionale, il successo del primo che funziona vince.
+
+### Niente Accept-Language (3.8.2)
+
+Fino alla 3.8.1 c'era un quarto livello: la regione in `Accept-Language`. Rimosso perché la lingua del browser indica come l'utente vuole leggere, non dove si trova: `en-US` è il default di moltissimi browser europei, e il ripiego nascondeva il banner a visitatori UE. Un indizio debole non deve produrre la decisione rischiosa: senza geolocalizzazione reale il banner si mostra a tutti.
 
 ---
 
