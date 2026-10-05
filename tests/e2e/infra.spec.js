@@ -37,10 +37,12 @@ test.describe( 'Infrastruttura E2E', () => {
 		test( 'carica la config reale del banner e lo apre', async ( { page } ) => {
 			await page.goto( FIXTURE_WP );
 
+			// wp_localize_script converte in stringa gli scalari di primo
+			// livello: 3 → "3", true → "1".
 			const cfg = await page.evaluate( () => window.dbcmBanner );
 			expect( cfg.cookieName ).toBe( 'dbcm_consent' );
-			expect( cfg.cookieSchema ).toBe( 3 );
-			expect( cfg.autoOpen ).toBe( true );
+			expect( cfg.cookieSchema ).toBe( '3' );
+			expect( cfg.autoOpen ).toBe( '1' );
 
 			await expect( page.locator( '#dbcm-banner-root .dbcm-banner[role="dialog"]' ) ).toBeVisible();
 			await expect( page.locator( '#fixture-prefs.dbcm-prefs-btn' ) ).toBeVisible();

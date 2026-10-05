@@ -117,6 +117,12 @@ function dbcm_e2e_reset_state( $args = array() ) {
 	}
 	DBCM_Declared_Services::reset_request_cache();
 
+	// WooCommerce può rimettere il negozio in "Coming soon" al primo accesso
+	// admin (onboarding): i test del carrello devono vedere il negozio aperto.
+	if ( class_exists( 'WooCommerce' ) ) {
+		update_option( 'woocommerce_coming_soon', 'no' );
+	}
+
 	// Seed del registro consensi (paginazione, filtri, export).
 	if ( ! empty( $args['seed_log'] ) && is_array( $args['seed_log'] ) ) {
 		foreach ( $args['seed_log'] as $seed ) {

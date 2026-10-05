@@ -34,6 +34,12 @@ echo "  WooCommerce attivo."
 echo "→ Impostazioni base WooCommerce"
 run option update woocommerce_default_country 'IT:TO'
 run option update woocommerce_currency 'EUR'
+# Negozio aperto e niente procedura guidata: il primo accesso a wp-admin
+# (login degli E2E) altrimenti apre l'onboarding e mette il negozio in
+# "Coming soon", nascondendo prodotti e carrello ai visitatori.
+run option update woocommerce_coming_soon 'no'
+run option update woocommerce_onboarding_profile '{"skipped":true}' --format=json
+run transient delete _wc_activation_redirect || true
 run wc --user=admin tool run install_pages || run wc tool run install_pages --user=admin || true
 
 echo "→ Prodotto di test acquistabile (SKU dbcm-test-prod)"

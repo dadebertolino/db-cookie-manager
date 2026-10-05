@@ -20,7 +20,10 @@ setup( 'baseline e login admin', async ( { page, request } ) => {
 	await page.locator( '#user_pass' ).fill( process.env.WP_ADMIN_PASS || 'password' );
 	await page.locator( '#wp-submit' ).click();
 	await page.waitForURL( /\/wp-admin\// );
-	await expect( page.locator( '#wpadminbar' ) ).toBeVisible();
+	// Niente check sull'admin bar: schermate a tutta pagina (es. onboarding
+	// WooCommerce) la nascondono. Il cookie di login è la prova affidabile.
+	const cookies = await page.context().cookies();
+	expect( cookies.some( ( c ) => c.name.startsWith( 'wordpress_logged_in_' ) ) ).toBe( true );
 
 	fs.mkdirSync( path.dirname( ADMIN_STATE ), { recursive: true } );
 	await page.context().storageState( { path: ADMIN_STATE } );
