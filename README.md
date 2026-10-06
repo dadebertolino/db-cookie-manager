@@ -25,17 +25,20 @@ Sviluppato da **Davide Bertolino** per uso personale e professionale, rilasciato
 - **API JavaScript pubblica** `window.DBCM` per integrazioni custom
 - **Integrazione WP Consent API**: `wp_has_consent('statistics')` risponde correttamente in base al consenso del visitatore
 - **Segnali browser opzionali**: rispetta Do Not Track (DNT) e Global Privacy Control (GPC)
-- **Geo-targeting opzionale**: mostra il banner solo a visitatori UE/EEA/UK — ⚠️ incompatibile con la cache di pagina completa, salvo cache che varia per paese (vedi FAQ)
+- **Geo-targeting opzionale**: mostra il banner solo a visitatori UE/EEA/UK. Richiede una geolocalizzazione reale (Cloudflare, CloudFront o filtro GeoIP): senza, il banner si mostra a tutti — ⚠️ incompatibile con la cache di pagina completa, salvo cache che varia per paese (vedi FAQ)
 - **Google Consent Mode v2** *(opt-in)*: comunica il consenso ai tag Google con default negato nel `<head>` e update al consenso; mapping personalizzabile via `dbcm_gcm_mapping`. Modalità base (default): gtag.js e Google Tag Manager restano bloccati fino al consenso; modalità avanzata *(opt-in, 3.9.0)*: si caricano subito con i segnali negati
 - **Localizzazione Google Fonts** *(opt-in)*: rimuove i riferimenti remoti a Google Fonts così l'IP dell'utente non viene trasmesso a Google
 - **Cancellazione reattiva dei cookie**: rimuove dal browser i cookie delle categorie non concesse, rendendo effettiva la revoca del consenso
 - **Placeholder click-to-load** accessibile per gli embed bloccati (consenso granulare per singolo contenuto)
-- **Firme personalizzate**: aggiunta manuale di servizi/cookie con import/export JSON
+- **Firme personalizzate**: aggiunta manuale di servizi/cookie, con fonte di blocco come testo o espressione regolare, e import/export JSON
+- **Evento per Google Tag Manager** `dbcm_consent_update` nel `dataLayer`, da usare come trigger
+- **Accessibile** (obiettivo WCAG 2.1 AA): uso completo da tastiera, focus gestito nel modal preferenze, nomi accessibili per gli screen reader, contrasto verificato nei temi chiaro e scuro, bersagli al tocco adatti al telefono
 - **Report differenziale scanner**: evidenzia i cookie nuovi o rimossi tra due scansioni
 - **Shortcode `[dbcm_preferences]`** per il pulsante "Modifica preferenze"
 - **Auto-aggiornamento da GitHub** via [DB GitHub Updater](https://github.com/dadebertolino/db-github-updater)
 - **Design system condiviso** con gli altri plugin DB (`db-admin-ui.css`)
 - **Disinstallazione pulita** via `uninstall.php`
+- **Testato a ogni modifica**: 185 test unit, 21 di integrazione e 164 end-to-end in browser reale (desktop e telefono, accessibilità, WP Consent API, WooCommerce), più una run notturna sulla versione di sviluppo di WordPress e su PHP 7.4 e 8.4 (vedi [Sviluppo e test](#sviluppo-e-test))
 
 ---
 
@@ -69,7 +72,8 @@ Gli aggiornamenti successivi arrivano automaticamente via GitHub Updater.
 3. Durata consenso: **180 giorni** (raccomandazione del Garante)
 4. Scanner: lancia almeno una scansione, poi rivedi i cookie marketing non noti
 5. Cookie Policy: crea la pagina automaticamente, poi compila `[NOME COMPLETO / RAGIONE SOCIALE]` e `[INDIRIZZO]`
-6. Avanzate: DNT/GPC **off** per consensi espliciti, **on** per massima privacy by default
+6. Avanzate: GPC è **attivo** di default (rifiuto automatico per chi lo invia), DNT **disattivo**; attivali entrambi per la massima privacy by default
+7. Google Consent Mode: attivalo solo se usi tag Google e lascia la **modalità base**; la modalità avanzata va valutata dal titolare (vedi FAQ)
 
 ---
 
@@ -269,6 +273,12 @@ Sì, dalla 3.8.0 l'HTML servito ai visitatori anonimi è identico per tutti: scr
 **Il blocco preventivo rompe il mio sito?**
 Solo se il tema dipende esattamente da uno script di tracking bloccato (raro). Se hai problemi, disabilita "Blocco preventivo" nella pagina Scanner.
 
+**Consent Mode v2: modalità base o avanzata?**
+La **base** (predefinita) tiene bloccati gtag.js e Google Tag Manager finché il visitatore non concede le Statistiche: prima della scelta Google non riceve nulla. L'**avanzata** (opt-in, dalla 3.9.0) li carica subito con i segnali negati, così Google può stimare le conversioni senza cookie, ma riceve comunque dati della visita (IP, pagina, user agent) anche da chi non ha scelto o ha rifiutato. Il Garante e l'EDPB considerano questa trasmissione a rischio senza consenso: attivala solo dopo una valutazione del titolare.
+
+**Il geo-targeting funziona senza Cloudflare?**
+Solo se fornisci il paese con il filtro `dbcm_visitor_country_code` (es. da un database GeoIP) o se il sito è dietro CloudFront. Dalla 3.8.2 la lingua del browser non è più usata per indovinare il paese, perché nascondeva il banner a visitatori europei con il browser in inglese: senza una fonte affidabile il banner si mostra a tutti.
+
 **Come gestisce IPv6?**
 Hashing SHA256 dell'IP completo (v4 o v6) + salt site-specifico. Irreversibile in pratica.
 
@@ -306,6 +316,23 @@ Non supportato, per scelta: il registro consensi conserva solo l'**hash salato d
 
 #### Marker `DBCM_DSAR_AVAILABLE`
 **Non definito.** Il blocco "Privacy capabilities" in testa a `db-cookie-manager.php` documenta la scelta (DSAR-aware: NO, Hub-aware: YES): la Privacy Policy dell'Hub non menziona una procedura DSAR semplificata per i dati del Cookie Manager.
+
+---
+
+### Sviluppo e test
+
+Ogni push e pull request passa da GitHub Actions (`.github/workflows/ci.yml`):
+
+| Livello | Test | Cosa copre |
+|---------|------|------------|
+| Lint | `php -l` + PHPCS | sintassi e standard WordPress |
+| Unit | 185 (PHPUnit, PHP 7.4–8.3) | firme, blocker, consenso, segnali, policy, sanificazione |
+| Integration | 21 (WordPress + MySQL) | scanner e registro consensi su database reale |
+| End-to-end | 164 (Playwright + wp-env) | banner, blocco e riattivazione, HTML identico per tutti con la cache di pagina, endpoint del consenso, registro, GPC/DNT, geo-targeting, Consent Mode, Meta Pixel, WP Consent API, pannello admin, accessibilità (axe-core e tastiera), telefono, WooCommerce |
+
+Ogni notte una seconda run (`nightly.yml`) esegue gli E2E sulla versione di sviluppo di WordPress e su PHP 7.4 e 8.4, e i test di integrazione sulla versione di sviluppo di WordPress, per accorgersi in anticipo delle incompatibilità. Un tag `vX.Y.Z` ripete tutti i controlli e, se verdi, pubblica lo ZIP nella release.
+
+Dettagli, fixture e comandi per eseguire i test in locale: [TESTING.md](TESTING.md).
 
 ---
 
@@ -626,17 +653,20 @@ Developed by **Davide Bertolino** for personal and professional use, released as
 - **Public JavaScript API** `window.DBCM` for custom integrations
 - **WP Consent API integration**: `wp_has_consent('statistics')` responds correctly based on visitor consent
 - **Optional browser signals**: respects Do Not Track (DNT) and Global Privacy Control (GPC)
-- **Optional geo-targeting**: shows banner only to EU/EEA/UK visitors — ⚠️ not compatible with full-page caching unless the cache varies by country
+- **Optional geo-targeting**: shows banner only to EU/EEA/UK visitors. Requires real geolocation (Cloudflare, CloudFront or a GeoIP filter); without it the banner is shown to everyone — ⚠️ not compatible with full-page caching unless the cache varies by country
 - **Google Consent Mode v2** *(opt-in)*: signals consent to Google tags with a denied default in `<head>` and update on consent; mapping customisable via `dbcm_gcm_mapping`. Basic mode (default): gtag.js and Google Tag Manager stay blocked until consent; advanced mode *(opt-in, 3.9.0)*: they load immediately with denied signals
 - **Google Fonts localisation** *(opt-in)*: strips remote Google Fonts references so the user's IP is not sent to Google
 - **Reactive cookie cleanup**: removes cookies of non-granted categories from the browser, making consent withdrawal effective
 - **Accessible click-to-load placeholder** for blocked embeds (granular per-embed consent)
-- **Custom signatures**: manually add services/cookies with JSON import/export
+- **Custom signatures**: manually add services/cookies, with a text or regular-expression block source, and JSON import/export
+- **Google Tag Manager event** `dbcm_consent_update` in the `dataLayer`, usable as a trigger
+- **Accessible** (WCAG 2.1 AA target): fully keyboard-operable, managed focus in the preferences modal, accessible names for screen readers, contrast checked in light and dark themes, phone-friendly touch targets
 - **Scanner differential report**: highlights cookies added or removed between two scans
 - **Shortcode `[dbcm_preferences]`** for a "Manage preferences" button anywhere
 - **Auto-update from GitHub** via [DB GitHub Updater](https://github.com/dadebertolino/db-github-updater)
 - **Shared design system** with other DB plugins (`db-admin-ui.css`)
 - **Clean uninstall** via `uninstall.php`
+- **Tested on every change**: 185 unit, 21 integration and 164 end-to-end tests in a real browser (desktop and phone, accessibility, WP Consent API, WooCommerce), plus a nightly run against WordPress trunk and PHP 7.4 and 8.4 (see [Development & testing](#development--testing))
 
 ---
 
@@ -670,7 +700,8 @@ Subsequent updates arrive automatically via GitHub Updater.
 3. Consent duration: **180 days** (DPA recommendation)
 4. Scanner: run at least one scan, then manually review unrecognised marketing cookies
 5. Cookie Policy: auto-create the page, then fill in `[FULL NAME / COMPANY NAME]` and `[ADDRESS]`
-6. Advanced: DNT/GPC **off** for explicit consent collection, **on** for maximum privacy by default
+6. Advanced: GPC is **on** by default (automatic rejection for browsers that send it), DNT **off**; turn both on for maximum privacy by default
+7. Google Consent Mode: enable it only if you use Google tags and keep the **basic mode**; advanced mode needs the controller's assessment (see FAQ)
 
 ---
 
@@ -852,14 +883,40 @@ No — only one at a time. Deactivate the other first.
 **Does it work in multisite?**
 Yes. Each site has its own options and its own log. Uninstallation is multisite-aware.
 
+**Does it work with page caching (WP Rocket, LiteSpeed Cache, Cloudflare APO)?**
+Yes. Since 3.8.0 the HTML served to anonymous visitors is identical for everyone: tracking scripts and iframes are always neutralised and `banner.js` re-enables them in the browser when that visitor's consent cookie allows it; the decision to show the banner is also made client-side. The only exception is **geo-targeting**, decided server-side from the visitor's country: with full-page caching the first request decides for everyone. Enable it only if the cache varies by country (e.g. Cloudflare with `CF-IPCountry` in the cache key) or if the site has no cache.
+
 **Does preventive blocking break my site?**
 Only if a theme depends on exactly one of the blocked tracking scripts (rare). If you encounter issues, disable "Preventive blocking" on the Scanner page.
+
+**Consent Mode v2: basic or advanced mode?**
+**Basic** (default) keeps gtag.js and Google Tag Manager blocked until the visitor grants Statistics: Google receives nothing before the choice. **Advanced** (opt-in, since 3.9.0) loads them immediately with denied signals so Google can model conversions without cookies, but Google still receives visit data (IP, page, user agent) from visitors who have not chosen or have refused. The Italian DPA and the EDPB consider this transmission risky without consent: enable it only after the controller's assessment.
+
+**Does geo-targeting work without Cloudflare?**
+Only if you provide the country through the `dbcm_visitor_country_code` filter (e.g. from a GeoIP database) or the site is behind CloudFront. Since 3.8.2 the browser language is no longer used to guess the country, because it hid the banner from European visitors with an English browser: without a reliable source the banner is shown to everyone.
 
 **How does it handle IPv6?**
 SHA256 hashing of the full IP (v4 or v6) + site-specific salt. Irreversible in practice.
 
 **Can I export the log for GDPR requests?**
 Yes — **Consent log → Download CSV** or **Download JSON**, with filters by type and date.
+
+---
+
+### Development & testing
+
+Every push and pull request runs on GitHub Actions (`.github/workflows/ci.yml`):
+
+| Level | Tests | Coverage |
+|-------|-------|----------|
+| Lint | `php -l` + PHPCS | syntax and WordPress coding standards |
+| Unit | 185 (PHPUnit, PHP 7.4–8.3) | signatures, blocker, consent, signals, policy, sanitisation |
+| Integration | 21 (WordPress + MySQL) | scanner and consent log on a real database |
+| End-to-end | 164 (Playwright + wp-env) | banner, blocking and re-activation, cache-safe HTML, consent endpoint, consent log, GPC/DNT, geo-targeting, Consent Mode, Meta Pixel, WP Consent API, admin panel, accessibility (axe-core and keyboard), phone, WooCommerce |
+
+A nightly run (`nightly.yml`) executes the E2E suite against WordPress trunk and on PHP 7.4 and 8.4, and the integration tests against WordPress trunk, to catch incompatibilities early. A `vX.Y.Z` tag repeats every check and, when green, publishes the ZIP to the release.
+
+Details, fixtures and local commands: [TESTING.md](TESTING.md) (Italian).
 
 ---
 

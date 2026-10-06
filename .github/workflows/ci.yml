@@ -137,63 +137,12 @@ jobs:
         run: vendor/bin/phpunit -c phpunit-integration.xml.dist --colors=always
 
   # ---------------------------------------------------------------------------
-  # E2E — wp-env (WordPress + WooCommerce in Docker) + Playwright
+  # E2E — wp-env + Playwright (workflow riutilizzabile, vedi e2e.yml)
   # ---------------------------------------------------------------------------
   e2e:
     name: E2E (wp-env + Playwright)
-    runs-on: ubuntu-latest
     needs: [ lint, unit ]   # non avviare Docker se lint/unit falliscono
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Setup Node
-        uses: actions/setup-node@v5
-        with:
-          node-version: '22'
-
-      - name: Install dipendenze npm
-        # npm install (non 'ci'): il repo non versiona package-lock.json, quindi
-        # il lock viene risolto qui. Se in futuro committi il lockfile, si può
-        # tornare a 'npm ci' + cache per build più rapide e riproducibili.
-        run: npm install --no-audit --no-fund
-
-      - name: Install browser Playwright
-        run: npx playwright install --with-deps chromium
-
-      - name: Avvia wp-env
-        # wp-env legge .wp-env.json: monta il plugin, WooCommerce e il
-        # mu-plugin di fixture. Docker è preinstallato sui runner ubuntu.
-        # --debug espone i log di avvio se qualcosa va storto.
-        run: npx wp-env start --debug
-
-      - name: Diagnostica wp-env
-        # Conferma che WordPress risponda prima di procedere. Se l'avvio è
-        # fallito silenziosamente, qui lo vediamo subito con un messaggio chiaro.
-        run: |
-          npx wp-env run cli wp core version || {
-            echo "::error::wp-env non risponde. Log dei container:"
-            npx wp-env logs --watch=false || true
-            exit 1
-          }
-
-      - name: Configura ambiente di test (WooCommerce + pagine fixture)
-        run: npm run env:setup
-
-      - name: Playwright E2E
-        run: npx playwright test
-
-      - name: Log wp-env in caso di fallimento
-        if: ${{ failure() }}
-        run: npx wp-env logs --watch=false || true
-
-      - name: Carica report Playwright (se fallisce)
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v5
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
-          if-no-files-found: ignore
+    uses: ./.github/workflows/e2e.yml
 
   # ---------------------------------------------------------------------------
   # BUILD — ZIP di release compatibile con DB_GitHub_Updater (solo su tag v*)

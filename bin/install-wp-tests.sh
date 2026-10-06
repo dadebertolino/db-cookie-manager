@@ -6,6 +6,9 @@
 #
 # Uso: bin/install-wp-tests.sh <db-name> <db-user> <db-pass> [db-host] [wp-version]
 #
+# wp-version: latest (default), una versione (es. 6.6) oppure trunk/nightly
+# (build notturna di WordPress + test suite di trunk, per la run notturna).
+#
 set -euo pipefail
 
 DB_NAME="${1:-wordpress_test}"
@@ -19,7 +22,8 @@ WP_CORE_DIR="${WP_CORE_DIR:-/tmp/wordpress/}"
 
 download() {
 	if command -v curl >/dev/null; then
-		curl -s "$1" -o "$2"
+		# -f: un 404 è un errore, non una pagina HTML salvata come file.
+		curl -fsSL "$1" -o "$2"
 	else
 		wget -nv -O "$2" "$1"
 	fi
@@ -31,13 +35,26 @@ if [ "${WP_VERSION}" = "latest" ]; then
 	WP_VERSION="$(echo "${VERSION_INFO}" | grep -o '"version":"[^"]*"' | head -1 | sed 's/.*:"\(.*\)"/\1/')"
 	WP_VERSION="${WP_VERSION:-6.5}"
 fi
-WP_TESTS_TAG="tags/${WP_VERSION}"
+if [ "${WP_VERSION}" = "trunk" ] || [ "${WP_VERSION}" = "nightly" ]; then
+	WP_VERSION="trunk"
+	WP_TESTS_TAG="trunk"
+else
+	WP_TESTS_TAG="tags/${WP_VERSION}"
+fi
 
 install_wp() {
 	mkdir -p "${WP_CORE_DIR}"
-	local archive="/tmp/wordpress.tar.gz"
-	download "https://wordpress.org/wordpress-${WP_VERSION}.tar.gz" "${archive}"
-	tar --strip-components=1 -zxmf "${archive}" -C "${WP_CORE_DIR}"
+	if [ "${WP_VERSION}" = "trunk" ]; then
+		local zip="/tmp/wordpress-nightly.zip"
+		download https://wordpress.org/nightly-builds/wordpress-latest.zip "${zip}"
+		rm -rf /tmp/wordpress-nightly
+		unzip -q "${zip}" -d /tmp/wordpress-nightly
+		cp -R /tmp/wordpress-nightly/wordpress/. "${WP_CORE_DIR}"
+	else
+		local archive="/tmp/wordpress.tar.gz"
+		download "https://wordpress.org/wordpress-${WP_VERSION}.tar.gz" "${archive}"
+		tar --strip-components=1 -zxmf "${archive}" -C "${WP_CORE_DIR}"
+	fi
 	download https://raw.githubusercontent.com/markoheijnen/wp-mysqli/master/db.php "${WP_CORE_DIR}/wp-content/db.php" || true
 }
 

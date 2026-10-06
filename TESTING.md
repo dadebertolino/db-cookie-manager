@@ -1,18 +1,41 @@
 # Test & CI — DB Cookie Manager
 
-Piramide dei test su GitHub Actions (`.github/workflows/ci.yml`).
+Piramide dei test su GitHub Actions: `.github/workflows/ci.yml` a ogni push e
+PR, `.github/workflows/nightly.yml` ogni notte. Gli E2E stanno in un workflow
+riutilizzabile (`.github/workflows/e2e.yml`) chiamato da entrambi.
 
-## I quattro job
+## I job della CI
 
 | Job | Cosa verifica | Quando | Durata |
 |-----|---------------|--------|--------|
 | **lint** | `php -l` su tutti i file + PHPCS (standard WordPress) | ogni push/PR | ~30 s |
-| **unit** | Logica pura di `DBCM_Signatures` (PHPUnit), matrice PHP 7.4–8.3 | ogni push/PR | ~1 min |
-| **e2e** | Scenari §9 nel browser (wp-env + Playwright) | dopo lint+unit | ~5-8 min |
+| **unit** | Logica PHP pura (PHPUnit), matrice PHP 7.4–8.3 | ogni push/PR | ~1 min |
+| **integration** | Scanner e registro consensi con WordPress e MySQL reali | ogni push/PR | ~1 min |
+| **e2e** | Browser reale su wp-env (Playwright, desktop + telefono) | dopo lint+unit | ~3-5 min |
 | **build** | ZIP di release compatibile con `DB_GitHub_Updater` | solo su tag `v*` | ~30 s |
 
 Il job **e2e** dipende da lint+unit: se la sintassi è rotta non si avvia Docker
 inutilmente. Il job **build** gira solo sui tag e allega lo ZIP alla release.
+
+Le dipendenze npm sono fissate da `package-lock.json` (`npm ci`, con cache npm
+e cache dei browser Playwright): un aggiornamento di Playwright o di wp-env
+entra solo con un commit che aggiorna il lockfile.
+
+## Run notturna
+
+`nightly.yml` gira ogni notte alle 03:17 UTC (e a mano da *Actions → Nightly →
+Run workflow*) contro ciò che cambia senza un nostro commit:
+
+| Variante | Perché |
+|----------|--------|
+| E2E su WordPress trunk (PHP 8.3) | avvisa prima che una nuova versione di WordPress rompa il plugin |
+| E2E su PHP 8.4 e 7.4 | la CI esegue gli E2E solo su PHP 8.1 |
+| Integration su WordPress trunk | stesse API WordPress, senza browser |
+
+WooCommerce è sempre l'ultima versione (`bin/setup-e2e.sh` la installa a ogni
+run). Un fallimento arriva via email a chi ha modificato per ultimo
+`nightly.yml`. GitHub sospende i workflow pianificati dopo 60 giorni senza
+attività nel repository.
 
 ## Perché questa struttura
 
@@ -92,7 +115,7 @@ credenziali), disinstallazione (in wp-env il plugin è montato dalla working cop
 ## Eseguire in locale
 
 ```bash
-# Prerequisiti: Docker attivo, Node 20, PHP 8.x, Composer.
+# Prerequisiti: Docker attivo, Node 22, PHP 8.x, Composer.
 
 # --- lint + unit ---
 composer install
@@ -107,6 +130,9 @@ npm run env:start          # avvia wp-env (Docker)
 npm run env:setup          # WooCommerce + pagine fixture
 npm run test:e2e
 npm run env:stop
+
+# Variante WordPress/PHP come nella run notturna:
+WP_ENV_CORE=WordPress/WordPress#master WP_ENV_PHP_VERSION=8.3 npm run env:start
 ```
 
 ## Release
