@@ -9,7 +9,7 @@ riutilizzabile (`.github/workflows/e2e.yml`) chiamato da entrambi.
 | Job | Cosa verifica | Quando | Durata |
 |-----|---------------|--------|--------|
 | **lint** | `php -l` su tutti i file + PHPCS (standard WordPress) | ogni push/PR | ~30 s |
-| **unit** | Logica PHP pura (PHPUnit), matrice PHP 7.4–8.3 | ogni push/PR | ~1 min |
+| **unit** | Logica PHP pura (PHPUnit), matrice PHP 7.4–8.4 | ogni push/PR | ~1 min |
 | **integration** | Scanner e registro consensi con WordPress e MySQL reali | ogni push/PR | ~1 min |
 | **e2e** | Browser reale su wp-env (Playwright, desktop + telefono) | dopo lint+unit | ~3-5 min |
 | **build** | ZIP di release compatibile con `DB_GitHub_Updater` | solo su tag `v*` | ~30 s |
@@ -29,8 +29,11 @@ Run workflow*) contro ciò che cambia senza un nostro commit:
 | Variante | Perché |
 |----------|--------|
 | E2E su WordPress trunk (PHP 8.3) | avvisa prima che una nuova versione di WordPress rompa il plugin |
-| E2E su PHP 8.4 e 7.4 | la CI esegue gli E2E solo su PHP 8.1 |
+| E2E su PHP 8.4 | la CI esegue gli E2E solo su PHP 8.1 |
 | Integration su WordPress trunk | stesse API WordPress, senza browser |
+
+PHP 7.4 non ha una variante E2E: l'immagine wp-env per 7.4 (Debian 11, fuori
+supporto) non si costruisce più. Resta coperto dagli unit test a ogni push.
 
 WooCommerce è sempre l'ultima versione (`bin/setup-e2e.sh` la installa a ogni
 run). Un fallimento arriva via email a chi ha modificato per ultimo
