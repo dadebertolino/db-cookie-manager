@@ -799,7 +799,11 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 			$out = fopen( 'php://output', 'w' );
 			// BOM UTF-8 per Excel.
 			fwrite( $out, "\xEF\xBB\xBF" );
-			fputcsv( $out, array( 'id', 'date', 'type', 'consent', 'ua_summary', 'ip_hash', 'policy_version', 'consent_version' ) );
+			// 3.9.1: separatore, delimitatore ed escape espliciti. Su PHP 8.4
+			// omettere $escape è deprecato: con gli errori a schermo l'avviso
+			// finiva dentro il CSV. Escape vuoto = CSV standard (RFC 4180):
+			// le virgolette si raddoppiano, il backslash non è speciale.
+			fputcsv( $out, array( 'id', 'date', 'type', 'consent', 'ua_summary', 'ip_hash', 'policy_version', 'consent_version' ), ',', '"', '' );
 
 			$page = 1;
 			do {
@@ -820,7 +824,10 @@ if ( ! class_exists( 'DBCM_Consent_Log' ) ) {
 								isset( $row->policy_version ) ? (int) $row->policy_version : 0,
 								isset( $row->consent_version ) ? (int) $row->consent_version : 0,
 							)
-						)
+						),
+						',',
+						'"',
+						''
 					);
 				}
 				++$page;

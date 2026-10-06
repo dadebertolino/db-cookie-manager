@@ -38,7 +38,7 @@ Sviluppato da **Davide Bertolino** per uso personale e professionale, rilasciato
 - **Auto-aggiornamento da GitHub** via [DB GitHub Updater](https://github.com/dadebertolino/db-github-updater)
 - **Design system condiviso** con gli altri plugin DB (`db-admin-ui.css`)
 - **Disinstallazione pulita** via `uninstall.php`
-- **Testato a ogni modifica**: 185 test unit, 21 di integrazione e 164 end-to-end in browser reale (desktop e telefono, accessibilità, WP Consent API, WooCommerce), più una run notturna sulla versione di sviluppo di WordPress e su PHP 7.4 e 8.4 (vedi [Sviluppo e test](#sviluppo-e-test))
+- **Testato a ogni modifica**: 185 test unit, 21 di integrazione e 164 end-to-end in browser reale (desktop e telefono, accessibilità, WP Consent API, WooCommerce), più una run notturna sulla versione di sviluppo di WordPress e su PHP 8.4 (vedi [Sviluppo e test](#sviluppo-e-test))
 
 ---
 
@@ -326,11 +326,11 @@ Ogni push e pull request passa da GitHub Actions (`.github/workflows/ci.yml`):
 | Livello | Test | Cosa copre |
 |---------|------|------------|
 | Lint | `php -l` + PHPCS | sintassi e standard WordPress |
-| Unit | 185 (PHPUnit, PHP 7.4–8.3) | firme, blocker, consenso, segnali, policy, sanificazione |
+| Unit | 185 (PHPUnit, PHP 7.4–8.4) | firme, blocker, consenso, segnali, policy, sanificazione |
 | Integration | 21 (WordPress + MySQL) | scanner e registro consensi su database reale |
 | End-to-end | 164 (Playwright + wp-env) | banner, blocco e riattivazione, HTML identico per tutti con la cache di pagina, endpoint del consenso, registro, GPC/DNT, geo-targeting, Consent Mode, Meta Pixel, WP Consent API, pannello admin, accessibilità (axe-core e tastiera), telefono, WooCommerce |
 
-Ogni notte una seconda run (`nightly.yml`) esegue gli E2E sulla versione di sviluppo di WordPress e su PHP 7.4 e 8.4, e i test di integrazione sulla versione di sviluppo di WordPress, per accorgersi in anticipo delle incompatibilità. Un tag `vX.Y.Z` ripete tutti i controlli e, se verdi, pubblica lo ZIP nella release.
+Ogni notte una seconda run (`nightly.yml`) esegue gli E2E sulla versione di sviluppo di WordPress e su PHP 8.4, e i test di integrazione sulla versione di sviluppo di WordPress, per accorgersi in anticipo delle incompatibilità. Un tag `vX.Y.Z` ripete tutti i controlli e, se verdi, pubblica lo ZIP nella release.
 
 Dettagli, fixture e comandi per eseguire i test in locale: [TESTING.md](TESTING.md).
 
@@ -349,6 +349,11 @@ Cookie scritti dal plugin:
 ---
 
 ### Changelog
+
+#### 3.9.1 — Export CSV su PHP 8.4, WordPress 6.0+ _(2026)_
+
+- Su PHP 8.4 l'export CSV del registro consensi emetteva un avviso di deprecazione (`fputcsv()` senza `$escape`): con gli errori a schermo l'avviso finiva **dentro il file scaricato**, altrimenti riempiva il log a ogni export. Ora i parametri sono espliciti e il CSV segue lo standard RFC 4180 (virgolette raddoppiate, backslash non speciale). Trovato dalla nuova run notturna.
+- Requisito minimo dichiarato: **WordPress 6.0** (prima 5.9), allineato al README.
 
 #### 3.9.0 — Consent Mode avanzato (opt-in), evento GTM, regex delle firme _(2026)_
 
@@ -666,7 +671,7 @@ Developed by **Davide Bertolino** for personal and professional use, released as
 - **Auto-update from GitHub** via [DB GitHub Updater](https://github.com/dadebertolino/db-github-updater)
 - **Shared design system** with other DB plugins (`db-admin-ui.css`)
 - **Clean uninstall** via `uninstall.php`
-- **Tested on every change**: 185 unit, 21 integration and 164 end-to-end tests in a real browser (desktop and phone, accessibility, WP Consent API, WooCommerce), plus a nightly run against WordPress trunk and PHP 7.4 and 8.4 (see [Development & testing](#development--testing))
+- **Tested on every change**: 185 unit, 21 integration and 164 end-to-end tests in a real browser (desktop and phone, accessibility, WP Consent API, WooCommerce), plus a nightly run against WordPress trunk and PHP 8.4 (see [Development & testing](#development--testing))
 
 ---
 
@@ -910,11 +915,11 @@ Every push and pull request runs on GitHub Actions (`.github/workflows/ci.yml`):
 | Level | Tests | Coverage |
 |-------|-------|----------|
 | Lint | `php -l` + PHPCS | syntax and WordPress coding standards |
-| Unit | 185 (PHPUnit, PHP 7.4–8.3) | signatures, blocker, consent, signals, policy, sanitisation |
+| Unit | 185 (PHPUnit, PHP 7.4–8.4) | signatures, blocker, consent, signals, policy, sanitisation |
 | Integration | 21 (WordPress + MySQL) | scanner and consent log on a real database |
 | End-to-end | 164 (Playwright + wp-env) | banner, blocking and re-activation, cache-safe HTML, consent endpoint, consent log, GPC/DNT, geo-targeting, Consent Mode, Meta Pixel, WP Consent API, admin panel, accessibility (axe-core and keyboard), phone, WooCommerce |
 
-A nightly run (`nightly.yml`) executes the E2E suite against WordPress trunk and on PHP 7.4 and 8.4, and the integration tests against WordPress trunk, to catch incompatibilities early. A `vX.Y.Z` tag repeats every check and, when green, publishes the ZIP to the release.
+A nightly run (`nightly.yml`) executes the E2E suite against WordPress trunk and on PHP 8.4, and the integration tests against WordPress trunk, to catch incompatibilities early. A `vX.Y.Z` tag repeats every check and, when green, publishes the ZIP to the release.
 
 Details, fixtures and local commands: [TESTING.md](TESTING.md) (Italian).
 
@@ -933,6 +938,11 @@ Cookies written by the plugin:
 ---
 
 ### Changelog
+
+#### 3.9.1 — CSV export on PHP 8.4, WordPress 6.0+ _(2026)_
+
+- On PHP 8.4 the consent log CSV export raised a deprecation notice (`fputcsv()` without `$escape`); with errors displayed it ended up **inside the downloaded file**. Parameters are now explicit and the CSV follows RFC 4180. Found by the new nightly run.
+- Declared minimum: **WordPress 6.0** (was 5.9).
 
 #### 3.9.0 — Advanced Consent Mode (opt-in), GTM event, signature regex _(2026)_
 
