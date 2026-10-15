@@ -161,6 +161,6 @@ jobs:
         run: bash bin/build-zip.sh
 
       - name: Allega lo ZIP alla GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/db-cookie-manager.zip
